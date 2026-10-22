@@ -7,6 +7,8 @@ const ids = [
   'previous', 'back-five', 'back-twenty', 'toggle', 'forward-twenty',
   'forward-five', 'next', 'stop', 'restart', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
+  'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
+  'speed-value', 'queue-section', 'queue', 'queue-clear', 'queue-tab',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const transportControls = [
@@ -29,6 +31,17 @@ const audioDelayControls = [
   { button: element['sound-later'], fields: { offset: config.audioDelayStep } },
   { button: element['reset-delay'], fields: { delay: 0 } },
 ];
+// Each settings row: its buttons, the action they send, and when they apply.
+const settingControls = [
+  ...audioDelayControls.map(item => ({ ...item, action: config.control.audioDelay, enabled: 'audioDelayEnabled' })),
+  { button: element['volume-down'], action: config.control.volume, fields: { offset: -config.volumeStep }, enabled: 'volumeEnabled' },
+  { button: element['volume-up'], action: config.control.volume, fields: { offset: config.volumeStep }, enabled: 'volumeEnabled' },
+  { button: element.mute, action: config.control.mute, fields: {}, enabled: 'volumeEnabled' },
+  { button: element['speed-down'], action: config.control.speed, fields: { offset: -config.speedStep }, enabled: 'speedEnabled' },
+  { button: element['speed-up'], action: config.control.speed, fields: { offset: config.speedStep }, enabled: 'speedEnabled' },
+  { button: element['speed-reset'], action: config.control.speed, fields: { speed: 1 }, enabled: 'speedEnabled' },
+];
+const removeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 let latestStatus;
 let scrub = createScrubState();
@@ -40,6 +53,7 @@ let progressTimer;
 let progressTime = performance.now();
 let closed = false;
 let showRemaining = false;
+let renderedQueue = '';
 
 async function send(type, fields = {}) {
   const response = await browser.runtime.sendMessage({ type, ...fields });
@@ -71,11 +85,51 @@ function updateControls() {
   element.toggle.title = toggleLabel;
   element.toggle.setAttribute('aria-label', toggleLabel);
   if (!scrub.dragging) element.scrub.disabled = busy || !view?.scrubEnabled;
-  for (const { button } of audioDelayControls) button.disabled = busy || !view?.audioDelayEnabled;
+  for (const { button, enabled } of settingControls) button.disabled = busy || !view?.[enabled];
   if (latestStatus?.audioDelay === 0) element['reset-delay'].disabled = true;
+  if (latestStatus?.speed === 1) element['speed-reset'].disabled = true;
   element['audio-delay-value'].textContent = view?.audioDelayLabel ?? '—';
+  element['volume-value'].textContent = view?.volumeLabel ?? '—';
+  element['speed-value'].textContent = view?.speedLabel ?? '—';
+  element.mute.textContent = view?.muted ? 'Unmute' : 'Mute';
+  element.mute.title = view?.muted ? 'Unmute Van TV' : 'Mute Van TV';
+  element.mute.setAttribute('aria-pressed', String(Boolean(view?.muted)));
+  for (const button of element.queue.querySelectorAll('button')) button.disabled = busy;
+  element['queue-clear'].disabled = busy;
   element['cast-tab'].disabled = busy || !tabAvailable;
+  element['queue-tab'].disabled = busy || !tabAvailable || !view?.queueEnabled;
   element.duration.disabled = !view?.scrubEnabled;
+}
+
+function queueButton(className, label, fields, content) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.append(content);
+  button.addEventListener('click', () => void perform(config.message.queue, fields, '', 'Already gone from the queue'));
+  return button;
+}
+
+// Rebuilt only when the queue changes, so polling never steals focus.
+function renderQueue(entries) {
+  const signature = JSON.stringify(entries);
+  if (signature === renderedQueue) return;
+  renderedQueue = signature;
+  element['queue-section'].hidden = entries.length === 0;
+  element.queue.replaceChildren(...entries.map(entry => {
+    const item = document.createElement('li');
+    const remove = document.createElement('template');
+    remove.innerHTML = removeIcon;
+    item.append(
+      queueButton('queue-play', `Play now: ${entry.title}`,
+        { action: config.queue.play, key: entry.key }, entry.title),
+      queueButton('icon-button queue-remove', `Remove from queue: ${entry.title}`,
+        { action: config.queue.remove, key: entry.key }, remove.content),
+    );
+    return item;
+  }));
 }
 
 function renderStatus() {
@@ -84,9 +138,11 @@ function renderStatus() {
     element.state.textContent = view.state === latestStatus.player
       ? view.state[0] + view.state.slice(1).toLowerCase() : view.state;
     element.video.textContent = view.title;
+    renderQueue(view.queue);
   } else {
     element.state.textContent = 'Van TV unreachable';
     element.video.textContent = '';
+    renderQueue([]);
   }
   renderPlayback();
   updateControls();
@@ -123,14 +179,14 @@ async function poll() {
   }
 }
 
-async function perform(type, fields, success) {
+async function perform(type, fields, success, unchanged = 'No playback change') {
   if (busy) return;
   busy = true;
   element.notice.textContent = '';
   updateControls();
   try {
     const data = await send(type, fields);
-    element.notice.textContent = data.done === false ? 'No playback change' : success;
+    element.notice.textContent = data.done === false ? unchanged : success;
     await refreshStatus();
   } catch (error) { element.notice.textContent = error.message; }
   finally { busy = false; updateControls(); }
@@ -152,9 +208,9 @@ for (const item of transportControls) {
     { action: item.action, ...(item.fields ?? {}) }, ''));
 }
 
-for (const item of audioDelayControls) {
+for (const item of settingControls) {
   item.button.addEventListener('click', () => void perform(config.message.control,
-    { action: config.control.audioDelay, ...item.fields }, ''));
+    { action: item.action, ...item.fields }, ''));
 }
 
 element.scrub.addEventListener('input', event => {
@@ -179,6 +235,10 @@ element.scrub.addEventListener('change', event => {
 
 element['cast-tab'].addEventListener('click', () => void perform(
   config.message.castTab, {}, 'Cast accepted'));
+element['queue-tab'].addEventListener('click', () => void perform(
+  config.message.queueTab, {}, 'Added to the queue', 'The queue is full'));
+element['queue-clear'].addEventListener('click', () => void perform(
+  config.message.queue, { action: config.queue.clear }, ''));
 element.duration.addEventListener('click', () => {
   showRemaining = !showRemaining;
   const label = showRemaining ? 'Show total time' : 'Show remaining time';

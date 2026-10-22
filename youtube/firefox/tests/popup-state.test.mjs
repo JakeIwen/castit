@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createScrubState, formatAudioDelay, formatTime, popupState, transitionScrub,
+  createScrubState, formatAudioDelay, formatSpeed, formatTime, formatVolume, popupState, transitionScrub,
 } from '../popup-state.mjs';
 import { defaultStatus } from './receiver-fixture.mjs';
 
@@ -45,6 +45,22 @@ test('A/V offset shows signed milliseconds and is adjustable whenever the receiv
   }
   assert.equal(popupState({ ...defaultStatus, audioDelay: null }).audioDelayEnabled, false);
   assert.equal(popupState({ ...defaultStatus, ok: false, audioDelay: 0 }).audioDelayEnabled, false);
+});
+
+test('speed, volume and queue show whenever the receiver reports them', () => {
+  for (const [input, expected] of [[1, '1×'], [1.25, '1.25×'], [0.5, '0.5×'], [null, '—']]) {
+    assert.equal(formatSpeed(input), expected);
+  }
+  assert.equal(formatVolume({ level: 55, muted: false }), '55%');
+  assert.equal(formatVolume({ level: 55, muted: true }), 'Muted');
+  assert.equal(formatVolume(null), '—');
+  const view = popupState({ ...defaultStatus, player: player.idle, video: null, speed: 1.5,
+    volume: { level: 30, muted: true }, queue: [{ key: 1, id: 'dQw4w9WgXcQ', title: null }] });
+  assert.deepEqual([view.speedEnabled, view.speedLabel, view.volumeEnabled, view.muted, view.queueEnabled],
+    [true, '1.5×', true, true, true]);
+  assert.deepEqual(view.queue, [{ key: 1, title: 'dQw4w9WgXcQ' }]);
+  const older = popupState({ ...defaultStatus, speed: null, volume: null, queue: null });
+  assert.deepEqual([older.speedEnabled, older.volumeEnabled, older.queueEnabled, older.queue], [false, false, false, []]);
 });
 
 test('scrubbing also requires a video with a positive duration', () => {

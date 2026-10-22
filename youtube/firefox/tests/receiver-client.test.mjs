@@ -48,6 +48,49 @@ test('status keeps a reported A/V offset and marks an older receiver as lacking 
   assert.equal(decodeStatus({ ...defaultStatus, audioDelay: 'loud' }).audioDelay, null);
 });
 
+test('speed, volume and mute controls send one absolute value or offset; mute may toggle', async t => {
+  const fixture = await startReceiver(t);
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  await receiver.control('speed', { speed: 1.5 });
+  await receiver.control('speed', { offset: -0.25 });
+  await receiver.control('volume', { offset: 5 });
+  await receiver.control('mute');
+  await receiver.control('mute', { muted: false });
+  await assert.rejects(receiver.control('speed', {}), /Invalid speed fields/);
+  await assert.rejects(receiver.control('volume', { level: 'max' }), /Invalid volume fields/);
+  await assert.rejects(receiver.control('mute', { muted: 'yes' }), /Invalid mute fields/);
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => request.body), [
+    { action: 'speed', speed: 1.5 }, { action: 'speed', offset: -0.25 }, { action: 'volume', offset: 5 },
+    { action: 'mute' }, { action: 'mute', muted: false },
+  ]);
+});
+
+test('queue requests carry a video id to add and an entry key to play or remove', async t => {
+  const fixture = await startReceiver(t);
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  assert.deepEqual(await receiver.queue('add', { videoId }), { action: 'add', done: true });
+  await receiver.queue('play', { key: 3 });
+  await receiver.queue('remove', { key: 4 });
+  await receiver.queue('clear');
+  await assert.rejects(receiver.queue('add', { videoId: 'nope' }), /Invalid YouTube video/);
+  await assert.rejects(receiver.queue('remove', {}), /Invalid queue entry/);
+  await assert.rejects(receiver.queue('shuffle'), /Unknown queue action/);
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => [request.path, request.body]), [
+    ['/api/queue', { action: 'add', videoId }], ['/api/queue', { action: 'play', key: 3 }],
+    ['/api/queue', { action: 'remove', key: 4 }], ['/api/queue', { action: 'clear' }],
+  ]);
+});
+
+test('status decodes speed, volume and queue, treating malformed or missing ones as unsupported', () => {
+  const queue = [{ key: 2, id: videoId, title: 'Next up' }, { key: 3, id: videoId, title: null }];
+  const status = decodeStatus({ ...defaultStatus, speed: 1.5, volume: { level: 40, muted: true }, queue });
+  assert.deepEqual([status.speed, status.volume, status.queue], [1.5, { level: 40, muted: true }, queue]);
+  const older = decodeStatus(defaultStatus);
+  assert.deepEqual([older.speed, older.volume, older.queue], [null, null, null]);
+  const malformed = decodeStatus({ ...defaultStatus, speed: '2', volume: { level: 40 }, queue: [{ key: 'a', id: videoId }] });
+  assert.deepEqual([malformed.speed, malformed.volume, malformed.queue], [null, null, null]);
+});
+
 test('unreachable primary falls back on a read and performs exactly one cast', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: ['http://127.0.0.1:1', fixture.url] });

@@ -81,16 +81,27 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .secondary-controls svg { width: 18px; height: 18px; }
 .skip-large { height: 36px; padding: 0 8px; gap: 3px; font-size: 11px; font-weight: 550; }
 #duration { min-height: 24px; padding: 0 5px; margin-right: -5px; font: inherit; font-variant-numeric: tabular-nums; }
-.audio-delay { display: flex; align-items: center; gap: 4px; margin-top: 12px; color: var(--van-tv-muted); font-size: 12px; }
-.audio-delay > span { flex: 1; }
-.audio-delay .icon-button { width: 32px; height: 32px; }
-.audio-delay svg { width: 16px; height: 16px; }
-#audio-delay-value { min-width: 58px; text-align: center; color: var(--van-tv-text); font-variant-numeric: tabular-nums; }
-#reset-delay { height: 32px; padding: 0 10px; margin-left: 4px; font-size: 12px; }
-footer { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--van-tv-border); }
-#cast-tab { width: 100%; min-height: 38px; background: var(--van-tv-control); font-size: 12px; font-weight: 550; }
-#cast-tab:hover:not(:disabled) { background: var(--van-tv-control-hover); }
-#cast-tab svg { width: 18px; height: 18px; }
+.setting { display: flex; align-items: center; gap: 4px; margin-top: 8px; color: var(--van-tv-muted); font-size: 12px; }
+.secondary-controls + .setting { margin-top: 12px; }
+.setting > span { flex: 1; }
+.setting .icon-button { width: 32px; height: 32px; }
+.setting svg { width: 16px; height: 16px; }
+.setting output { min-width: 58px; text-align: center; color: var(--van-tv-text); font-variant-numeric: tabular-nums; }
+.setting-reset { width: 58px; height: 32px; margin-left: 4px; font-size: 12px; }
+#mute[aria-pressed="true"] { background: var(--van-tv-control); color: var(--van-tv-text); }
+#queue-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--van-tv-border); }
+.queue-header { display: flex; align-items: center; justify-content: space-between; }
+h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
+#queue-clear { height: 26px; padding: 0 8px; font-size: 11px; color: var(--van-tv-muted); }
+#queue { max-height: 168px; overflow: auto; margin: 6px 0 0; padding: 0; list-style: none; }
+#queue li { display: flex; align-items: center; gap: 2px; }
+.queue-play { flex: 1; justify-content: flex-start; min-height: 32px; padding: 4px 6px; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
+.queue-remove { width: 28px; height: 28px; color: var(--van-tv-muted); }
+.queue-remove svg { width: 14px; height: 14px; }
+footer { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--van-tv-border); }
+footer button { flex: 1; min-height: 38px; background: var(--van-tv-control); font-size: 12px; font-weight: 550; }
+footer button:hover:not(:disabled) { background: var(--van-tv-control-hover); }
+footer svg { width: 18px; height: 18px; }
 #notice { margin-top: 12px; color: var(--van-tv-muted); font-size: 12px; }
 #notice:empty { display: none; }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }

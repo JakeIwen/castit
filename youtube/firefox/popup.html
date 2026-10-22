@@ -54,7 +54,29 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
     </button>
   </div>
-  <div class="audio-delay" role="group" aria-label="A/V offset">
+  <div class="setting" role="group" aria-label="Volume">
+    <span>Volume</span>
+    <button id="volume-down" class="icon-button" type="button" title="Volume down 5" aria-label="Volume down" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>
+    </button>
+    <output id="volume-value" aria-live="polite">—</output>
+    <button id="volume-up" class="icon-button" type="button" title="Volume up 5" aria-label="Volume up" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg>
+    </button>
+    <button id="mute" class="setting-reset" type="button" title="Mute Van TV" aria-pressed="false" disabled>Mute</button>
+  </div>
+  <div class="setting" role="group" aria-label="Playback speed">
+    <span>Speed</span>
+    <button id="speed-down" class="icon-button" type="button" title="Slower by 0.25×" aria-label="Slower" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>
+    </button>
+    <output id="speed-value" aria-live="polite">—</output>
+    <button id="speed-up" class="icon-button" type="button" title="Faster by 0.25×" aria-label="Faster" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg>
+    </button>
+    <button id="speed-reset" class="setting-reset" type="button" title="Back to normal speed" disabled>1×</button>
+  </div>
+  <div class="setting" role="group" aria-label="A/V offset">
     <span>A/V offset</span>
     <button id="sound-earlier" class="icon-button" type="button"
       title="Sound earlier (−50 ms): use when voices come after lips move" aria-label="Sound earlier" disabled>
@@ -65,12 +87,23 @@
       title="Sound later (+50 ms): use when voices come before lips move" aria-label="Sound later" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg>
     </button>
-    <button id="reset-delay" type="button" title="Reset the A/V offset to 0 ms" disabled>Reset</button>
+    <button id="reset-delay" class="setting-reset" type="button" title="Reset the A/V offset to 0 ms" disabled>Reset</button>
   </div>
+  <section id="queue-section" aria-labelledby="queue-heading" hidden>
+    <div class="queue-header">
+      <h2 id="queue-heading">Up next</h2>
+      <button id="queue-clear" type="button" title="Remove every queued video">Clear</button>
+    </div>
+    <ol id="queue"></ol>
+  </section>
   <footer>
     <button id="cast-tab" type="button" title="Cast this tab" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h18v14h-8M3 12a7 7 0 0 1 7 7m-7-3a3 3 0 0 1 3 3"/><circle cx="3" cy="19" r=".7"/></svg>
       Cast this tab
+    </button>
+    <button id="queue-tab" type="button" title="Add this tab's video to the end of the Van TV queue" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h7m6-3v6m-3-3h6"/></svg>
+      Queue this tab
     </button>
   </footer>
   <p id="notice" role="status"></p>

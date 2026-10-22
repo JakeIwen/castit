@@ -18,7 +18,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   message: Object.freeze({
     cast: 'cast', castTab: 'cast-tab', tabVideo: 'tab-video',
     status: 'status', control: 'control', getVideo: 'get-video',
-    castAccepted: 'cast-accepted',
+    castAccepted: 'cast-accepted', queue: 'queue', queueTab: 'queue-tab',
   }),
   player: Object.freeze({
     idle: 'IDLE', loading: 'LOADING', playing: 'PLAYING',
@@ -27,9 +27,13 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
     next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
+    speed: 'speed', volume: 'volume', mute: 'mute',
   }),
+  queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear' }),
   // Seconds per lip-sync nudge; positive plays sound later.
   audioDelayStep: 0.05,
+  speedStep: 0.25,
+  volumeStep: 5,
   skipOffsets: Object.freeze({
     backwardFiveMinutes: -300, backwardTwentySeconds: -20,
     forwardTwentySeconds: 20, forwardFiveMinutes: 300,

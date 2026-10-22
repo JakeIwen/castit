@@ -140,6 +140,42 @@ test('link context menu deliberately ignores URL timestamp and leaves local play
   assert.deepEqual(browser.badges, ['']);
 });
 
+test('queue menus add a link or the watch page from the start without touching the tab', async t => {
+  const fixture = await startReceiver(t);
+  const queueMenus = async (contexts, info) => {
+    const browser = browserFixture();
+    await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Add to Van TV queue');
+    browser.click({ menuItemId: menu.id, ...info });
+    await browser.completed;
+    return browser;
+  };
+  const link = await queueMenus('link', { linkUrl: `https://youtu.be/${videoId}?t=90` });
+  const page = await queueMenus('page', {});
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => [request.path, request.body]), [
+    ['/api/queue', { action: 'add', videoId }], ['/api/queue', { action: 'add', videoId }],
+  ]);
+  for (const browser of [link, page]) {
+    assert.equal(browser.messages.length, 0);
+    assert.deepEqual(browser.titles, ['Van TV — added to the queue']);
+  }
+});
+
+test('a full queue shows as a toolbar error', async t => {
+  const fixture = await startReceiver(t, { respond: (request, response) => {
+    if (request.path !== '/api/queue') return false;
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ action: 'add', done: false }));
+    return true;
+  } });
+  const browser = browserFixture();
+  await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Add to Van TV queue');
+  browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}` });
+  await browser.completed;
+  assert.deepEqual([browser.badges, browser.titles], [['!'], ['The Van TV queue is full']]);
+});
+
 test('watch-page menu and shortcut use the same active playhead cast flow', async t => {
   for (const source of ['page', 'shortcut']) {
     const fixture = await startReceiver(t);

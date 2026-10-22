@@ -1,7 +1,7 @@
 import './config.js';
 import { isPosition, parseYouTubeVideo } from './youtube-video.mjs';
 
-const { message } = globalThis.VAN_TV_CONFIG;
+const { message, queue } = globalThis.VAN_TV_CONFIG;
 
 export async function activeTab(browserApi) {
   const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
@@ -37,4 +37,11 @@ export async function castTab(browserApi, receiver, tab) {
     });
   } catch { /* A URL-only cast can succeed without a content script to pause. */ }
   return result;
+}
+
+// Queued videos start from the beginning, and the tab keeps playing.
+export async function queueTab(browserApi, receiver, tab) {
+  const video = parseYouTubeVideo(tab?.url);
+  if (!video) throw new Error('Open a YouTube video to queue this tab');
+  return receiver.queue(queue.add, { videoId: video.videoId });
 }

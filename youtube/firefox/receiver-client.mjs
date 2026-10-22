@@ -4,10 +4,23 @@ import { isPosition, isVideoId } from './youtube-video.mjs';
 const config = globalThis.VAN_TV_CONFIG;
 const states = Object.values(config.player);
 const actions = Object.values(config.control);
+const queueActions = Object.values(config.queue);
 const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(value);
 
+/** @typedef {{key: number, id: string, title: string|null}} QueueEntry */
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
- * position: number, duration: number, audioDelay: number|null}} ReceiverStatus */
+ * position: number, duration: number, audioDelay: number|null, speed: number|null,
+ * volume: {level: number, muted: boolean}|null, queue: QueueEntry[]|null}} ReceiverStatus */
+
+function isQueueEntry(entry) {
+  return Boolean(entry) && Number.isSafeInteger(entry.key) && isVideoId(entry.id)
+    && (entry.title === null || typeof entry.title === 'string');
+}
+
+function decodeVolume(volume) {
+  return volume && isFiniteNumber(volume.level) && typeof volume.muted === 'boolean'
+    ? { level: volume.level, muted: volume.muted } : null;
+}
 
 export function decodeStatus(value) {
   if (!value || typeof value.ok !== 'boolean' || !states.includes(value.player)
@@ -17,19 +30,30 @@ export function decodeStatus(value) {
     throw new Error('Invalid Van TV status response');
   }
   const { ok, player, video, position, duration } = value;
-  // A receiver older than the A/V offset setting omits it; its controls stay off.
+  // An older receiver omits newer settings; their controls stay off.
   const audioDelay = isFiniteNumber(value.audioDelay) ? value.audioDelay : null;
-  return { ok, player, video, position, duration, audioDelay };
+  const speed = isFiniteNumber(value.speed) ? value.speed : null;
+  const queue = Array.isArray(value.queue) && value.queue.every(isQueueEntry)
+    ? value.queue.map(({ key, id, title }) => ({ key, id, title })) : null;
+  return { ok, player, video, position, duration, audioDelay, speed, volume: decodeVolume(value.volume), queue };
 }
 
 // Each action with fields takes exactly one absolute field or a relative offset.
 const actionFields = Object.freeze({
   [config.control.seek]: { absolute: 'position', valid: isPosition, error: 'Invalid seek fields' },
   [config.control.audioDelay]: { absolute: 'delay', valid: isFiniteNumber, error: 'Invalid audio delay fields' },
+  [config.control.speed]: { absolute: 'speed', valid: isFiniteNumber, error: 'Invalid speed fields' },
+  [config.control.volume]: { absolute: 'level', valid: isFiniteNumber, error: 'Invalid volume fields' },
 });
 
 function controlBody(action, fields) {
   if (!actions.includes(action)) throw new Error('Unknown playback action');
+  // Mute toggles unless told which way.
+  if (action === config.control.mute) {
+    if (fields?.muted === undefined) return { action };
+    if (typeof fields.muted !== 'boolean') throw new Error('Invalid mute fields');
+    return { action, muted: fields.muted };
+  }
   const spec = actionFields[action];
   if (!spec) return { action };
   if (!fields || typeof fields !== 'object' || Array.isArray(fields)) throw new Error(spec.error);
@@ -108,5 +132,22 @@ export function createReceiverClient({ fetcher = globalThis.fetch,
     return result;
   }
 
-  return { status, cast, control };
+  async function queue(action, fields = {}) {
+    if (!queueActions.includes(action)) throw new Error('Unknown queue action');
+    const body = { action };
+    if (action === config.queue.add) {
+      if (!isVideoId(fields.videoId)) throw new Error('Invalid YouTube video');
+      body.videoId = fields.videoId;
+    } else if (action !== config.queue.clear) {
+      if (!Number.isSafeInteger(fields.key)) throw new Error('Invalid queue entry');
+      body.key = fields.key;
+    }
+    const result = await post('/api/queue', body);
+    if (result?.action !== action || typeof result.done !== 'boolean') {
+      throw new Error('Invalid Van TV queue response; check the queue before retrying');
+    }
+    return result;
+  }
+
+  return { status, cast, control, queue };
 }

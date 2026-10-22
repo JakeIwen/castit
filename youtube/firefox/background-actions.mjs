@@ -1,13 +1,13 @@
 import './config.js';
-import { activeTab, castTab, tabVideo } from './tab-casting.mjs';
+import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
 import { parseYouTubeVideo, youtubeMenuPatterns } from './youtube-video.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
-const menu = Object.freeze({ link: 'cast-link', page: 'cast-page' });
+const menu = Object.freeze({ link: 'cast-link', page: 'cast-page', queueLink: 'queue-link', queuePage: 'queue-page' });
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset']) {
+  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;
@@ -20,6 +20,8 @@ export function createMessageHandler(browserApi, receiver) {
     [config.message.cast]: message => receiver.cast(message.videoId, message.position),
     [config.message.tabVideo]: async () => tabVideo(browserApi, await activeTab(browserApi)),
     [config.message.castTab]: async () => castTab(browserApi, receiver, await activeTab(browserApi)),
+    [config.message.queue]: message => receiver.queue(message.action, controlFields(message)),
+    [config.message.queueTab]: async () => queueTab(browserApi, receiver, await activeTab(browserApi)),
   };
   return (message, sender) => {
     const route = message && Object.hasOwn(routes, message.type) && routes[message.type];
@@ -34,11 +36,11 @@ export function createMessageHandler(browserApi, receiver) {
   };
 }
 
-export async function showCastResult(browserApi, operation) {
+export async function showCastResult(browserApi, operation, success = 'Van TV — cast accepted') {
   try {
     await operation();
     await browserApi.browserAction.setBadgeText({ text: '' });
-    await browserApi.browserAction.setTitle({ title: 'Van TV — cast accepted' });
+    await browserApi.browserAction.setTitle({ title: success });
   } catch (error) {
     await browserApi.browserAction.setBadgeText({ text: '!' });
     await browserApi.browserAction.setTitle({ title: error.message || 'Van TV request failed' });
@@ -50,18 +52,38 @@ export async function installContextMenus(browserApi, receiver) {
   await browserApi.contextMenus.removeAll();
   browserApi.contextMenus.create({ id: menu.link, title: 'Cast to Van TV',
     contexts: ['link'], targetUrlPatterns: patterns.link });
+  browserApi.contextMenus.create({ id: menu.queueLink, title: 'Add to Van TV queue',
+    contexts: ['link'], targetUrlPatterns: patterns.link });
   browserApi.contextMenus.create({ id: menu.page, title: 'Cast to Van TV',
     contexts: ['page'], documentUrlPatterns: patterns.page });
+  browserApi.contextMenus.create({ id: menu.queuePage, title: 'Add to Van TV queue',
+    contexts: ['page'], documentUrlPatterns: patterns.page });
+  const linkVideo = info => {
+    const video = parseYouTubeVideo(info.linkUrl);
+    if (!video) throw new Error('This link is not a YouTube video');
+    return video;
+  };
+  const queued = new Set([menu.queueLink, menu.queuePage]);
+  const actions = {
+    [menu.link]: async info => {
+      const video = linkVideo(info);
+      await receiver.cast(video.videoId, video.position);
+    },
+    [menu.queueLink]: async info => {
+      const result = await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId });
+      if (!result.done) throw new Error('The Van TV queue is full');
+    },
+    [menu.page]: (_info, tab) => castTab(browserApi, receiver, tab),
+    [menu.queuePage]: async (_info, tab) => {
+      const result = await queueTab(browserApi, receiver, tab);
+      if (!result.done) throw new Error('The Van TV queue is full');
+    },
+  };
   browserApi.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === menu.link) {
-      const video = parseYouTubeVideo(info.linkUrl);
-      void showCastResult(browserApi, async () => {
-        if (!video) throw new Error('This link is not a YouTube video');
-        await receiver.cast(video.videoId, video.position);
-      });
-    } else if (info.menuItemId === menu.page) {
-      void showCastResult(browserApi, () => castTab(browserApi, receiver, tab));
-    }
+    const action = actions[info.menuItemId];
+    if (!action) return;
+    void showCastResult(browserApi, () => action(info, tab),
+      queued.has(info.menuItemId) ? 'Van TV — added to the queue' : undefined);
   });
 }
 

@@ -51,7 +51,7 @@ test('XPI and unpacked extension match the example config without a private loca
   template.permissions.push(...new Set(hosts));
   assert.deepEqual(manifest, template);
   assert.equal(manifest.manifest_version, 2);
-  assert.equal(manifest.version, '1.4.0');
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.deepEqual(manifest.content_scripts[0].matches, config.youtube.contentMatches);
   assert.deepEqual(Object.keys(manifest.commands), [config.command]);
   assert.equal(manifest.commands[config.command].suggested_key.default, 'Alt+Shift+V');

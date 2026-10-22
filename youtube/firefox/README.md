@@ -72,20 +72,26 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   means accepted, not that receiver playback has started; errors appear on hover.
 - Right-click a YouTube video link → **Cast to Van TV** starts it from the
   beginning. The watch-page background menu casts that tab's current playhead.
+  **Add to Van TV queue** (on links and watch pages) queues the video from the
+  beginning and leaves the tab playing; with nothing playing, it starts at once.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
   to seek; click total time to toggle remaining time. Controls include
   previous/next, play/pause, ±20 seconds, ±5 minutes, restart and stop.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
+- **Volume** steps by 5 and mutes; **Speed** steps by 0.25× and resets to 1×.
 - **A/V offset** nudges the receiver's saved offset by 50 ms or resets it.
-  Use minus when voices come after lips move; this works without a loaded cast.
+  Use minus when voices come after lips move. Volume, speed and offset are saved
+  on the receiver and work without a loaded cast.
+- **Up next** lists the receiver's cast queue: click a title to play it now,
+  × to remove it, or Clear. **Queue this tab** adds the active tab's video.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
   Reassign it in `about:addons` → gear menu → **Manage Extension Shortcuts**.
   Shortcut/menu failures put `!` on the toolbar; open the popup for details.
 
 ## Permissions and network behavior
 
-- `contextMenus`: video-link and watch-page menus.
+- `contextMenus`: video-link and watch-page cast and queue menus.
 - `tabs`: active-tab URL for casting and URL-only fallback; no saved history.
 - Receiver host permissions are derived from `receiverUrls`, preserving HTTP
   or HTTPS. Firefox host patterns cannot restrict access to a particular port;
@@ -105,7 +111,7 @@ network, not the public internet.
 
 `build-config.mjs` owns config validation and generation; `config.js` owns shared
 YouTube patterns, messages and controls. `receiver-client.mjs` owns HTTP,
-`youtube-video.mjs` parses URLs, `tab-casting.mjs` handles playhead handoff, and
+`youtube-video.mjs` parses URLs, `tab-casting.mjs` handles playhead handoff and tab queuing, and
 `background-actions.mjs` handles messages, menus and shortcuts.
 `content.js`/`content.css` own the player button; `popup.mjs`/`popup-state.mjs`
 and `popup.css` own the popup, with shared colors in `tokens.css`.

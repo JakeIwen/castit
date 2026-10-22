@@ -66,6 +66,16 @@ export function formatAudioDelay(seconds) {
   return `${ms > 0 ? '+' : ''}${ms} ms`;
 }
 
+// e.g. "1.25×"; the receiver rounds speeds to hundredths.
+export function formatSpeed(speed) {
+  return Number.isFinite(speed) ? `${Number(speed.toFixed(2))}×` : '—';
+}
+
+export function formatVolume(volume) {
+  if (!volume) return '—';
+  return volume.muted ? 'Muted' : `${Math.round(volume.level)}%`;
+}
+
 export function popupState(status) {
   const actions = status.ok ? (availableActions[status.player] ?? []) : [];
   const elapsed = formatTime(status.position);
@@ -83,5 +93,12 @@ export function popupState(status) {
     // The offset is saved on the receiver, so it can be set before a cast too.
     audioDelayEnabled: Boolean(status.ok && Number.isFinite(status.audioDelay)),
     audioDelayLabel: formatAudioDelay(status.audioDelay),
+    speedEnabled: Boolean(status.ok && Number.isFinite(status.speed)),
+    speedLabel: formatSpeed(status.speed),
+    volumeEnabled: Boolean(status.ok && status.volume),
+    volumeLabel: formatVolume(status.volume),
+    muted: Boolean(status.volume?.muted),
+    queueEnabled: Boolean(status.ok && status.queue),
+    queue: (status.queue ?? []).map(entry => ({ key: entry.key, title: entry.title || entry.id })),
   };
 }
