@@ -88,12 +88,27 @@ test('Previous without a queue restarts the video', async () => {
   assert.deepEqual(player.calls, [['seek', 0]]);
 });
 
-test('Stop clears both queues', async () => {
+test('Stop resets the phone queue and keeps the cast queue', async () => {
   const player = fakePlayer({ status: PlayerStatus.PLAYING });
   player.castQueue.add(SECOND.id);
   assert.equal(await createPlayerControls(player).stop(), true);
   assert.deepEqual(player.calls, [['reset']]);
-  assert.equal(player.castQueue.length, 0);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), [SECOND.id]);
+});
+
+test('Adding to a kept queue while idle waits; adding to an empty one starts it', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const queue = createQueueControls(player, { log: quiet });
+  player.castQueue.add(SECOND.id);
+  assert.equal(queue.add({ videoId: VIDEO.id }), true);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(instances.length, 0);
+  assert.equal(player.castQueue.length, 2);
+  queue.clear();
+  assert.equal(queue.add({ videoId: VIDEO.id }), true);
+  await settleUntil(() => instances[0]?.loaded);
+  assert.equal(instances[0].loaded.id, VIDEO.id);
 });
 
 test('Setting arguments take exactly one finite absolute value or offset', () => {
@@ -176,7 +191,7 @@ test('Queue controls move upcoming entries, replay played keys and preserve hist
   assert.equal(queue.play({ key: previous.key }), false);
   assert.equal(queue.play({ key: 999 }), false);
   assert.equal(await controls.stop(), true);
-  assert.equal(player.castQueue.length, 0);
+  assert.equal(player.castQueue.length, 2);
   const history = player.castQueue.playedSnapshot();
   assert.deepEqual(history.map(entry => entry.id), [SECOND.id, VIDEO.id]);
   assert.equal(queue.clear(), true);

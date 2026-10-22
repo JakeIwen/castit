@@ -71,8 +71,9 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
 - Right-click a YouTube video link or watch-page background → **Add to Queue**
-  queues it from the beginning and leaves the tab playing; with nothing playing,
-  it starts at once. **Cast** follows it in the menu, starting a linked video at
+  queues it from the beginning and leaves the tab playing; with nothing playing
+  and nothing else queued, it starts at once. The queue and played history are
+  kept on the receiver across Stop and restarts; they never start by themselves. **Cast** follows it in the menu, starting a linked video at
   its URL's timestamp (or the beginning), or casting the watch page's playhead.
 - When the receiver's optional watch history stops working (expired account
   cookies or a rejected cookie file), the popup says so and how to fix it.

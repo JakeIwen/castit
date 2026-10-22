@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CastQueue, fetchTitle } from '../../src/queue/cast-queue.mjs';
-import { settleUntil } from '../playback/player-fixture.mjs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PrivateDataStore } from '../../src/storage/private-data-store.mjs';
+import { PlayerStatus } from '../../src/playback/player.mjs';
+import { playerFixture, settleUntil } from '../playback/player-fixture.mjs';
 
 test('Cast queue keeps order, looks up titles, caps its length and takes by key', async () => {
   const queue = new CastQueue({ lookupTitle: async id => (id === 'aaaaaaaaaaa' ? 'A' : Promise.reject(new Error('down'))), limit: 2 });
@@ -71,4 +76,40 @@ test('Title lookup asks YouTube oEmbed for the watch URL and tolerates failures'
   assert.equal(await fetchTitle('dQw4w9WgXcQ', { fetcher }), 'x'.repeat(200));
   assert.match(requested[0], /^https:\/\/www\.youtube\.com\/oembed\?url=https%3A%2F%2Fwww\.youtube\.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&format=json$/);
   assert.equal(await fetchTitle('dQw4w9WgXcQ', { fetcher: async () => ({ ok: false }) }), null);
+});
+
+test('Queue and played history survive reopening the store, without starting playback', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'yt-cast-queue-'));
+  t.after(() => rm(directory, { recursive: true }));
+  const store = new PrivateDataStore(directory);
+  await store.initialize();
+  const queue = new CastQueue({ store, lookupTitle: async id => `Title ${id}` });
+  queue.recordPlayed({ id: 'ppppppppppp', title: 'Watched' });
+  queue.add('aaaaaaaaaaa');
+  queue.add('bbbbbbbbbbb');
+  queue.move(queue.snapshot()[1].key, 0);
+  await settleUntil(() => queue.snapshot().every(entry => entry.title));
+  await queue.save();
+
+  const reopened = new PrivateDataStore(directory);
+  const { player, instances } = playerFixture({ store: reopened,
+    castQueue: new CastQueue({ store: reopened, lookupTitle: async () => null }) });
+  t.after(() => player.endSession());
+  await player.initialize();
+  assert.deepEqual(player.castQueue.snapshot().map(({ id, title }) => [id, title]),
+    [['bbbbbbbbbbb', 'Title bbbbbbbbbbb'], ['aaaaaaaaaaa', 'Title aaaaaaaaaaa']]);
+  assert.deepEqual(player.castQueue.playedSnapshot().map(({ id, title }) => [id, title]), [['ppppppppppp', 'Watched']]);
+  assert.equal(instances.length, 0);
+  assert.equal(player.status, PlayerStatus.IDLE);
+});
+
+test('A corrupt or foreign saved queue restores only valid entries', async () => {
+  const saved = { upcoming: [{ id: 'aaaaaaaaaaa', title: 7 }, { id: '../etc' }, null], played: 'nope' };
+  const queue = new CastQueue({ store: { get: async () => saved }, log: { warn() {} } });
+  await queue.load();
+  assert.deepEqual(queue.snapshot().map(({ id, title }) => [id, title]), [['aaaaaaaaaaa', null]]);
+  assert.deepEqual(queue.playedSnapshot(), []);
+  const unreadable = new CastQueue({ store: { get: async () => { throw new Error('bad'); } }, log: { warn() {} } });
+  await unreadable.load();
+  assert.equal(unreadable.length, 0);
 });

@@ -51,6 +51,7 @@ export class MpvPlayer extends Player {
     if (Number.isFinite(settings?.volume?.level) && typeof settings.volume.muted === 'boolean') {
       this.volume = { level: Math.min(100, Math.max(0, settings.volume.level)), muted: settings.volume.muted };
     }
+    await this.castQueue.load();
   }
 
   play(video, position = 0, aid, queuedEntry) {
@@ -264,7 +265,6 @@ export class MpvPlayer extends Player {
   }
 
   async endSession() {
-    this.castQueue.clear();
     const stopping = this.stop();
     const request = this.request;
     const pendingPlay = this.playTail;

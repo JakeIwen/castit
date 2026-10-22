@@ -55,9 +55,10 @@ export function createPlayerControls(player) {
       if (player.status === PlayerStatus.PAUSED) return player.resume();
       return false;
     },
-    // Stop also clears the queues: the library replays a cast only when its
+    // Stop resets the phone's queue: the library replays a cast only when its
     // current video changes, so recasting the stopped video would do nothing.
-    stop: async () => { player.castQueue.clear(); await player.reset(); return true; },
+    // The cast queue is kept for the next session.
+    stop: async () => { await player.reset(); return true; },
     // The library stops playback when there's nothing to move to; a stray
     // Next (a direct cast has no queue) should leave the video playing, and
     // Previous restarts the video like a TV remote.
@@ -90,11 +91,13 @@ export function createQueueControls(player, { log = console } = {}) {
     return true;
   };
   return {
-    // With nothing playing, a queued video starts at once.
+    // With nothing playing and nothing else waiting, a queued video starts at
+    // once; a kept queue waits for an explicit play instead of jumping ahead.
     add: ({ videoId }) => {
+      const wasEmpty = player.castQueue.length === 0;
       const entry = player.castQueue.add(videoId);
       if (!entry) return false;
-      return isIdle(player) ? start(entry.key) : true;
+      return isIdle(player) && wasEmpty ? start(entry.key) : true;
     },
     remove: ({ key }) => player.castQueue.take(key) !== null,
     play: ({ key }) => (player.castQueue.snapshot().some(entry => entry.key === key)

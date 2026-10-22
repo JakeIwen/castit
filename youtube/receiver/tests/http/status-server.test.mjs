@@ -232,7 +232,7 @@ test('Queue HTTP actions reorder upcoming videos, expose played history and repl
   assert.deepEqual(await post({ action: 'play', key: 9999 }), { action: 'play', done: false });
   assert.deepEqual(await post({ action: 'stop' }, '/api/control'), { action: 'stop', done: true });
   const stopped = await status();
-  assert.deepEqual(stopped.queue, []);
+  assert.equal(stopped.queue.length, 2);
   assert.deepEqual(stopped.played.map(entry => entry.id), [SECOND.id, VIDEO.id]);
   await post({ action: 'clear' });
   assert.deepEqual((await status()).played, stopped.played);

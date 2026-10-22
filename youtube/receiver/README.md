@@ -161,7 +161,7 @@ its resolver children. Starting another player later does not stop this one.
 - `POST /api/cast`: JSON `{"videoId":"dQw4w9WgXcQ","position":12.5}`. Position
   is optional and non-negative. Returns 202 while loading; poll status for the result.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
-  `next` or `previous`. Stop clears both queues. Next plays the phone's next
+  `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the phone's next
   video (or its autoplay pick), then the cast queue; with neither it does nothing.
   `seek` requires exactly one of absolute `position` (>= 0) or relative
   `offset`, in seconds, clamped to the video.
@@ -179,17 +179,18 @@ its resolver children. Starting another player later does not stop this one.
 - Speed, volume and A/V offset apply live, can be set while idle, and are saved
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
-  `{"action":"add","videoId":"…"}` appends (up to 50) and starts it at once when
-  nothing is playing; `play` and `remove` take an entry `key` from status.
+  `{"action":"add","videoId":"…"}` appends (up to 50); it starts at once only
+  when nothing is playing and the queue was empty, so a kept queue never jumps
+  ahead or starts on its own. `play` and `remove` take an entry `key` from status.
   `play` also accepts a `played` key to replay from the start; it stays in history
   until playback starts again, when it gets a new key at the end. `move` takes
   `key` and a non-negative safe integer `index`: the upcoming entry's final
   zero-based position, clamped to the queue's last position. `play`, `remove`
   and `move` return `done:false` for missing keys; played entries cannot be moved
   or removed. `clear` empties the upcoming queue. Queued videos play after the
-  phone's own queue, at the end of each video or on Next. Both lists are in
-  memory and lost on restart; Stop and the last sender's disconnect clear only
-  the upcoming queue, preserving played history. Queue titles come from YouTube's
+  phone's own queue, at the end of each video or on Next. Both lists are saved
+  in `queue.json` in the private state directory and survive Stop, the last
+  sender's disconnect and restarts; restoring them never starts playback. Queue titles come from YouTube's
   oEmbed endpoint. The status page shows recently played videos newest first.
 - The library ignores sender messages it doesn't implement. The receiver logs
   each one's name (never its payload) as `Unhandled sender message: <name>` in
