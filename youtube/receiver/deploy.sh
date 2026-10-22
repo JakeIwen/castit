@@ -5,7 +5,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 local_config="$here/../local.json"
 target=$(node --input-type=module -e \
   'const {loadLocalConfig}=await import(process.argv[1]); console.log(loadLocalConfig(process.argv[2]).sshTarget)' \
-  "$here/src/local-config.mjs" "$local_config")
+  "$here/src/config/local-config.mjs" "$local_config")
 verb=${1:-install}
 case "$verb" in
   install|prepare)

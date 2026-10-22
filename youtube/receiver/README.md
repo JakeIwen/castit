@@ -45,7 +45,7 @@ cp ../local.example.json ../local.json
 The `senders` section is used by [the shell sender](../vantv.zsh) and
 [Firefox extension](../firefox/). The receiver validates only `receiver`.
 Missing or invalid configuration fails startup with the affected key named.
-`src/local-config.mjs` loads `CASTIT_LOCAL_CONFIG`, or `local.json` beside
+`src/config/local-config.mjs` loads `CASTIT_LOCAL_CONFIG`, or `local.json` beside
 `src/` in a deployed release. To run from this source directory:
 
 ```sh
@@ -53,7 +53,7 @@ npm ci
 CASTIT_LOCAL_CONFIG=../local.json npm start
 ```
 
-`src/config.mjs` owns fixed ports, paths and playback tuning. Its format and
+`src/config/receiver-config.mjs` owns fixed ports, paths and playback tuning. Its format and
 video-output defaults target Pi 4 hardware; re-measure for another device.
 `mpvArguments()` is the single player argv builder.
 
@@ -169,9 +169,11 @@ npm test
 
 Tests use `../local.example.json`, temporary stores, local HTTP/IPC fixtures and
 fake playback processes; no real room command or media handoff runs.
-`local-config.mjs` validates installation settings; `index.mjs` wires the receiver;
-`mpv-player.mjs` implements playback, with process/IPC, room preparation, VLC
-handoff and the cast queue (`cast-queue.mjs`) in sibling modules. Pairing, private persistence, status and SponsorBlock
+`src/config/local-config.mjs` validates installation settings; `src/index.mjs` wires the receiver;
+`src/playback/player.mjs` implements playback, with process/IPC in `src/playback/mpv/`,
+room preparation and VLC handoff in `src/host/`, and the cast queue in
+`src/queue/cast-queue.mjs`. Pairing (`src/pairing/`), private persistence
+(`src/storage/`), status (`src/http/`) and SponsorBlock (`src/playback/sponsor-block.mjs`)
 also have dedicated modules.
 
 `yt-cast-receiver` is pinned to 2.1.0. Security overrides pin `query-string`

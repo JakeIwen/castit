@@ -7,7 +7,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config_value() {
   /usr/bin/node --input-type=module -e \
     'const {config}=await import(process.argv[1]); console.log(config[process.argv[2]])' \
-    "$here/src/config.mjs" "$1"
+    "$here/src/config/receiver-config.mjs" "$1"
 }
 app=$(config_value installDirectory)
 state=$(config_value stateDirectory)
@@ -59,14 +59,15 @@ update_ytdlp() {
 
 prepare() {
   /usr/bin/node -e 'if(Number(process.versions.node.split(".")[0])<20)process.exit(1)'
-  /usr/bin/node --input-type=module -e 'await import(process.argv[1])' "$here/src/config.mjs"
+  /usr/bin/node --input-type=module -e 'await import(process.argv[1])' "$here/src/config/receiver-config.mjs"
   local executable
   for executable in npm /usr/bin/mpv /usr/bin/xset /usr/bin/dbus-send curl /usr/bin/python3; do
     command -v "$executable" >/dev/null || { echo "Missing prerequisite: $executable" >&2; return 1; }
   done
   systemd-analyze verify "$here/$unit"
   local file
-  for file in "$here"/src/*.mjs; do /usr/bin/node --check "$file"; done
+  while IFS= read -r -d '' file; do /usr/bin/node --check "$file"; done \
+    < <(find "$here/src" -type f -name '*.mjs' -print0)
 }
 
 install_release() {

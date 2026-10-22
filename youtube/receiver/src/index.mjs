@@ -1,10 +1,10 @@
 import YouTubeCastReceiver, { Constants } from 'yt-cast-receiver';
-import { config } from './config.mjs';
-import { PrivateDataStore } from './private-data-store.mjs';
-import { MpvPlayer } from './mpv-player.mjs';
-import { runReceiver } from './receiver-lifecycle.mjs';
-import { useStableDialUuid } from './stable-dial-uuid.mjs';
-import { unhandledMessageLogger } from './unhandled-message-log.mjs';
+import { config } from './config/receiver-config.mjs';
+import { PrivateDataStore } from './storage/private-data-store.mjs';
+import { MpvPlayer } from './playback/player.mjs';
+import { runReceiver } from './lifecycle/receiver-lifecycle.mjs';
+import { useStableDialUuid } from './pairing/stable-dial-uuid.mjs';
+import { unhandledMessageLogger } from './lifecycle/unhandled-message-log.mjs';
 
 process.umask(0o077);
 const store = new PrivateDataStore(config.stateDirectory);
