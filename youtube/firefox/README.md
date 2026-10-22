@@ -74,6 +74,8 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   queues it from the beginning and leaves the tab playing; with nothing playing,
   it starts at once. **Cast** follows it in the menu, starting a linked video at
   its URL's timestamp (or the beginning), or casting the watch page's playhead.
+- When the receiver's optional watch history stops working (expired account
+  cookies or a rejected cookie file), the popup says so and how to fix it.
 - The popup's title opens the video on YouTube; under it, the channel's avatar,
   name, verified badge and subscriber count link to the channel.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys

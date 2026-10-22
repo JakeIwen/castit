@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  watchHistoryNotice,
   createScrubState, formatAudioDelay, formatSpeed, formatTime, formatVolume, isWorking,
   popupState, queueDropIndex, queueListModel, queueRowKind, reorderUpcoming, transitionScrub,
 } from '../../popup/state.mjs';
@@ -177,4 +178,13 @@ test('local playback advancement is pure, bounded, and paused while dragging', (
   const dragging = { dragging: true, position: 90 };
   assert.strictEqual(transitionScrub(dragging,
     { type: 'advance', seconds: 1, duration: 180 }).state, dragging);
+});
+
+test('watch-history notice shows only lasting problems', () => {
+  const notice = reason => watchHistoryNotice({ ...defaultStatus, watchHistory: { enabled: true, reason } });
+  assert.match(notice('signed-out'), /cookies expired.*push-youtube-cookies/);
+  assert.match(notice('rejected-file'), /rejected its cookie file/);
+  assert.equal(notice('error'), '');
+  assert.equal(notice(null), '');
+  assert.equal(watchHistoryNotice(null), '');
 });

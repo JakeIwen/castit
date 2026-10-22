@@ -1,6 +1,6 @@
 import '../config.js';
 
-const { player, control } = globalThis.VAN_TV_CONFIG;
+const { player, control, historyReason } = globalThis.VAN_TV_CONFIG;
 const playbackActions = Object.freeze([
   control.previous, control.seek, control.toggle, control.next, control.stop,
 ]);
@@ -115,6 +115,18 @@ export function reorderUpcoming(model, key, index) {
   return { ...model, rows: [
     ...model.rows.filter(row => row.kind !== queueRowKind.upcoming), ...upcoming,
   ] };
+}
+
+const historyNotices = Object.freeze({
+  [historyReason.signedOut]:
+    'YouTube history paused: the account cookies expired. Re-run push-youtube-cookies.zsh.',
+  [historyReason.rejectedFile]:
+    'YouTube history off: the receiver rejected its cookie file (owner or mode 600).',
+});
+
+// Transient errors retry on the next video, so only lasting problems are shown.
+export function watchHistoryNotice(status) {
+  return historyNotices[status?.watchHistory?.reason] ?? '';
 }
 
 export function popupState(status) {

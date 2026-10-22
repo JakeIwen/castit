@@ -163,6 +163,8 @@ footer button:hover:not(:disabled) { background: var(--van-tv-control-hover); }
 footer svg { width: 18px; height: 18px; }
 #notice { margin-top: 12px; color: var(--van-tv-muted); font-size: 12px; }
 #notice:empty { display: none; }
+#history-notice { margin-top: 8px; color: var(--van-tv-muted); font-size: 12px; }
+#history-notice:empty { display: none; }
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
   #state.working::after { animation: none; }

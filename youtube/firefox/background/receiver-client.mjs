@@ -11,7 +11,7 @@ const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(val
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
  * position: number, duration: number, audioDelay: number|null, speed: number|null,
  * volume: {level: number, muted: boolean}|null, queue: QueueEntry[]|null,
- * played: QueueEntry[]|null}} ReceiverStatus */
+ * played: QueueEntry[]|null, watchHistory: {enabled: boolean, reason: string|null}|null}} ReceiverStatus */
 
 function isQueueEntry(entry) {
   return Boolean(entry) && Number.isSafeInteger(entry.key) && isVideoId(entry.id)
@@ -21,6 +21,15 @@ function isQueueEntry(entry) {
 function decodeQueue(entries) {
   return Array.isArray(entries) && entries.every(isQueueEntry)
     ? entries.map(({ key, id, title }) => ({ key, id, title })) : null;
+}
+
+const historyReasons = Object.values(config.historyReason);
+
+// Only the state the popup explains crosses into extension pages.
+function decodeWatchHistory(history) {
+  if (!history || typeof history.enabled !== 'boolean'
+      || (history.reason !== null && !historyReasons.includes(history.reason))) return null;
+  return { enabled: history.enabled, reason: history.reason };
 }
 
 function decodeVolume(volume) {
@@ -40,7 +49,8 @@ export function decodeStatus(value) {
   const audioDelay = isFiniteNumber(value.audioDelay) ? value.audioDelay : null;
   const speed = isFiniteNumber(value.speed) ? value.speed : null;
   return { ok, player, video, position, duration, audioDelay, speed,
-    volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played) };
+    volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),
+    watchHistory: decodeWatchHistory(value.watchHistory) };
 }
 
 // Each action with fields takes exactly one absolute field or a relative offset.

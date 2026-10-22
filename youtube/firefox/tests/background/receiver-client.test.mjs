@@ -224,3 +224,11 @@ test('redirects are refused instead of following an unapproved receiver destinat
   await assert.rejects(receiver.status(), /Van TV unreachable/);
   assert.equal(destination.requests.length, 0);
 });
+
+test('status keeps only the watch-history state the popup explains', () => {
+  const history = { enabled: true, state: 'failed', reason: 'signed-out', lastMarkedAt: null };
+  assert.deepEqual(decodeStatus({ ...defaultStatus, watchHistory: history }).watchHistory,
+    { enabled: true, reason: 'signed-out' });
+  assert.equal(decodeStatus(defaultStatus).watchHistory, null);
+  assert.equal(decodeStatus({ ...defaultStatus, watchHistory: { enabled: true, reason: 'other' } }).watchHistory, null);
+});

@@ -1,5 +1,7 @@
 import '../config.js';
-import { createScrubState, formatTime, isWorking, popupState, queueListModel, transitionScrub } from './state.mjs';
+import {
+  createScrubState, formatTime, isWorking, popupState, queueListModel, transitionScrub, watchHistoryNotice,
+} from './state.mjs';
 import { QueueList } from './queue-list.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 
@@ -10,7 +12,7 @@ const ids = [
   'forward-five', 'next', 'stop', 'restart', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
-  'speed-value', 'queue-section', 'queue', 'queue-clear', 'queue-tab',
+  'speed-value', 'queue-section', 'queue', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
@@ -165,6 +167,7 @@ function renderVideo(title, video) {
 
 function renderStatus() {
   renderActivity();
+  element['history-notice'].textContent = watchHistoryNotice(latestStatus);
   if (latestStatus) {
     const view = popupState(latestStatus);
     renderVideo(view.title, latestStatus.video);
