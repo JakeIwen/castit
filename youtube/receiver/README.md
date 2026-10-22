@@ -57,6 +57,33 @@ CASTIT_LOCAL_CONFIG=../local.json npm start
 video-output defaults target Pi 4 hardware; re-measure for another device.
 `mpvArguments()` is the single player argv builder.
 
+## Load path and timings
+
+Each load resolves streams with the same yt-dlp selector, Deno runtime and hook
+options while room preparation and VLC handoff run independently. mpv starts
+only after handoff releases the audio device. Loading waits for room preparation
+(including its existing timeout/failure tolerance), so the opening audio is not
+lost while routing switches. A replacement or Stop cancels and drains old work.
+mpv still closes on each replacement; its process is not reused.
+
+`src/playback/stream-resolver.mjs` runs bounded subprocess groups at nice 10.
+Simple selected HTTP(S) video/audio tracks load directly using mpv 0.35's
+per-file option map, with external audio and ytdl disabled only for that file.
+Extraction errors and hook-dependent results (live/fragmented streams, subtitles,
+or incompatible per-track headers) use the original watch-URL/ytdl-hook path.
+The in-memory cache holds at most 16 results, expiring one minute before the
+earliest googlevideo URL expiration. The first upcoming cast-queue entry is
+prefetched at nice 19 while playing; polling notices additions every two seconds,
+never runs two prefetches at once, and never consumes or reorders the queue.
+The phone's queue is not prefetched. No client/format-selection experiments are
+applied, and no account cookies are added to playback extraction.
+
+Each attempted load writes one `Video load timing` line with `handoff`, `room`,
+`mpv_start` (including property setup), `resolve`, `load` and `total` milliseconds,
+plus a loaded/failed/cancelled outcome. Total covers `doPlay`, not sender/network
+latency or a prior base-player stop. Phases overlap, so their sum exceeds total;
+`load` includes extraction on fallback. Logs contain no URLs, IDs or titles.
+
 ## Deployment and lifecycle
 
 From this directory on the deployment machine:
@@ -115,7 +142,8 @@ there is no login. Do not forward them to the internet; use a host firewall if
 additional isolation is needed.
 
 Private state lives in `/home/pi/.local/state/youtube-cast/` (directory mode 700,
-files 600); mpv sockets/cache use `/run/youtube-cast/`. Keep state across updates
+files 600); yt-dlp's cache uses its `cache/` subfolder, surviving service restarts.
+mpv sockets and temporary files use `/run/youtube-cast/`. Keep state across updates
 and restarts to preserve pairing, volume, speed and A/V offset. Corrupt identity files
 fail closed. Stopping or the last sender's explicit disconnect closes mpv and
 its resolver children. Starting another player later does not stop this one.

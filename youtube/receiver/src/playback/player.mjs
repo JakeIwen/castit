@@ -5,6 +5,9 @@ import { RoomPreparation } from '../host/room-preparation.mjs';
 import { stopVideoLibrary } from '../host/vlc-handoff.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 import { CastQueue } from '../queue/cast-queue.mjs';
+import { LoadTiming } from './load-timing.mjs';
+import { StreamResolver } from './stream-resolver.mjs';
+import { QueuePrefetch } from './queue-prefetch.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
 
@@ -27,9 +30,10 @@ const MPV_SETTINGS = Object.freeze({ audioDelay: 'audio-delay', speed: 'speed' }
 export class MpvPlayer extends Player {
   constructor({ createMpv = () => new MpvProcess(), room = new RoomPreparation(),
     handoff = stopVideoLibrary, segments = fetchSegments, store, log = console,
-    castQueue = new CastQueue() } = {}) {
+    castQueue = new CastQueue(), resolver = new StreamResolver() } = {}) {
     super();
-    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue });
+    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver });
+    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot());
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
     this.speed = 1;
@@ -73,6 +77,7 @@ export class MpvPlayer extends Player {
   }
 
   async doPlay(video, position) {
+    const timing = new LoadTiming();
     await this.release();
     if (this.activeRequest !== this.request) return false;
     const abort = this.abort = new AbortController();
@@ -82,45 +87,63 @@ export class MpvPlayer extends Player {
     this.position = position;
     this.skipper = new SponsorSkipper();
     void this.segments(video.id, { signal }).then(segments => {
-      if (this.mpv === mpv) this.skipper = new SponsorSkipper(segments);
+      if (this.mpv === mpv && !signal.aborted) this.skipper = new SponsorSkipper(segments);
     }).catch(() => {});
+    let outcome = 'failed';
     try {
-      await this.handoff({ signal });
-      await this.room.beforeVideo(signal);
+      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal }))
+        .catch(() => { signal.throwIfAborted(); return null; });
+      const room = timing.measure('room', () => this.room.beforeVideo(signal));
+      const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
+        timing.measure('mpv_start', async () => {
+          signal.throwIfAborted();
+          await mpv.start(signal);
+          signal.throwIfAborted();
+          mpv.on('event', event => {
+            if (this.mpv === mpv && !signal.aborted) {
+              void this.onMpvEvent(event, mpv).catch(() => this.log.warn('mpv state update failed'));
+            }
+          });
+          mpv.on('disconnect', () => {
+            if (this.mpv === mpv && !signal.aborted) void this.failedPlayback();
+          });
+          for (const [index, property] of ['time-pos', 'duration', 'pause', 'volume', 'mute', 'media-title'].entries()) {
+            await mpv.command(['observe_property', index + 1, property]);
+          }
+          await this.applyVolume();
+          for (const [name, property] of Object.entries(MPV_SETTINGS)) {
+            await mpv.command(['set_property', property, this[name]]);
+          }
+        }));
+      const preparing = [resolving, room, starting];
+      this.pendingPreparation = Promise.allSettled(preparing);
+      const [stream] = await Promise.all(preparing);
       signal.throwIfAborted();
-      await mpv.start(signal);
+      if (stream?.title) this.video.title = stream.title;
+      await timing.measure('load', () => mpv.load(video.id, position, signal, stream));
       signal.throwIfAborted();
-      mpv.on('event', event => {
-        if (this.mpv === mpv) void this.onMpvEvent(event, mpv).catch(() => this.log.warn('mpv state update failed'));
-      });
-      mpv.on('disconnect', () => {
-        if (this.mpv === mpv && !signal.aborted) void this.failedPlayback();
-      });
-      for (const [index, property] of ['time-pos', 'duration', 'pause', 'volume', 'mute', 'media-title'].entries()) {
-        await mpv.command(['observe_property', index + 1, property]);
-      }
-      await this.applyVolume();
-      for (const [name, property] of Object.entries(MPV_SETTINGS)) {
-        await mpv.command(['set_property', property, this[name]]);
-      }
-      await mpv.load(video.id, position, signal);
-      signal.throwIfAborted();
+      this.prefetch.start(signal);
+      outcome = 'loaded';
       return true;
-    } catch (error) {
-      // These messages come from this receiver's own steps, never from lounge data.
-      if (!signal.aborted) this.log.warn(`Video playback failed: ${error?.message || error}`);
+    } catch {
+      outcome = signal.aborted ? 'cancelled' : 'failed';
+      // Neither extractor output nor sender metadata belongs in the journal.
+      if (!signal.aborted) this.log.warn('Video playback failed');
       if (this.mpv === mpv) await this.release();
+      else await this.pendingPreparation;
       return false;
-    }
+    } finally { timing.report(this.log, outcome); }
   }
 
   async release() {
     this.abort?.abort();
     const mpv = this.mpv;
+    const preparing = this.pendingPreparation;
     this.mpv = null;
     this.video = null;
     this.position = this.duration = 0;
-    if (mpv) await mpv.close();
+    this.releasing = Promise.all([this.releasing, mpv?.close(), preparing, this.prefetch.stop()]);
+    await this.releasing;
   }
 
   async doStop() {

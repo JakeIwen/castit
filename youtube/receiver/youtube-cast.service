@@ -16,7 +16,7 @@ Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 Environment=PYTHONDONTWRITEBYTECODE=1
-Environment=XDG_CACHE_HOME=/run/youtube-cast/cache
+Environment=XDG_CACHE_HOME=/home/pi/.local/state/youtube-cast/cache
 Environment=TMPDIR=/run/youtube-cast
 RuntimeDirectory=youtube-cast
 RuntimeDirectoryMode=0700

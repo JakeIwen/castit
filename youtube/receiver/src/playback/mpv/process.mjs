@@ -3,20 +3,25 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { config, playback, mpvArguments } from '../../config/receiver-config.mjs';
+import { config, playback, mpvArguments, watchUrl } from '../../config/receiver-config.mjs';
 import { MpvIpc } from './ipc.mjs';
 import { signalGroup } from '../../host/process-command.mjs';
 
 export class MpvProcess extends EventEmitter {
+  constructor({ spawnProcess = spawn, runtimeDirectory = config.runtimeDirectory } = {}) {
+    super();
+    Object.assign(this, { spawnProcess, runtimeDirectory });
+  }
+
   async start(signal) {
     signal?.throwIfAborted();
-    this.directory = await mkdtemp(join(config.runtimeDirectory, 'mpv-'));
+    this.directory = await mkdtemp(join(this.runtimeDirectory, 'mpv-'));
     if (this.closing || signal?.aborted) {
       await rm(this.directory, { recursive: true, force: true });
       throw new Error('Playback cancelled');
     }
     const socket = join(this.directory, 'ipc');
-    this.child = spawn(playback.mpv, mpvArguments(socket), {
+    this.child = this.spawnProcess(playback.mpv, mpvArguments(socket), {
       detached: true, stdio: 'ignore',
       env: { ...process.env, ...config.sessionEnvironment },
     });
@@ -46,13 +51,21 @@ export class MpvProcess extends EventEmitter {
 
   command(argv) { return this.ipc.command(argv); }
 
-  async load(videoId, position, signal) {
+  async load(videoId, position, signal, stream = null) {
+    signal?.throwIfAborted();
     const loaded = this.waitForLoad(signal);
     // Attach rejection handling before sending: an IPC failure can beat the ACK.
     loaded.catch(() => {});
     try {
-      await this.command(['loadfile', `https://www.youtube.com/watch?v=${videoId}`,
-        'replace', `start=${position}`]);
+      // mpv 0.35 accepts a node map as loadfile's third argument. Append treats
+      // audio URLs literally, unlike audio-files' colon-separated path list.
+      const options = { start: String(position) };
+      if (stream) {
+        Object.assign(options, stream.httpOptions, { ytdl: 'no' });
+        if (stream.title) options['force-media-title'] = stream.title;
+        if (stream.audioUrl) options['audio-files-append'] = stream.audioUrl;
+      }
+      await this.command(['loadfile', stream?.videoUrl || watchUrl(videoId), 'replace', options]);
       await loaded;
     } catch (error) {
       await this.close();
@@ -91,10 +104,15 @@ export class MpvProcess extends EventEmitter {
   async closeProcess() {
     if (this.child) {
       await Promise.race([
-        this.ipc?.command(['quit']).catch(() => {}), delay(500),
+        this.ipc?.command(['quit']).catch(() => {}), delay(playback.mpvStopGraceMs),
       ]);
-      signalGroup(this.child.pid, 'SIGTERM');
-      await Promise.race([this.exit, delay(500)]);
+      // The IPC socket can close before the OS reaps a graceful quit. Give it
+      // that bounded grace before signalling (macOS rejects the exiting group).
+      await Promise.race([this.exit, delay(playback.mpvStopGraceMs)]);
+      if (this.child.exitCode === null && this.child.signalCode === null && !this.failure) {
+        signalGroup(this.child.pid, 'SIGTERM');
+        await Promise.race([this.exit, delay(playback.mpvStopGraceMs)]);
+      }
       signalGroup(this.child.pid, 'SIGKILL');
       await this.exit;
     }

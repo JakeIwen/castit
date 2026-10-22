@@ -36,6 +36,7 @@ export function playerFixture(options = {}) {
     createMpv: () => { const instance = new FakeMpv(); instances.push(instance); return instance; },
     room: { beforeVideo: async () => { prepared++; }, endSession: () => { ended++; } },
     handoff: async () => {}, segments: async () => [], log: quiet,
+    resolver: { resolve: async () => null },
     castQueue: new CastQueue({ lookupTitle: async () => null }),
     ...options,
   });

@@ -39,12 +39,26 @@ export const config = Object.freeze({
   queueLimit: 50,
 });
 
+const ytdlpRawOptions = [
+  ['no-playlist', ''],
+  ['js-runtimes', `deno:${join(config.installDirectory, 'venv/bin/deno')}`],
+];
+
 // PLAYER TUNING BLOCK: xv and bounded H.264 formats reduce dropped frames on
 // the Pi 4. Re-measure for other hardware; the audio device is installation-specific.
 // yt-dlp needs Node >= 22 or Deno for YouTube's JS challenges; the venv ships Deno.
 export const playback = Object.freeze({
   mpv: '/usr/bin/mpv',
+  mpvStopGraceMs: 500,
   ytdlp: join(config.installDirectory, 'venv/bin/yt-dlp'),
+  nice: '/usr/bin/nice',
+  resolveNice: 10,
+  prefetchNice: 19,
+  resolveTimeoutMs: 20_000,
+  resolveMaxBytes: 8 * 1024 * 1024,
+  resolveExpiryMarginMs: 60_000,
+  resolveCacheEntries: 16,
+  prefetchIntervalMs: 2000,
   format: 'bv*[vcodec^=avc1][height=1080][fps<=25]+ba[acodec^=mp4a]/'
     + 'bv*[vcodec^=avc1][height<=720][fps<=30]+ba[acodec^=mp4a]/'
     + 'bv*[vcodec^=avc1][height<=480]+ba[acodec^=mp4a]/'
@@ -54,8 +68,18 @@ export const playback = Object.freeze({
     '--no-input-default-bindings', '--hwdec=v4l2m2m-copy', '--vo=xv', '--ao=alsa',
     `--audio-device=${local.audioDevice}`, '--cache=yes',
     '--demuxer-readahead-secs=20', '--demuxer-max-bytes=96MiB'],
-  ytdlpOptions: `no-playlist=,js-runtimes=deno:${join(config.installDirectory, 'venv/bin/deno')}`,
+  ytdlpOptions: ytdlpRawOptions.map(([name, value]) => `${name}=${value}`).join(','),
 });
+
+export const watchUrl = videoId => `https://www.youtube.com/watch?v=${videoId}`;
+
+export function resolverArguments(videoId, { prefetch = false } = {}) {
+  return [playback.nice, '-n', String(prefetch ? playback.prefetchNice : playback.resolveNice),
+    playback.ytdlp, '--no-warnings', '-J', '--flat-playlist', '--sub-format', 'ass/srt/best',
+    '--format', playback.format,
+    ...ytdlpRawOptions.flatMap(([name, value]) => value ? [`--${name}`, value] : [`--${name}`]),
+    '--all-subs', '--', watchUrl(videoId)];
+}
 
 export function mpvArguments(socketPath) {
   return [...playback.args, `--input-ipc-server=${socketPath}`,
