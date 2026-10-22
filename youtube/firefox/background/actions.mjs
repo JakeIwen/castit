@@ -3,7 +3,10 @@ import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
 import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
-const menu = Object.freeze({ link: 'cast-link', page: 'cast-page', queueLink: 'queue-link', queuePage: 'queue-page' });
+const menu = Object.freeze({ queueLink: 'queue-link', queuePage: 'queue-page' });
+// One menu entry: queueing never replaces what's playing (it starts at once
+// only when nothing is playing or queued). Casting stays on the player button.
+const menuTitle = 'Van TV: Queue Cast';
 
 function controlFields(message) {
   const fields = {};
@@ -51,30 +54,20 @@ export async function showCastResult(browserApi, operation, success = 'Van TV �
 export async function installContextMenus(browserApi, receiver) {
   const patterns = youtubeMenuPatterns();
   await browserApi.contextMenus.removeAll();
-  browserApi.contextMenus.create({ id: menu.queueLink, title: 'Add to Queue',
+  browserApi.contextMenus.create({ id: menu.queueLink, title: menuTitle,
     contexts: ['link'], targetUrlPatterns: patterns.link });
-  browserApi.contextMenus.create({ id: menu.link, title: 'Cast',
-    contexts: ['link'], targetUrlPatterns: patterns.link });
-  browserApi.contextMenus.create({ id: menu.queuePage, title: 'Add to Queue',
-    contexts: ['page'], documentUrlPatterns: patterns.page });
-  browserApi.contextMenus.create({ id: menu.page, title: 'Cast',
+  browserApi.contextMenus.create({ id: menu.queuePage, title: menuTitle,
     contexts: ['page'], documentUrlPatterns: patterns.page });
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);
     if (!video) throw new Error('This link is not a YouTube video');
     return video;
   };
-  const queued = new Set([menu.queueLink, menu.queuePage]);
   const actions = {
-    [menu.link]: async info => {
-      const video = linkVideo(info);
-      await receiver.cast(video.videoId, video.position);
-    },
     [menu.queueLink]: async info => {
       const result = await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId });
       if (!result.done) throw new Error('The Van TV queue is full');
     },
-    [menu.page]: (_info, tab) => castTab(browserApi, receiver, tab),
     [menu.queuePage]: async (_info, tab) => {
       const result = await queueTab(browserApi, receiver, tab);
       if (!result.done) throw new Error('The Van TV queue is full');
@@ -83,8 +76,7 @@ export async function installContextMenus(browserApi, receiver) {
   browserApi.contextMenus.onClicked.addListener((info, tab) => {
     const action = actions[info.menuItemId];
     if (!action) return;
-    void showCastResult(browserApi, () => action(info, tab),
-      queued.has(info.menuItemId) ? 'Van TV — added to the queue' : undefined);
+    void showCastResult(browserApi, () => action(info, tab), 'Van TV — added to the queue');
   });
 }
 

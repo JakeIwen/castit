@@ -115,7 +115,8 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 #queue-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--van-tv-border); }
 .queue-header { display: flex; align-items: center; justify-content: space-between; }
 h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
-#queue-clear { height: 26px; padding: 0 8px; font-size: 11px; color: var(--van-tv-muted); }
+.queue-actions { display: flex; gap: 2px; }
+.queue-actions button { height: 26px; padding: 0 8px; font-size: 11px; color: var(--van-tv-muted); }
 #queue {
   position: relative;
   max-height: var(--van-tv-queue-height);
@@ -138,7 +139,10 @@ h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-.queue-play { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* Clamped boxes clip at their padding edge, so vertical spacing goes outside
+   them; otherwise a third line shows through the bottom padding. */
+.queue-play { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  padding-block: 0; margin-block: 6px; }
 .queue-play:hover { text-decoration: underline; }
 .queue-play[aria-disabled="true"] { cursor: default; }
 .queue-played { color: var(--van-tv-muted); }

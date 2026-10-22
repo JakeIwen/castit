@@ -12,7 +12,7 @@ const ids = [
   'forward-five', 'next', 'stop', 'restart', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
-  'speed-value', 'queue-section', 'queue', 'queue-clear', 'queue-tab', 'history-notice',
+  'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
@@ -61,6 +61,7 @@ let detailsVideoId = null;
 let requestsInFlight = 0;
 let statusRequest = 0;
 const queueList = new QueueList({ list: element.queue, section: element['queue-section'],
+  jumpButton: element['queue-end'],
   onAction: fields => perform(config.message.queue, fields, '', 'This video is no longer in the list'),
   onOpen: openYouTube });
 
@@ -284,6 +285,7 @@ element['cast-tab'].addEventListener('click', () => void perform(
   config.message.castTab, {}, 'Cast accepted'));
 element['queue-tab'].addEventListener('click', () => void perform(
   config.message.queueTab, {}, 'Added to the queue', 'The queue is full'));
+element['queue-end'].addEventListener('click', () => queueList.jumpToEnd());
 element['queue-clear'].addEventListener('click', () => void perform(
   config.message.queue, { action: config.queue.clear }, ''));
 element.duration.addEventListener('click', () => {

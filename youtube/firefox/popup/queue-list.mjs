@@ -34,9 +34,10 @@ function iconButton(name, label) {
 }
 
 export class QueueList {
-  constructor({ list, section, onAction, onOpen }) {
+  constructor({ list, section, jumpButton, onAction, onOpen }) {
     this.list = list;
     this.section = section;
+    this.jumpButton = jumpButton;
     this.onAction = onAction;
     this.onOpen = onOpen;
     this.model = queueListModel(null);
@@ -128,6 +129,20 @@ export class QueueList {
 
   updateFade() {
     this.list.classList.toggle('is-scrolled', this.list.scrollTop > 1);
+    if (this.jumpButton) this.jumpButton.disabled = this.list.scrollTop >= this.endScrollTop() - 1;
+  }
+
+  // The anchoring spacer pads the list's tail, so "the end" is where the last
+  // row's bottom meets the viewport's, not the scrollable maximum.
+  endScrollTop() {
+    const last = this.list.lastElementChild;
+    if (!last) return 0;
+    return Math.max(0, last.offsetTop + last.offsetHeight - this.list.clientHeight);
+  }
+
+  jumpToEnd() {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.list.scrollTo({ top: this.endScrollTop(), behavior: reduced ? 'auto' : 'smooth' });
   }
 
   setBusy(busy) {

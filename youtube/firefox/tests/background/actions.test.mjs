@@ -135,26 +135,12 @@ test('unknown messages and content-script receiver controls have no side effects
   });
 });
 
-test('link context menu preserves URL timestamp and leaves local playback alone', async t => {
-  const fixture = await startReceiver(t);
-  const browser = browserFixture();
-  await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Cast');
-  assert.equal(menu.title, 'Cast');
-  assert.ok(menu.targetUrlPatterns.includes('*://youtu.be/*'));
-  browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}?t=90` });
-  await browser.completed;
-  assert.deepEqual(fixture.requests.find(request => request.method === 'POST').body, { videoId, position: 90 });
-  assert.equal(browser.messages.length, 0);
-  assert.deepEqual(browser.badges, ['']);
-});
-
 test('queue menus add a link or the watch page from the start without touching the tab', async t => {
   const fixture = await startReceiver(t);
   const queueMenus = async (contexts, info) => {
     const browser = browserFixture();
     await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Add to Queue');
+    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Van TV: Queue Cast');
     browser.click({ menuItemId: menu.id, ...info });
     await browser.completed;
     return browser;
@@ -179,40 +165,31 @@ test('a full queue shows as a toolbar error', async t => {
   } });
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Add to Queue');
+  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Van TV: Queue Cast');
   browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}` });
   await browser.completed;
   assert.deepEqual([browser.badges, browser.titles], [['!'], ['The Van TV queue is full']]);
 });
 
-test('watch-page menu and shortcut use the same active playhead cast flow', async t => {
-  for (const source of ['page', 'shortcut']) {
-    const fixture = await startReceiver(t);
-    const browser = browserFixture();
-    const receiver = createReceiverClient({ baseUrls: [fixture.url] });
-    if (source === 'page') {
-      await installContextMenus(browser.browserApi, receiver);
-      const menu = browser.menus.find(item => item.contexts.includes('page') && item.title === 'Cast');
-      browser.click({ menuItemId: menu.id });
-    } else {
-      installCommands(browser.browserApi, receiver);
-      browser.command(config.command);
-    }
-    await browser.completed;
-    assert.equal(fixture.requests.find(request => request.method === 'POST').body.position, 64);
-    assert.equal(browser.messages.at(-1).type, config.message.castAccepted);
-  }
+test('the keyboard shortcut casts the active tab playhead', async t => {
+  const fixture = await startReceiver(t);
+  const browser = browserFixture();
+  installCommands(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+  browser.command(config.command);
+  await browser.completed;
+  assert.equal(fixture.requests.find(request => request.method === 'POST').body.position, 64);
+  assert.equal(browser.messages.at(-1).type, config.message.castAccepted);
 });
 
-test('queue menus precede cast menus for links and watch pages', async () => {
+test('the context menu is one queue item per context, with no direct cast', async () => {
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, {});
   for (const context of ['link', 'page']) {
     assert.deepEqual(browser.menus.filter(item => item.contexts.includes(context))
-      .map(item => item.title), ['Add to Queue', 'Cast']);
+      .map(item => item.title), ['Van TV: Queue Cast']);
   }
+  assert.ok(browser.menus.find(item => item.contexts.includes('link')).targetUrlPatterns.includes('*://youtu.be/*'));
 });
-
 test('popup move messages pass the final index and key through to HTTP', async t => {
   const fixture = await startReceiver(t);
   const handle = createMessageHandler(browserFixture().browserApi,

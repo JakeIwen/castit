@@ -70,11 +70,12 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - The YouTube player's **Van TV** button casts the current playhead. Local
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
-- Right-click a YouTube video link or watch-page background → **Add to Queue**
-  queues it from the beginning and leaves the tab playing; with nothing playing
-  and nothing else queued, it starts at once. The queue and played history are
-  kept on the receiver across Stop and restarts; they never start by themselves. **Cast** follows it in the menu, starting a linked video at
-  its URL's timestamp (or the beginning), or casting the watch page's playhead.
+- Right-click a YouTube video link or watch-page background → **Van TV: Queue
+  Cast** (the only menu item) queues it from the beginning and leaves the tab
+  playing; with nothing playing and nothing else queued, it starts at once.
+  Nothing in the menu replaces what's playing; to cast now, use the player
+  button, the shortcut or the popup. The queue and played history are kept on
+  the receiver across Stop and restarts; they never start by themselves.
 - When the receiver's optional watch history stops working (expired account
   cookies or a rejected cookie file), the popup says so and how to fix it.
 - The popup's title opens the video on YouTube; under it, the channel's avatar,
@@ -93,7 +94,8 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   video), with a little history peeking above. Scroll up for earlier videos;
   polling leaves your scroll position alone until the current video changes.
   Click a played title to replay from the start, or an upcoming title to play now.
-  × removes an upcoming video; **Clear** removes upcoming videos only.
+  × removes an upcoming video. **Jump to end** scrolls to the last queued video;
+  **Clear** removes upcoming videos only.
   **Queue this tab** adds the active tab's video.
 - Each row's external-link button opens YouTube and closes the popup. **⌘/Ctrl-click**
   or **middle-click** a played/upcoming title to open YouTube in a background tab
@@ -110,7 +112,7 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 
 ## Permissions and network behavior
 
-- `contextMenus`: video-link and watch-page cast and queue menus.
+- `contextMenus`: the video-link and watch-page queue item.
 - `tabs`: active-tab URL for casting and URL-only fallback; no saved history.
 - `https://www.youtube.com/*`: the background page reads the playing video's
   channel (oEmbed for name and link, the channel page once per channel for
