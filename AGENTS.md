@@ -58,8 +58,10 @@ a clean checkout.
   `background/actions.mjs` messages, menus and shortcuts.
   `youtube/video-url.mjs` owns URL parsing for background and popup.
   `content/player-button.js` and `content/player-button.css` own the
-  player button; `popup/popup.html`, `popup/popup.mjs`, `popup/state.mjs`
-  and `popup/popup.css` own the toolbar remote. `theme/tokens.css` owns
+  player button; `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css`
+  own the toolbar remote. `popup/queue-list.mjs` owns its combined queue/history
+  list, anchoring and drag interactions; `popup/state.mjs` owns pure popup
+  state, list models and reorder math. `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
 - `youtube/vantv.zsh`: the Mac CLI over the same HTTP API.

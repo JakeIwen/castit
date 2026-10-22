@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createScrubState, formatAudioDelay, formatSpeed, formatTime, formatVolume, popupState, transitionScrub,
+  createScrubState, formatAudioDelay, formatSpeed, formatTime, formatVolume, isWorking,
+  popupState, queueDropIndex, queueListModel, queueRowKind, reorderUpcoming, transitionScrub,
 } from '../../popup/state.mjs';
 import { defaultStatus } from '../background/receiver-fixture.mjs';
 
@@ -58,9 +59,72 @@ test('speed, volume and queue show whenever the receiver reports them', () => {
     volume: { level: 30, muted: true }, queue: [{ key: 1, id: 'dQw4w9WgXcQ', title: null }] });
   assert.deepEqual([view.speedEnabled, view.speedLabel, view.volumeEnabled, view.muted, view.queueEnabled],
     [true, '1.5×', true, true, true]);
-  assert.deepEqual(view.queue, [{ key: 1, title: 'dQw4w9WgXcQ' }]);
-  const older = popupState({ ...defaultStatus, speed: null, volume: null, queue: null });
-  assert.deepEqual([older.speedEnabled, older.volumeEnabled, older.queueEnabled, older.queue], [false, false, false, []]);
+  assert.deepEqual(view.queueList.rows, [{ kind: queueRowKind.upcoming, key: 1, id: 'dQw4w9WgXcQ', title: 'dQw4w9WgXcQ' }]);
+  const older = popupState({ ...defaultStatus, video: null, speed: null, volume: null, queue: null });
+  assert.deepEqual([older.speedEnabled, older.volumeEnabled, older.queueEnabled, older.queueList.rows], [false, false, false, []]);
+});
+
+test('combined queue keeps played order, marks current, and preserves upcoming IDs and stable keys', () => {
+  const played = [{ key: 1, id: 'aaaaaaaaaaa', title: 'Oldest' }, { key: 2, id: 'bbbbbbbbbbb', title: null }];
+  const queue = [{ key: 3, id: 'ccccccccccc', title: '' }];
+  const status = { ...defaultStatus, played, queue };
+  const model = queueListModel(status);
+  assert.deepEqual(model, { currentId: defaultStatus.video.id, anchorIndex: 2, upcomingCount: 1, rows: [
+    { kind: queueRowKind.played, key: 1, id: 'aaaaaaaaaaa', title: 'Oldest' },
+    { kind: queueRowKind.played, key: 2, id: 'bbbbbbbbbbb', title: 'bbbbbbbbbbb' },
+    { kind: queueRowKind.current, key: null, ...defaultStatus.video },
+    { kind: queueRowKind.upcoming, key: 3, id: 'ccccccccccc', title: 'ccccccccccc' },
+  ] });
+  assert.deepEqual(popupState(status).queueList, model);
+  assert.deepEqual(queueListModel({ played, queue, video: null }), {
+    currentId: null, anchorIndex: 2, upcomingCount: 1, rows: model.rows.filter(row => row.kind !== queueRowKind.current),
+  });
+  assert.equal(played[1].title, null);
+});
+
+test('queue models support older receivers, current-only, played-only and entirely empty states', () => {
+  assert.deepEqual(queueListModel(null), { currentId: null, anchorIndex: -1, upcomingCount: 0, rows: [] });
+  assert.deepEqual(queueListModel({ queue: null, played: null }), queueListModel(null));
+  const current = queueListModel(defaultStatus);
+  assert.equal(current.rows.length, 1);
+  assert.equal(current.rows[0].kind, queueRowKind.current);
+  assert.equal(current.anchorIndex, 0);
+  const history = queueListModel({ played: [{ key: 2, id: 'bbbbbbbbbbb', title: 'Earlier' }] });
+  assert.equal(history.rows.length, 1);
+  assert.equal(history.anchorIndex, -1);
+});
+
+test('working spans loading and any overlapping popup requests', () => {
+  for (const state of Object.values(player)) {
+    assert.equal(isWorking({ player: state }), state === player.loading);
+    for (const requests of [1, 2, 8]) assert.equal(isWorking({ player: state }, requests), true);
+  }
+  assert.equal(isWorking(null, 0), false);
+  assert.equal(isWorking(null, 1), true);
+  assert.equal(isWorking({ player: player.loading, ok: false }, 0), true);
+});
+
+test('drop index is a final insertion index among remaining rows, clamped at each edge', () => {
+  for (const [y, expected] of [[-10, 0], [19, 0], [20, 1], [40, 1], [60, 2], [300, 2]]) {
+    assert.equal(queueDropIndex([20, 60], y), expected);
+  }
+  assert.equal(queueDropIndex([], 40), 0);
+});
+
+test('upcoming reorder is immutable, bounded, and never moves history or current', () => {
+  const model = queueListModel({ ...defaultStatus,
+    played: [{ key: 1, id: 'aaaaaaaaaaa', title: 'Earlier' }],
+    queue: [2, 3, 4].map(key => ({ key, id: 'bbbbbbbbbbb', title: `Video ${key}` })),
+  });
+  const keys = value => value.rows.map(row => row.key);
+  assert.deepEqual(keys(reorderUpcoming(model, 2, 2)), [1, null, 3, 4, 2]);
+  assert.deepEqual(keys(reorderUpcoming(model, 4, 0)), [1, null, 4, 2, 3]);
+  assert.deepEqual(keys(reorderUpcoming(model, 4, -20)), [1, null, 4, 2, 3]);
+  assert.deepEqual(keys(reorderUpcoming(model, 2, 100)), [1, null, 3, 4, 2]);
+  for (const [key, index] of [[1, 0], [null, 0], [9, 0], [2, -1], [4, 3], [2, NaN]]) {
+    assert.strictEqual(reorderUpcoming(model, key, index), model);
+  }
+  assert.deepEqual(keys(model), [1, null, 2, 3, 4]);
 });
 
 test('scrubbing also requires a video with a positive duration', () => {

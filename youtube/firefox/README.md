@@ -70,10 +70,10 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - The YouTube player's **Van TV** button casts the current playhead. Local
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
-- Right-click a YouTube video link → **Cast to Van TV** starts it from the
-  beginning. The watch-page background menu casts that tab's current playhead.
-  **Add to Van TV queue** (on links and watch pages) queues the video from the
-  beginning and leaves the tab playing; with nothing playing, it starts at once.
+- Right-click a YouTube video link or watch-page background → **Add to Queue**
+  queues it from the beginning and leaves the tab playing; with nothing playing,
+  it starts at once. **Cast** follows it in the menu, starting a linked video at
+  its URL's timestamp (or the beginning), or casting the watch page's playhead.
 - The popup's title opens the video on YouTube; under it, the channel's avatar,
   name, verified badge and subscriber count link to the channel.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
@@ -85,8 +85,22 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - **A/V offset** nudges the receiver's saved offset by 50 ms or resets it.
   Use minus when voices come after lips move. Volume, speed and offset are saved
   on the receiver and work without a loaded cast.
-- **Up next** lists the receiver's cast queue: click a title to play it now,
-  × to remove it, or Clear. **Queue this tab** adds the active tab's video.
+- **Queue** is one scrolling list: played videos above the highlighted current
+  video, then upcoming videos. It opens at the current video (or first upcoming
+  video), with a little history peeking above. Scroll up for earlier videos;
+  polling leaves your scroll position alone until the current video changes.
+  Click a played title to replay from the start, or an upcoming title to play now.
+  × removes an upcoming video; **Clear** removes upcoming videos only.
+  **Queue this tab** adds the active tab's video.
+- Each row's external-link button opens YouTube and closes the popup. **⌘/Ctrl-click**
+  or **middle-click** a played/upcoming title to open YouTube in a background tab
+  without closing the popup or changing receiver playback.
+- Drag an upcoming row's grip to reorder it; the list scrolls near its edges and
+  **Escape** cancels. With an upcoming row or one of its controls focused,
+  **Alt+ArrowUp/Down** moves it one place instead.
+- The state pill shows animated **Working…** while loading or awaiting a request;
+  reduced-motion settings keep the indicator static. Older receivers without
+  played history still show the current video and their upcoming queue.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
   Reassign it in `about:addons` → gear menu → **Manage Extension Shortcuts**.
   Shortcut/menu failures put `!` on the toolbar; open the popup for details.
@@ -123,9 +137,11 @@ YouTube channel lookups, `background/tab-casting.mjs` handles playhead handoff a
 tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
 `youtube/video-url.mjs` parses URLs for the background and popup contexts.
 `content/player-button.js` and `content/player-button.css` own the player button;
-`popup/popup.html`, `popup/popup.mjs`, `popup/state.mjs` and `popup/popup.css` own
-the toolbar popup, with shared colors in `theme/tokens.css`. `tests/` mirrors
-these feature folders; the receiver fixture lives beside its background tests.
+`popup/popup.html`, `popup/popup.mjs` and `popup/popup.css` own the toolbar popup.
+`popup/queue-list.mjs` owns queue/history rendering, anchoring and drag interactions;
+`popup/state.mjs` owns pure view state and reorder math. Shared colors and sizes
+live in `theme/tokens.css`. `tests/` mirrors these feature folders; the receiver
+fixture lives beside its background tests.
 `build.zsh` keeps the same feature folders in both packaged outputs.
 
 ```sh
@@ -134,6 +150,9 @@ node --test 'tests/**/*.test.mjs'
 
 Tests need no private `local.json` or running receiver. Packaging tests set
 `CASTIT_LOCAL_CONFIG` themselves and build in temporary checkouts; HTTP tests
-use loopback servers. For Firefox acceptance, check the player button across
-YouTube navigation, playhead handoff, popup controls, keyboard shortcut,
-read failover and unreachable-receiver errors on your network.
+use loopback servers. They cover menu titles/order, history decoding, move
+validation/message routing, combined list models, working state and reorder math.
+For Firefox acceptance, check the player button across YouTube navigation,
+playhead handoff, popup controls, history anchoring, drag/autoscroll/Escape,
+Alt+Arrow reordering, modified/middle-click links, keyboard shortcut, read
+failover and unreachable-receiver errors on your network.

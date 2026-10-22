@@ -72,6 +72,7 @@ test('XPI and unpacked extension match the example config without a private loca
   assert.deepEqual(Object.keys(context.VAN_TV_LOCAL), ['receiverUrls']);
   assert.equal(Object.isFrozen(context.VAN_TV_CONFIG.receiverUrls), true);
   assert.ok(files.includes('background/receiver-client.mjs'));
+  assert.ok(files.includes('popup/queue-list.mjs'));
   assert.ok(files.includes('youtube/video-url.mjs'));
   assert.ok(files.every(path => !path.startsWith('tests/') && !path.endsWith('.test.mjs')));
   for (const excluded of ['build.zsh', 'build/generate-config.mjs', 'manifest.template.json', 'README.md', 'local.json']) {

@@ -7,7 +7,7 @@ const menu = Object.freeze({ link: 'cast-link', page: 'cast-page', queueLink: 'q
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key']) {
+  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'index']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;
@@ -51,13 +51,13 @@ export async function showCastResult(browserApi, operation, success = 'Van TV â€
 export async function installContextMenus(browserApi, receiver) {
   const patterns = youtubeMenuPatterns();
   await browserApi.contextMenus.removeAll();
-  browserApi.contextMenus.create({ id: menu.link, title: 'Cast to Van TV',
+  browserApi.contextMenus.create({ id: menu.queueLink, title: 'Add to Queue',
     contexts: ['link'], targetUrlPatterns: patterns.link });
-  browserApi.contextMenus.create({ id: menu.queueLink, title: 'Add to Van TV queue',
+  browserApi.contextMenus.create({ id: menu.link, title: 'Cast',
     contexts: ['link'], targetUrlPatterns: patterns.link });
-  browserApi.contextMenus.create({ id: menu.page, title: 'Cast to Van TV',
+  browserApi.contextMenus.create({ id: menu.queuePage, title: 'Add to Queue',
     contexts: ['page'], documentUrlPatterns: patterns.page });
-  browserApi.contextMenus.create({ id: menu.queuePage, title: 'Add to Van TV queue',
+  browserApi.contextMenus.create({ id: menu.page, title: 'Cast',
     contexts: ['page'], documentUrlPatterns: patterns.page });
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);

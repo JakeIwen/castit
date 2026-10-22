@@ -76,6 +76,47 @@ export function formatVolume(volume) {
   return volume.muted ? 'Muted' : `${Math.round(volume.level)}%`;
 }
 
+export const queueRowKind = Object.freeze({ played: 'played', current: 'current', upcoming: 'upcoming' });
+
+/** @typedef {{kind: string, key: number|null, id: string, title: string}} QueueRow */
+/** @typedef {{rows: QueueRow[], currentId: string|null, anchorIndex: number, upcomingCount: number}} QueueListModel */
+
+/** @returns {QueueListModel} */
+export function queueListModel(status) {
+  const entries = (list, kind) => (list ?? []).map(({ key, id, title }) => ({
+    kind, key, id, title: title || id,
+  }));
+  const rows = entries(status?.played, queueRowKind.played);
+  if (status?.video) rows.push({ kind: queueRowKind.current, key: null,
+    id: status.video.id, title: status.video.title || status.video.id });
+  rows.push(...entries(status?.queue, queueRowKind.upcoming));
+  return { rows, currentId: status?.video?.id ?? null,
+    anchorIndex: rows.findIndex(row => row.kind !== queueRowKind.played),
+    upcomingCount: status?.queue?.length ?? 0 };
+}
+
+export function isWorking(status, requestsInFlight = 0) {
+  return status?.player === player.loading || requestsInFlight > 0;
+}
+
+// Centers belong to the remaining upcoming rows, with the dragged row excluded.
+export function queueDropIndex(centers, pointerY) {
+  const index = centers.findIndex(center => pointerY < center);
+  return index < 0 ? centers.length : index;
+}
+
+export function reorderUpcoming(model, key, index) {
+  const upcoming = model.rows.filter(row => row.kind === queueRowKind.upcoming);
+  const from = upcoming.findIndex(row => row.key === key);
+  if (from < 0 || !Number.isSafeInteger(index)) return model;
+  const to = Math.max(0, Math.min(index, upcoming.length - 1));
+  if (from === to) return model;
+  upcoming.splice(to, 0, ...upcoming.splice(from, 1));
+  return { ...model, rows: [
+    ...model.rows.filter(row => row.kind !== queueRowKind.upcoming), ...upcoming,
+  ] };
+}
+
 export function popupState(status) {
   const actions = status.ok ? (availableActions[status.player] ?? []) : [];
   const elapsed = formatTime(status.position);
@@ -99,6 +140,6 @@ export function popupState(status) {
     volumeLabel: formatVolume(status.volume),
     muted: Boolean(status.volume?.muted),
     queueEnabled: Boolean(status.ok && status.queue),
-    queue: (status.queue ?? []).map(entry => ({ key: entry.key, title: entry.title || entry.id })),
+    queueList: queueListModel(status),
   };
 }

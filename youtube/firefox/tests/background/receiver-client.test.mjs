@@ -91,6 +91,52 @@ test('status decodes speed, volume and queue, treating malformed or missing ones
   assert.deepEqual([malformed.speed, malformed.volume, malformed.queue], [null, null, null]);
 });
 
+test('move sends a stable key and nonnegative final index, including a no-longer-queued response', async t => {
+  const fixture = await startReceiver(t, { respond(request, response) {
+    if (request.path !== '/api/queue') return false;
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ action: 'move', done: false }));
+    return true;
+  } });
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  assert.deepEqual(await receiver.queue('move', { key: 7, index: 0 }), { action: 'move', done: false });
+  await receiver.queue('move', { key: 8, index: Number.MAX_SAFE_INTEGER });
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => request.body), [
+    { action: 'move', key: 7, index: 0 }, { action: 'move', key: 8, index: Number.MAX_SAFE_INTEGER },
+  ]);
+});
+
+test('invalid move fields fail before any HTTP request', async t => {
+  const fixture = await startReceiver(t);
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  for (const index of [undefined, null, -1, 0.5, '1', Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(receiver.queue('move', { key: 7, index }), /Invalid queue index/);
+  }
+  for (const key of [undefined, null, '7', 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(receiver.queue('move', { key, index: 0 }), /Invalid queue entry/);
+  }
+  await assert.rejects(receiver.queue('move', null), /Invalid queue entry/);
+  assert.equal(fixture.requests.length, 0);
+});
+
+test('status decodes played entries like upcoming entries without retaining extra fields', () => {
+  const entries = [{ key: 2, id: videoId, title: 'Earlier', private: 'discard' },
+    { key: 3, id: videoId, title: null }];
+  const expected = [{ key: 2, id: videoId, title: 'Earlier' }, { key: 3, id: videoId, title: null }];
+  const status = decodeStatus({ ...defaultStatus, queue: entries, played: entries });
+  assert.deepEqual(status.played, expected);
+  assert.deepEqual(status.queue, expected);
+  assert.notStrictEqual(status.played[0], entries[0]);
+  for (const field of ['queue', 'played']) {
+    for (const value of [undefined, null, {}, '[]', [{ key: '2', id: videoId, title: null }],
+      [{ key: 2, id: 'invalid', title: 'Title' }], [{ key: 2, id: videoId }],
+      [{ key: Number.MAX_SAFE_INTEGER + 1, id: videoId, title: null }]]) {
+      assert.equal(decodeStatus({ ...defaultStatus, [field]: value })[field], null);
+    }
+    assert.deepEqual(decodeStatus({ ...defaultStatus, [field]: [] })[field], []);
+  }
+});
+
 test('unreachable primary falls back on a read and performs exactly one cast', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: ['http://127.0.0.1:1', fixture.url] });

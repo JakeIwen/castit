@@ -135,12 +135,12 @@ test('unknown messages and content-script receiver controls have no side effects
   });
 });
 
-test('link context menu deliberately ignores URL timestamp and leaves local playback alone', async t => {
+test('link context menu preserves URL timestamp and leaves local playback alone', async t => {
   const fixture = await startReceiver(t);
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  const menu = browser.menus.find(item => item.contexts.includes('link'));
-  assert.equal(menu.title, 'Cast to Van TV');
+  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Cast');
+  assert.equal(menu.title, 'Cast');
   assert.ok(menu.targetUrlPatterns.includes('*://youtu.be/*'));
   browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}?t=90` });
   await browser.completed;
@@ -154,7 +154,7 @@ test('queue menus add a link or the watch page from the start without touching t
   const queueMenus = async (contexts, info) => {
     const browser = browserFixture();
     await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Add to Van TV queue');
+    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Add to Queue');
     browser.click({ menuItemId: menu.id, ...info });
     await browser.completed;
     return browser;
@@ -179,7 +179,7 @@ test('a full queue shows as a toolbar error', async t => {
   } });
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Add to Van TV queue');
+  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Add to Queue');
   browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}` });
   await browser.completed;
   assert.deepEqual([browser.badges, browser.titles], [['!'], ['The Van TV queue is full']]);
@@ -192,7 +192,7 @@ test('watch-page menu and shortcut use the same active playhead cast flow', asyn
     const receiver = createReceiverClient({ baseUrls: [fixture.url] });
     if (source === 'page') {
       await installContextMenus(browser.browserApi, receiver);
-      const menu = browser.menus.find(item => item.contexts.includes('page'));
+      const menu = browser.menus.find(item => item.contexts.includes('page') && item.title === 'Cast');
       browser.click({ menuItemId: menu.id });
     } else {
       installCommands(browser.browserApi, receiver);
@@ -202,6 +202,28 @@ test('watch-page menu and shortcut use the same active playhead cast flow', asyn
     assert.equal(fixture.requests.find(request => request.method === 'POST').body.position, 64);
     assert.equal(browser.messages.at(-1).type, config.message.castAccepted);
   }
+});
+
+test('queue menus precede cast menus for links and watch pages', async () => {
+  const browser = browserFixture();
+  await installContextMenus(browser.browserApi, {});
+  for (const context of ['link', 'page']) {
+    assert.deepEqual(browser.menus.filter(item => item.contexts.includes(context))
+      .map(item => item.title), ['Add to Queue', 'Cast']);
+  }
+});
+
+test('popup move messages pass the final index and key through to HTTP', async t => {
+  const fixture = await startReceiver(t);
+  const handle = createMessageHandler(browserFixture().browserApi,
+    createReceiverClient({ baseUrls: [fixture.url] }));
+  const message = { type: config.message.queue, action: config.queue.move, key: 7, index: 0 };
+  assert.equal(handle(message, { tab }), undefined);
+  assert.deepEqual(await handle(message, {}), { ok: true, data: { action: 'move', done: true } });
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST')
+    .map(request => [request.path, request.body]), [
+    ['/api/queue', { action: 'move', key: 7, index: 0 }],
+  ]);
 });
 
 test('shortcut failure is visible in the toolbar badge and hover title', async t => {

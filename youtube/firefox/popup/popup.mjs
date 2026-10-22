@@ -1,5 +1,6 @@
 import '../config.js';
-import { createScrubState, formatTime, popupState, transitionScrub } from './state.mjs';
+import { createScrubState, formatTime, isWorking, popupState, queueListModel, transitionScrub } from './state.mjs';
+import { QueueList } from './queue-list.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
@@ -43,7 +44,6 @@ const settingControls = [
   { button: element['speed-up'], action: config.control.speed, fields: { offset: config.speedStep }, enabled: 'speedEnabled' },
   { button: element['speed-reset'], action: config.control.speed, fields: { speed: 1 }, enabled: 'speedEnabled' },
 ];
-const removeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 let latestStatus;
 let scrub = createScrubState();
@@ -55,13 +55,44 @@ let progressTimer;
 let progressTime = performance.now();
 let closed = false;
 let showRemaining = false;
-let renderedQueue = '';
 let detailsVideoId = null;
+let requestsInFlight = 0;
+let statusRequest = 0;
+const queueList = new QueueList({ list: element.queue, section: element['queue-section'],
+  onAction: fields => perform(config.message.queue, fields, '', 'This video is no longer in the list'),
+  onOpen: openYouTube });
+
+async function withRequest(operation) {
+  requestsInFlight += 1;
+  renderActivity();
+  try { return await operation(); }
+  finally { requestsInFlight -= 1; renderActivity(); }
+}
 
 async function send(type, fields = {}) {
-  const response = await browser.runtime.sendMessage({ type, ...fields });
-  if (!response?.ok) throw new Error(response?.error || 'Van TV request failed');
-  return response.data;
+  return withRequest(async () => {
+    const response = await browser.runtime.sendMessage({ type, ...fields });
+    if (!response?.ok) throw new Error(response?.error || 'Van TV request failed');
+    return response.data;
+  });
+}
+
+function renderActivity() {
+  const working = isWorking(latestStatus, requestsInFlight);
+  const state = latestStatus ? popupState(latestStatus).state
+    : (latestStatus === undefined ? 'Connecting…' : 'Van TV unreachable');
+  const label = state === latestStatus?.player ? state[0] + state.slice(1).toLowerCase() : state;
+  element.state.textContent = working ? 'Working' : label;
+  element.state.classList.toggle('working', working);
+  element.state.setAttribute('aria-label', working ? 'Working…' : label);
+  element.state.title = working ? label : '';
+}
+
+async function openYouTube(url, background = false) {
+  try {
+    await withRequest(() => browser.tabs.create(background ? { url, active: false } : { url }));
+    if (!background) window.close();
+  } catch (error) { element.notice.textContent = error.message; }
 }
 
 function renderPlayback() {
@@ -97,42 +128,11 @@ function updateControls() {
   element.mute.textContent = view?.muted ? 'Unmute' : 'Mute';
   element.mute.title = view?.muted ? 'Unmute Van TV' : 'Mute Van TV';
   element.mute.setAttribute('aria-pressed', String(Boolean(view?.muted)));
-  for (const button of element.queue.querySelectorAll('button')) button.disabled = busy;
-  element['queue-clear'].disabled = busy;
+  queueList.setBusy(busy);
+  element['queue-clear'].disabled = busy || !view?.queueList.upcomingCount;
   element['cast-tab'].disabled = busy || !tabAvailable;
   element['queue-tab'].disabled = busy || !tabAvailable || !view?.queueEnabled;
   element.duration.disabled = !view?.scrubEnabled;
-}
-
-function queueButton(className, label, fields, content) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = className;
-  button.title = label;
-  button.setAttribute('aria-label', label);
-  button.append(content);
-  button.addEventListener('click', () => void perform(config.message.queue, fields, '', 'Already gone from the queue'));
-  return button;
-}
-
-// Rebuilt only when the queue changes, so polling never steals focus.
-function renderQueue(entries) {
-  const signature = JSON.stringify(entries);
-  if (signature === renderedQueue) return;
-  renderedQueue = signature;
-  element['queue-section'].hidden = entries.length === 0;
-  element.queue.replaceChildren(...entries.map(entry => {
-    const item = document.createElement('li');
-    const remove = document.createElement('template');
-    remove.innerHTML = removeIcon;
-    item.append(
-      queueButton('queue-play', `Play now: ${entry.title}`,
-        { action: config.queue.play, key: entry.key }, entry.title),
-      queueButton('icon-button queue-remove', `Remove from queue: ${entry.title}`,
-        { action: config.queue.remove, key: entry.key }, remove.content),
-    );
-    return item;
-  }));
 }
 
 function renderChannel(channel) {
@@ -164,29 +164,30 @@ function renderVideo(title, video) {
 }
 
 function renderStatus() {
+  renderActivity();
   if (latestStatus) {
     const view = popupState(latestStatus);
-    element.state.textContent = view.state === latestStatus.player
-      ? view.state[0] + view.state.slice(1).toLowerCase() : view.state;
     renderVideo(view.title, latestStatus.video);
-    renderQueue(view.queue);
+    queueList.render(view.queueList);
   } else {
-    element.state.textContent = 'Van TV unreachable';
     renderVideo('', null);
-    renderQueue([]);
+    queueList.render(queueListModel(null));
   }
   renderPlayback();
   updateControls();
 }
 
 async function refreshStatus() {
+  const request = ++statusRequest;
   try {
     const status = await send(config.message.status);
+    if (request !== statusRequest) return;
     scrub = transitionScrub(scrub, {
       type: 'poll', position: status.position, duration: status.duration,
     }).state;
     latestStatus = status;
   } catch {
+    if (request !== statusRequest) return;
     latestStatus = null;
     if (!scrub.dragging) scrub = createScrubState();
   }
@@ -218,9 +219,12 @@ async function perform(type, fields, success, unchanged = 'No playback change') 
   try {
     const data = await send(type, fields);
     element.notice.textContent = data.done === false ? unchanged : success;
-    await refreshStatus();
   } catch (error) { element.notice.textContent = error.message; }
-  finally { busy = false; updateControls(); }
+  finally {
+    await refreshStatus();
+    busy = false;
+    updateControls();
+  }
 }
 
 function updateProgress() {
@@ -269,7 +273,7 @@ for (const link of [element.video, element.channel]) {
   link.addEventListener('click', event => {
     event.preventDefault();
     if (!link.href) return;
-    void browser.tabs.create({ url: link.href }).then(() => window.close());
+    void openYouTube(link.href);
   });
 }
 
@@ -291,6 +295,7 @@ window.addEventListener('pagehide', () => {
   closed = true;
   clearTimeout(pollTimer);
   clearInterval(progressTimer);
+  queueList.destroy();
 });
 void browser.browserAction.setBadgeText({ text: '' });
 void browser.browserAction.setTitle({ title: 'Van TV' });

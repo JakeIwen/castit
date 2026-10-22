@@ -31,7 +31,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
     speed: 'speed', volume: 'volume', mute: 'mute',
   }),
-  queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear' }),
+  queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear', move: 'move' }),
   // Seconds per lip-sync nudge; positive plays sound later.
   audioDelayStep: 0.05,
   speedStep: 0.25,
