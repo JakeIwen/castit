@@ -7,6 +7,6 @@ cd "$root/youtube/receiver"
 npm ci --no-audit --no-fund --silent
 npm test
 cd "$root/youtube/firefox"
-node --test tests/*.test.mjs
+node --test 'tests/**/*.test.mjs'
 zsh -n "$root/youtube/vantv.zsh"
 print 'PASS: castit suite'

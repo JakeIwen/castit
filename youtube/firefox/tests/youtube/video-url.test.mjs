@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isVideoId, parseStartTime, parseYouTubeVideo, youtubeMenuPatterns } from '../youtube-video.mjs';
+import { isVideoId, parseStartTime, parseYouTubeVideo, youtubeMenuPatterns } from '../../youtube/video-url.mjs';
 
 const id = 'dQw4w9WgXcQ';
 

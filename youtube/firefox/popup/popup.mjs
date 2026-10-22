@@ -1,6 +1,6 @@
-import './config.js';
-import { createScrubState, formatTime, popupState, transitionScrub } from './popup-state.mjs';
-import { watchUrl } from './youtube-video.mjs';
+import '../config.js';
+import { createScrubState, formatTime, popupState, transitionScrub } from './state.mjs';
+import { watchUrl } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [

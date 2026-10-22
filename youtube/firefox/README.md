@@ -115,15 +115,21 @@ network, not the public internet.
 
 ## Files and tests
 
-`build-config.mjs` owns config validation and generation; `config.js` owns shared
-YouTube patterns, messages and controls. `receiver-client.mjs` owns HTTP,
-`youtube-video.mjs` parses URLs, `tab-casting.mjs` handles playhead handoff and tab queuing, and
-`background-actions.mjs` handles messages, menus and shortcuts.
-`content.js`/`content.css` own the player button; `popup.mjs`/`popup-state.mjs`
-and `popup.css` own the popup, with shared colors in `tokens.css`.
+`build/generate-config.mjs` owns config validation and generation; root `config.js`
+owns extension-wide YouTube patterns, messages and controls. `background/page.html`
+loads the generated root `local-config.js` before `background/main.mjs`.
+`background/receiver-client.mjs` owns HTTP, `background/video-details.mjs` owns
+YouTube channel lookups, `background/tab-casting.mjs` handles playhead handoff and
+tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
+`youtube/video-url.mjs` parses URLs for the background and popup contexts.
+`content/player-button.js` and `content/player-button.css` own the player button;
+`popup/popup.html`, `popup/popup.mjs`, `popup/state.mjs` and `popup/popup.css` own
+the toolbar popup, with shared colors in `theme/tokens.css`. `tests/` mirrors
+these feature folders; the receiver fixture lives beside its background tests.
+`build.zsh` keeps the same feature folders in both packaged outputs.
 
 ```sh
-node --test tests/*.test.mjs
+node --test 'tests/**/*.test.mjs'
 ```
 
 Tests need no private `local.json` or running receiver. Packaging tests set

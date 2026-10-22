@@ -1,4 +1,4 @@
-import './config.js';
+import '../config.js';
 
 const { player, control } = globalThis.VAN_TV_CONFIG;
 const playbackActions = Object.freeze([

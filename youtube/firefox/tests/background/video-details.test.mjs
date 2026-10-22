@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createVideoDetails, parseChannelPage } from '../video-details.mjs';
-import { watchUrl } from '../youtube-video.mjs';
+import { createVideoDetails, parseChannelPage } from '../../background/video-details.mjs';
+import { watchUrl } from '../../youtube/video-url.mjs';
 import { videoId } from './receiver-fixture.mjs';
 
 const channelUrl = 'https://www.youtube.com/@example';

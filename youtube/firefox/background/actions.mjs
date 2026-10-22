@@ -1,6 +1,6 @@
-import './config.js';
+import '../config.js';
 import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
-import { parseYouTubeVideo, youtubeMenuPatterns } from './youtube-video.mjs';
+import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const menu = Object.freeze({ link: 'cast-link', page: 'cast-page', queueLink: 'queue-link', queuePage: 'queue-page' });

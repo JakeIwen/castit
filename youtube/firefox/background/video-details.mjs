@@ -1,5 +1,5 @@
-import './config.js';
-import { isVideoId, watchUrl } from './youtube-video.mjs';
+import '../config.js';
+import { isVideoId, watchUrl } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const { origin } = config.youtube;

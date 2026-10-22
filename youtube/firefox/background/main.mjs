@@ -1,5 +1,5 @@
 import { createReceiverClient } from './receiver-client.mjs';
-import { createMessageHandler, installCommands, installContextMenus } from './background-actions.mjs';
+import { createMessageHandler, installCommands, installContextMenus } from './actions.mjs';
 import { createVideoDetails } from './video-details.mjs';
 
 const receiver = createReceiverClient();

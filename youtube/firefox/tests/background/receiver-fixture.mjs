@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import '../config.js';
+import '../../config.js';
 
 export const videoId = 'dQw4w9WgXcQ';
 export const defaultStatus = Object.freeze({

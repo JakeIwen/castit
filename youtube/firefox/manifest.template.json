@@ -7,15 +7,15 @@
     "gecko": { "strict_min_version": "102.0" }
   },
   "permissions": ["contextMenus", "tabs", "https://www.youtube.com/*"],
-  "background": { "page": "background.html" },
+  "background": { "page": "background/page.html" },
   "browser_action": {
-    "default_title": "Van TV", "default_popup": "popup.html", "default_icon": "icon.svg"
+    "default_title": "Van TV", "default_popup": "popup/popup.html", "default_icon": "icon.svg"
   },
   "icons": { "48": "icon.svg", "96": "icon.svg" },
   "content_scripts": [{
     "matches": ["*://www.youtube.com/*"],
-    "js": ["config.js", "content.js"],
-    "css": ["tokens.css", "content.css"],
+    "js": ["config.js", "content/player-button.js"],
+    "css": ["theme/tokens.css", "content/player-button.css"],
     "run_at": "document_idle"
   }],
   "commands": {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createReceiverClient, decodeStatus } from '../receiver-client.mjs';
+import { createReceiverClient, decodeStatus } from '../../background/receiver-client.mjs';
 import { defaultStatus, startReceiver, videoId } from './receiver-fixture.mjs';
 
 test('background HTTP round trip sends JSON casts and controls without cookies or pairing data', async t => {

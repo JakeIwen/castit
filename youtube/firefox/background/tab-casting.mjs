@@ -1,5 +1,5 @@
-import './config.js';
-import { isPosition, parseYouTubeVideo } from './youtube-video.mjs';
+import '../config.js';
+import { isPosition, parseYouTubeVideo } from '../youtube/video-url.mjs';
 
 const { message, queue } = globalThis.VAN_TV_CONFIG;
 
@@ -8,7 +8,7 @@ export async function activeTab(browserApi) {
   return tab ?? null;
 }
 
-/** @returns {Promise<import('./youtube-video.mjs').VideoSelection|null>} */
+/** @returns {Promise<import('../youtube/video-url.mjs').VideoSelection|null>} */
 export async function tabVideo(browserApi, tab) {
   const parsed = parseYouTubeVideo(tab?.url);
   if (!parsed) return null;

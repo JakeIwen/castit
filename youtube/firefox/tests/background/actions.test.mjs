@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMessageHandler, installCommands, installContextMenus } from '../background-actions.mjs';
-import { createReceiverClient } from '../receiver-client.mjs';
-import { castTab, tabVideo } from '../tab-casting.mjs';
+import { createMessageHandler, installCommands, installContextMenus } from '../../background/actions.mjs';
+import { createReceiverClient } from '../../background/receiver-client.mjs';
+import { castTab, tabVideo } from '../../background/tab-casting.mjs';
 import { startReceiver, videoId } from './receiver-fixture.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;

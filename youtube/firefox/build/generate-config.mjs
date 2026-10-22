@@ -37,7 +37,7 @@ function senderConfig(local) {
 
 async function generate(configPath, outputDir) {
   const { receiverUrls, extensionId } = senderConfig(await readLocalConfig(configPath));
-  const manifest = JSON.parse(await readFile(new URL('./manifest.template.json', import.meta.url), 'utf8'));
+  const manifest = JSON.parse(await readFile(new URL('../manifest.template.json', import.meta.url), 'utf8'));
   manifest.browser_specific_settings.gecko.id = extensionId;
   const hosts = receiverUrls.map(value => {
     const url = new URL(value);

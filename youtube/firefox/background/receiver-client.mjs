@@ -1,5 +1,5 @@
-import './config.js';
-import { isPosition, isVideoId } from './youtube-video.mjs';
+import '../config.js';
+import { isPosition, isVideoId } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const states = Object.values(config.player);

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createScrubState, formatAudioDelay, formatSpeed, formatTime, formatVolume, popupState, transitionScrub,
-} from '../popup-state.mjs';
-import { defaultStatus } from './receiver-fixture.mjs';
+} from '../../popup/state.mjs';
+import { defaultStatus } from '../background/receiver-fixture.mjs';
 
 const { player, control } = globalThis.VAN_TV_CONFIG;
 

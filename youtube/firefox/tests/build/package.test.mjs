@@ -2,17 +2,17 @@ import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { copyFile, cp, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
-import '../config.js';
-import { startReceiver, videoId } from './receiver-fixture.mjs';
+import '../../config.js';
+import { startReceiver, videoId } from '../background/receiver-fixture.mjs';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const config = globalThis.VAN_TV_CONFIG;
-const examplePath = new URL('../../local.example.json', import.meta.url);
+const examplePath = new URL('../../../local.example.json', import.meta.url);
 const execFileAsync = promisify(execFile);
 
 async function checkout(t) {
@@ -57,8 +57,8 @@ test('XPI and unpacked extension match the example config without a private loca
   assert.equal(manifest.commands[config.command].suggested_key.default, 'Alt+Shift+V');
   const background = await generated(dir, manifest.background.page);
   const scripts = [...background.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(scripts, ['local-config.js', 'background.mjs']);
-  const required = [manifest.background.page, ...scripts, manifest.browser_action.default_popup,
+  assert.deepEqual(scripts, ['../local-config.js', 'main.mjs']);
+  const required = [manifest.background.page, ...scripts.map(path => join(dirname(manifest.background.page), path)), manifest.browser_action.default_popup,
     manifest.browser_action.default_icon, ...manifest.content_scripts.flatMap(item => [...item.js, ...item.css])];
   for (const path of required) assert.ok(files.includes(path), `Packaged ${path}`);
   for (const file of files) {
@@ -71,10 +71,10 @@ test('XPI and unpacked extension match the example config without a private loca
   assert.deepEqual(JSON.parse(JSON.stringify(context.VAN_TV_CONFIG.receiverUrls)), example.receiverUrls);
   assert.deepEqual(Object.keys(context.VAN_TV_LOCAL), ['receiverUrls']);
   assert.equal(Object.isFrozen(context.VAN_TV_CONFIG.receiverUrls), true);
-  assert.ok(files.includes('receiver-client.mjs'));
-  assert.ok(files.includes('youtube-video.mjs'));
-  assert.ok(files.every(path => !path.includes('/') && !path.endsWith('.test.mjs')));
-  for (const excluded of ['build.zsh', 'build-config.mjs', 'manifest.template.json', 'README.md', 'local.json']) {
+  assert.ok(files.includes('background/receiver-client.mjs'));
+  assert.ok(files.includes('youtube/video-url.mjs'));
+  assert.ok(files.every(path => !path.startsWith('tests/') && !path.endsWith('.test.mjs')));
+  for (const excluded of ['build.zsh', 'build/generate-config.mjs', 'manifest.template.json', 'README.md', 'local.json']) {
     assert.equal(files.includes(excluded), false);
   }
   assert.equal(manifest.web_accessible_resources, undefined);
@@ -90,7 +90,7 @@ test('generated receiver URLs drive the default client through a real local HTTP
   build(dir, path);
   await execFileAsync(process.execPath, ['--input-type=module', '-e', `
     import './dist/extension/local-config.js';
-    import { createReceiverClient } from './dist/extension/receiver-client.mjs';
+    import { createReceiverClient } from './dist/extension/background/receiver-client.mjs';
     await createReceiverClient().cast('${videoId}', 12.5);
   `], { cwd: dir });
   assert.deepEqual(fixture.requests.map(request => [request.path, request.body]), [

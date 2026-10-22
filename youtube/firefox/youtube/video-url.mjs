@@ -1,4 +1,4 @@
-import './config.js';
+import '../config.js';
 
 const { youtube } = globalThis.VAN_TV_CONFIG;
 
