@@ -1,5 +1,6 @@
 import './config.js';
 import { createScrubState, formatTime, popupState, transitionScrub } from './popup-state.mjs';
+import { watchUrl } from './youtube-video.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [
@@ -9,6 +10,7 @@ const ids = [
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
   'speed-value', 'queue-section', 'queue', 'queue-clear', 'queue-tab',
+  'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const transportControls = [
@@ -54,6 +56,7 @@ let progressTime = performance.now();
 let closed = false;
 let showRemaining = false;
 let renderedQueue = '';
+let detailsVideoId = null;
 
 async function send(type, fields = {}) {
   const response = await browser.runtime.sendMessage({ type, ...fields });
@@ -132,16 +135,44 @@ function renderQueue(entries) {
   }));
 }
 
+function renderChannel(channel) {
+  element.channel.href = channel.url;
+  element['channel-name'].textContent = channel.name;
+  element['channel-verified'].toggleAttribute('hidden', !channel.verified);
+  element['channel-subscribers'].textContent = channel.subscribers ?? '';
+  element['channel-avatar'].hidden = !channel.avatarUrl;
+  if (channel.avatarUrl) element['channel-avatar'].src = channel.avatarUrl;
+  element.channel.hidden = false;
+}
+
+async function loadDetails(videoId) {
+  detailsVideoId = videoId;
+  element.channel.hidden = true;
+  if (!videoId) return;
+  try {
+    const details = await send(config.message.videoDetails, { videoId });
+    if (detailsVideoId === videoId) renderChannel(details.channel);
+  } catch { /* The title link still works without channel details. */ }
+}
+
+function renderVideo(title, video) {
+  element.video.textContent = title;
+  if (video) element.video.href = watchUrl(video.id);
+  else element.video.removeAttribute('href');
+  const videoId = video?.id ?? null;
+  if (videoId !== detailsVideoId) void loadDetails(videoId);
+}
+
 function renderStatus() {
   if (latestStatus) {
     const view = popupState(latestStatus);
     element.state.textContent = view.state === latestStatus.player
       ? view.state[0] + view.state.slice(1).toLowerCase() : view.state;
-    element.video.textContent = view.title;
+    renderVideo(view.title, latestStatus.video);
     renderQueue(view.queue);
   } else {
     element.state.textContent = 'Van TV unreachable';
-    element.video.textContent = '';
+    renderVideo('', null);
     renderQueue([]);
   }
   renderPlayback();
@@ -232,6 +263,15 @@ element.scrub.addEventListener('change', event => {
   renderStatus();
   void perform(config.message.control, { action: config.control.seek, ...result.seek }, '');
 });
+
+// Popup links open in a normal tab, and the popup closes like a menu would.
+for (const link of [element.video, element.channel]) {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    if (!link.href) return;
+    void browser.tabs.create({ url: link.href }).then(() => window.close());
+  });
+}
 
 element['cast-tab'].addEventListener('click', () => void perform(
   config.message.castTab, {}, 'Cast accepted'));

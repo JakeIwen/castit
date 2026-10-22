@@ -12,7 +12,15 @@
     <h1>Van TV</h1>
     <p id="state" role="status">Connecting…</p>
   </header>
-  <p id="video"></p>
+  <a id="video" class="video-title" title="Open on YouTube"></a>
+  <a id="channel" class="channel" title="Open the channel on YouTube" hidden>
+    <img id="channel-avatar" alt="" width="36" height="36">
+    <span class="channel-text">
+      <span class="channel-name"><span id="channel-name"></span><svg id="channel-verified" viewBox="0 0 24 24"
+        role="img" aria-label="Verified" hidden><circle cx="12" cy="12" r="10"/><path d="m7.5 12.2 3 3 6-6.4"/></svg></span>
+      <span id="channel-subscribers"></span>
+    </span>
+  </a>
   <div class="scrubber">
     <input id="scrub" type="range" min="0" max="0" step="1"
       value="0" aria-label="Playback position" disabled>

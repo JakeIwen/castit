@@ -106,7 +106,8 @@ test('build preserves HTTPS and URL order, strips trailing slashes and deduplica
   await writeFile(path, JSON.stringify(local));
   build(dir, path);
   const manifest = JSON.parse(await generated(dir, 'manifest.json'));
-  assert.deepEqual(manifest.permissions, ['contextMenus', 'tabs', 'https://receiver.example/*', 'http://localhost/*']);
+  assert.deepEqual(manifest.permissions, ['contextMenus', 'tabs', 'https://www.youtube.com/*',
+    'https://receiver.example/*', 'http://localhost/*']);
   const context = {};
   runInNewContext(await generated(dir, 'local-config.js'), context);
   assert.deepEqual(JSON.parse(JSON.stringify(context.VAN_TV_LOCAL.receiverUrls)), [

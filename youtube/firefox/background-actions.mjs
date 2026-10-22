@@ -13,7 +13,7 @@ function controlFields(message) {
   return fields;
 }
 
-export function createMessageHandler(browserApi, receiver) {
+export function createMessageHandler(browserApi, receiver, videoDetails) {
   const routes = {
     [config.message.status]: () => receiver.status(),
     [config.message.control]: message => receiver.control(message.action, controlFields(message)),
@@ -22,6 +22,7 @@ export function createMessageHandler(browserApi, receiver) {
     [config.message.castTab]: async () => castTab(browserApi, receiver, await activeTab(browserApi)),
     [config.message.queue]: message => receiver.queue(message.action, controlFields(message)),
     [config.message.queueTab]: async () => queueTab(browserApi, receiver, await activeTab(browserApi)),
+    [config.message.videoDetails]: message => videoDetails.details(message.videoId),
   };
   return (message, sender) => {
     const route = message && Object.hasOwn(routes, message.type) && routes[message.type];

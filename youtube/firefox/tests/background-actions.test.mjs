@@ -110,6 +110,15 @@ test('popup control messages pass seek and A/V offset fields through', async t =
   ]);
 });
 
+test('video details are relayed for extension pages only', async () => {
+  const lookups = [];
+  const details = { details: async id => { lookups.push(id); return { videoId: id }; } };
+  const handle = createMessageHandler(browserFixture().browserApi, null, details);
+  assert.deepEqual(await handle({ type: config.message.videoDetails, videoId }, {}), { ok: true, data: { videoId } });
+  assert.equal(handle({ type: config.message.videoDetails, videoId }, { tab }), undefined);
+  assert.deepEqual(lookups, [videoId]);
+});
+
 test('unknown messages and content-script receiver controls have no side effects', async t => {
   const fixture = await startReceiver(t);
   const browser = browserFixture();

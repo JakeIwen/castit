@@ -9,6 +9,10 @@ export function isVideoId(value) {
   return typeof value === 'string' && youtube.videoIdPattern.test(value);
 }
 
+export function watchUrl(videoId) {
+  return `${youtube.origin}${youtube.watchPath}?v=${videoId}`;
+}
+
 export function isPosition(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }

@@ -41,7 +41,8 @@ a clean checkout.
   manifest (from `manifest.template.json`) and `local-config.js`; `build.zsh`
   writes `dist/van-tv.xpi` and unpacked `dist/extension/`. `config.js` owns
   shared vocabulary; `receiver-client.mjs` background-only HTTP;
-  `youtube-video.mjs` URL parsing; `tab-casting.mjs` playhead handoff;
+  `youtube-video.mjs` URL parsing; `video-details.mjs` channel name,
+  avatar and subscriber lookups from YouTube; `tab-casting.mjs` playhead handoff;
   `background-actions.mjs` messages, menus and shortcuts; `content.js` the
   player button; `popup.mjs`/`popup-state.mjs` the toolbar remote.
 - `youtube/vantv.zsh`: the Mac CLI over the same HTTP API.

@@ -74,6 +74,8 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   beginning. The watch-page background menu casts that tab's current playhead.
   **Add to Van TV queue** (on links and watch pages) queues the video from the
   beginning and leaves the tab playing; with nothing playing, it starts at once.
+- The popup's title opens the video on YouTube; under it, the channel's avatar,
+  name, verified badge and subscriber count link to the channel.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
   to seek; click total time to toggle remaining time. Controls include
   previous/next, play/pause, ±20 seconds, ±5 minutes, restart and stop.
@@ -93,6 +95,10 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 
 - `contextMenus`: video-link and watch-page cast and queue menus.
 - `tabs`: active-tab URL for casting and URL-only fallback; no saved history.
+- `https://www.youtube.com/*`: the background page reads the playing video's
+  channel (oEmbed for name and link, the channel page once per channel for
+  avatar, subscriber count and verified badge) without cookies. The avatar
+  image loads from YouTube's image host.
 - Receiver host permissions are derived from `receiverUrls`, preserving HTTP
   or HTTPS. Firefox host patterns cannot restrict access to a particular port;
   requests use only the configured base URLs.

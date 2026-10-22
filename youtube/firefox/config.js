@@ -8,6 +8,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   progressIntervalMs: 250,
   feedbackDurationMs: 3500,
   youtube: Object.freeze({
+    origin: 'https://www.youtube.com',
     hosts: Object.freeze(['www.youtube.com', 'youtube.com', 'm.youtube.com']),
     shortHosts: Object.freeze(['youtu.be', 'www.youtu.be']),
     contentMatches: Object.freeze(['*://www.youtube.com/*']),
@@ -19,6 +20,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     cast: 'cast', castTab: 'cast-tab', tabVideo: 'tab-video',
     status: 'status', control: 'control', getVideo: 'get-video',
     castAccepted: 'cast-accepted', queue: 'queue', queueTab: 'queue-tab',
+    videoDetails: 'video-details',
   }),
   player: Object.freeze({
     idle: 'IDLE', loading: 'LOADING', playing: 'PLAYING',
