@@ -5,8 +5,10 @@ import { PairingCodes } from '../pairing/pairing-codes.mjs';
 import { listenStatus } from '../http/status-server.mjs';
 import { PlayerStatus } from '../playback/player.mjs';
 import { createPlayerControls, createQueueControls } from '../controls/player-controls.mjs';
+import { WatchHistory } from '../history/watch-history.mjs';
 
-export async function runReceiver({ receiver, player, store, log = console }) {
+export async function runReceiver({ receiver, player, store, log = console,
+  watchHistory = new WatchHistory({ log }), statusListener = listenStatus }) {
   const instance = randomUUID();
   const pairing = new PairingCodes(receiver.getPairingCodeRequestService(), { log });
   let stopping = false;
@@ -20,6 +22,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
     speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
     played: player.castQueue.playedSnapshot(player.video),
     senders: receiver.getConnectedSenders().length,
+    watchHistory: watchHistory.snapshot(),
   });
   const stop = (code = 0) => {
     if (stopPromise) return stopPromise;
@@ -28,6 +31,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
       const deadline = setTimeout(() => process.exit(code || 1), 18_000);
       try {
         pairing.stop();
+        watchHistory.stop();
         await player.endSession();
         await receiver.stop();
         await closeStatus?.();
@@ -50,6 +54,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
   try {
     await store.initialize();
     await player.initialize();
+    watchHistory.start(player);
     const controls = createPlayerControls(player);
     const queueControls = createQueueControls(player, { log });
     const cast = async (videoId, position) => {
@@ -57,7 +62,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
       void player.play({ id: videoId, client: Constants.CLIENTS.YT }, position)
         .catch(() => log.warn('Direct cast failed'));
     };
-    closeStatus = await listenStatus({ snapshot, pairing, cast,
+    closeStatus = await statusListener({ snapshot, pairing, cast,
       control: (action, fields) => controls[action](fields),
       queue: (action, fields) => queueControls[action](fields) });
     const startup = setTimeout(() => { log.error('Receiver startup timeout'); void stop(1); }, 60_000);

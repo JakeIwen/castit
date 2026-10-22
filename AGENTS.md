@@ -30,9 +30,17 @@ a clean checkout.
   `receiver` section; `config/receiver-config.mjs` owns ports, player tuning
   and derived commands. `playback/player.mjs` owns the MpvPlayer,
   `playback/mpv/ipc.mjs` and `playback/mpv/process.mjs` its IPC/process,
-  and `playback/sponsor-block.mjs` SponsorBlock.
-  `host/process-command.mjs` owns bounded subprocess groups, also used by
-  playback; `host/room-preparation.mjs` owns the optional pre-cast command
+  and `playback/sponsor-block.mjs` SponsorBlock. `playback/stream-resolver.mjs`
+  runs yt-dlp ahead of mpv and caches direct stream URLs until they expire,
+  `playback/queue-prefetch.mjs` resolves the next queued video during
+  playback, and `playback/load-timing.mjs` logs per-phase load times.
+  `history/watch-history.mjs` marks videos watched on the signed-in account
+  after real playback (opt-in via the cookie file that
+  `push-youtube-cookies.zsh` installs); `history/ytdlp-history.mjs` is its
+  yt-dlp adapter and failure vocabulary.
+  `host/process-command.mjs` owns bounded subprocess groups (`runCommand`,
+  and `runCommandOutput` for captured output), also used by playback and
+  history; `host/room-preparation.mjs` owns the optional pre-cast command
   and screen wake; `host/vlc-handoff.mjs` owns the optional local player stop.
   `storage/private-data-store.mjs` preserves screen identity and settings
   (volume, speed, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
