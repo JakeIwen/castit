@@ -1,7 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-async function readLocalConfig(path) {
+export async function readLocalConfig(path) {
   let text;
   try { text = await readFile(path, 'utf8'); }
   catch (error) {
@@ -14,7 +15,7 @@ async function readLocalConfig(path) {
   catch { throw new Error(`Invalid JSON in local config: ${path}.`); }
 }
 
-function senderConfig(local) {
+export function senderConfig(local) {
   const senders = local?.senders;
   if (!Array.isArray(senders?.receiverUrls) || senders.receiverUrls.length === 0) {
     throw new Error('senders.receiverUrls must be a non-empty array of HTTP(S) base URLs.');
@@ -50,5 +51,7 @@ async function generate(configPath, outputDir) {
     `globalThis.VAN_TV_LOCAL = Object.freeze({ receiverUrls: Object.freeze(${JSON.stringify(receiverUrls)}) });\n`);
 }
 
-try { await generate(process.argv[2], process.argv[3]); }
-catch (error) { console.error(`Van TV build: ${error.message}`); process.exitCode = 1; }
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try { await generate(process.argv[2], process.argv[3]); }
+  catch (error) { console.error(`Van TV build: ${error.message}`); process.exitCode = 1; }
+}

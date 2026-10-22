@@ -45,7 +45,8 @@ a clean checkout.
   `storage/private-data-store.mjs` preserves screen identity and settings
   (volume, speed, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
   SSDP UUID and `pairing/pairing-codes.mjs` owns TV codes.
-  `youtube/video-id.mjs` is the one video-id check.
+  `youtube/video-id.mjs` is the one video-id check; `youtube/video-url.mjs`
+  parses shared YouTube links and timestamps for casting and queueing.
   `controls/player-controls.mjs` owns `/api/control` and `/api/queue` actions;
   `queue/cast-queue.mjs` owns the queue for senders without a phone session
   and its title lookup; `http/status-server.mjs` owns HTTP.
@@ -55,8 +56,9 @@ a clean checkout.
   Receiver tests mirror the feature folders; playback fixtures live beside
   playback tests. `deploy.sh` (Mac) stages a release and `controller.sh`
   (Pi) installs it.
-- `youtube/firefox/`: `build/generate-config.mjs` validates `senders` and
-  generates the manifest (from `manifest.template.json`) and root
+- `youtube/firefox/`: `build/generate-config.mjs` exports `readLocalConfig`
+  and `senderConfig`, the shared sender reader/validator for the extension and
+  iOS Shortcut; its CLI generates the manifest (from `manifest.template.json`) and root
   `local-config.js`; `build.zsh` writes folder-preserving `dist/van-tv.xpi`
   and unpacked `dist/extension/`. Root `config.js` owns extension-wide
   vocabulary. `background/page.html` loads local config before
@@ -72,4 +74,10 @@ a clean checkout.
   state, list models and reorder math. `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
+- `youtube/ios-shortcut/`: `build.zsh` generates and signs `dist/Van TV.shortcut`
+  on macOS; `generate.mjs` reads the same sender config and converts the workflow
+  with plutil. `workflow.mjs` owns the share-sheet/direct-input flow and API
+  requests; `workflow-format.mjs` owns plist action, token, dictionary and block
+  serialization. `tests/workflow.test.mjs` checks the generated artifact and
+  clean-checkout builds without requiring signing or a phone.
 - `youtube/vantv.zsh`: the Mac CLI over the same HTTP API.
