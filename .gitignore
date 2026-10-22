@@ -1,0 +1,7 @@
+# Per-install addresses and integrations; copy youtube/local.example.json.
+local.json
+node_modules/
+dist/
+.agent/
+.playwright-mcp/
+.DS_Store

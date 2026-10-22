@@ -1,0 +1,158 @@
+# YouTube receiver
+
+YouTube DIAL/Lounge receiver for a Raspberry Pi with an HDMI display. Phones
+control playback and the queue; yt-dlp resolves streams for mpv. SponsorBlock
+skips `sponsor` and `selfpromo` segments when available. The receiver appears as
+**Van TV**. This is not a general Google Cast or AirPlay receiver.
+
+## Requirements and configuration
+
+The Pi needs Node >= 20, npm, mpv, Python 3 with venv/pip, curl, `xset`,
+`dbus-send`, and an active `pi` X session on `:0`. The deployment machine needs
+Node, SSH and SCP. The controller checks prerequisites without installing OS
+packages. On Debian-based systems, the media prerequisites include:
+
+```sh
+sudo apt-get install mpv python3-venv python3-pip x11-xserver-utils dbus-bin
+```
+
+From this directory, copy the shared example and edit its `receiver` section:
+
+```sh
+cp ../local.example.json ../local.json
+```
+
+`../local.json` is gitignored. Keep machine-specific values out of source:
+
+- `sshTarget`: SSH host or `user@host` used by `deploy.sh`.
+- `hostnames`: extra trusted HTTP Host names, without ports. Loopback names and
+  `lanAddress` are always trusted.
+- `lanAddress`: Pi IPv4 LAN address for discovery and status binding.
+  `YOUTUBE_CAST_LAN_ADDRESS` overrides it at runtime.
+- `audioDevice`: mpv audio-device value; inspect devices with `mpv --audio-device=help`.
+- `roomCommand`: optional argv array, run once per cast session with an
+  18-second timeout. Each video also wakes the screen. `null` skips room
+  preparation; the screen wake still runs. Preparation failures do not block playback.
+- `videoLibrary`: `null` disables playback handoff. Otherwise set `controlUrl`
+  to a bookmarking HTTP stop endpoint and `unit` to its systemd user service.
+  The receiver checks that unit, POSTs form `action=stop`, and expects JSON
+  `{"ok":true}`. If HTTP fails, it tries VLC MPRIS Quit and stops only the
+  configured unit; a failed fallback prevents competing playback.
+
+The `senders` section is used by [the shell sender](../vantv.zsh) and
+[Firefox extension](../firefox/). The receiver validates only `receiver`.
+Missing or invalid configuration fails startup with the affected key named.
+`src/local-config.mjs` loads `CASTIT_LOCAL_CONFIG`, or `local.json` beside
+`src/` in a deployed release. To run from this source directory:
+
+```sh
+npm ci
+CASTIT_LOCAL_CONFIG=../local.json npm start
+```
+
+`src/config.mjs` owns fixed ports, paths and playback tuning. Its format and
+video-output defaults target Pi 4 hardware; re-measure for another device.
+`mpvArguments()` is the single player argv builder.
+
+## Deployment and lifecycle
+
+From this directory on the deployment machine:
+
+```sh
+bash deploy.sh prepare
+bash deploy.sh install
+bash deploy.sh status
+```
+
+The deployer reads `../local.json` and ships it as the release's `local.json`.
+`prepare` validates configuration, prerequisites, JavaScript syntax and the
+systemd unit without registering a service. `install` creates a release under
+`/home/pi/youtube-cast/`, runs `npm ci --omit=dev`, updates a shared venv with
+`yt-dlp[default]` and Deno, then switches `current` and checks health. Application
+packages are never installed as root. The root-owned system unit is
+`youtube-cast.service`, running as `pi` with private state and runtime directories.
+
+Other `deploy.sh` verbs are `start`, `stop`, `restart`, `verify`, `uninstall`
+and `update-ytdlp`. Stop disables boot startup; uninstall removes registration
+but preserves releases, dependencies and paired screen identity. Verify kills
+the main process and requires a replacement healthy PID, briefly interrupting
+playback. On the Pi, use the same verbs through the installed controller:
+
+```sh
+bash /home/pi/youtube-cast/current/controller.sh status
+journalctl -u youtube-cast.service -n 80 --no-pager
+```
+
+Older releases remain available; `previous` points to the last healthy one.
+Failed installations print the prior path rather than automatically rolling
+back the shared yt-dlp environment. A code rollback must restore that release's
+`current` link and root-owned unit, reload systemd, restart and check status;
+never restore an older screen identity. The yt-dlp venv is independent.
+
+YouTube can break old extractors. Run `update-ytdlp` when needed, preferably
+while idle. An optional **pi-user** crontab entry (not installed by the deployer):
+
+```cron
+0 6 * * 0 /bin/bash /home/pi/youtube-cast/current/controller.sh update-ytdlp
+```
+
+## Pairing, ports and state
+
+On the same LAN, select **Van TV** in the YouTube app's Cast menu. Discovery
+needs multicast SSDP UDP 1900 and DIAL TCP **8794**. Alternatively open the Pi's
+status page on port **8795**, then enter its temporary TV code in YouTube's
+Settings → Watch on TV → Enter TV code. TV-code pairing needs internet on both
+devices, not direct phone-to-Pi connectivity. Codes refresh every five minutes.
+Chrome's built-in Google Cast button does not discover this receiver.
+
+The status page listens on loopback and the configured LAN address. DIAL's
+upstream HTTP listener binds all interfaces; its discovery-interface setting
+does not restrict that listener. Both ports are for trusted networks only:
+there is no login. Do not forward them to the internet; use a host firewall if
+additional isolation is needed.
+
+Private state lives in `/home/pi/.local/state/youtube-cast/` (directory mode 700,
+files 600); mpv sockets/cache use `/run/youtube-cast/`. Keep state across updates
+and restarts to preserve pairing, volume and A/V offset. Corrupt identity files
+fail closed. Stopping or the last sender's explicit disconnect closes mpv and
+its resolver children. Starting another player later does not stop this one.
+
+## HTTP API and A/V offset
+
+- `GET /health`: supervisor health without pairing codes or identity.
+- `GET /api/status`: receiver/player state, video, position, duration, pairing
+  status and `audioDelay` in seconds.
+- `POST /api/cast`: JSON `{"videoId":"dQw4w9WgXcQ","position":12.5}`. Position
+  is optional and non-negative. Returns 202 while loading; poll status for the result.
+- `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
+  `next` or `previous`. Stop clears the queue. `seek` requires exactly one of
+  absolute `position` (>= 0) or relative `offset`, in seconds, clamped to the video.
+- `POST /api/control` with `{"action":"audio_delay","delay":-0.12}` sets the
+  A/V offset. Use exactly one of absolute `delay` or relative `offset`, in finite
+  seconds. Values clamp to −1…+1 second and round to 0.01 second; positive values
+  delay audio. Changes apply live and persist while idle and across restarts.
+  The page's Sound earlier/later buttons step by 50 ms; Reset restores zero.
+
+POSTs require `Content-Type: application/json` and an absent, `null`, extension
+or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin
+CORS preflight is not supported. Control responses include `action` and `done`.
+
+## Tests and limitations
+
+```sh
+npm ci
+npm test
+```
+
+Tests use `../local.example.json`, temporary stores, local HTTP/IPC fixtures and
+fake playback processes; no real room command or media handoff runs.
+`local-config.mjs` validates installation settings; `index.mjs` wires the receiver;
+`mpv-player.mjs` implements playback, with process/IPC, room preparation and VLC
+handoff in sibling modules. Pairing, private persistence, status and SponsorBlock
+also have dedicated modules.
+
+`yt-cast-receiver` is pinned to 2.1.0. Security overrides pin `query-string`
+9.5.1 and `uuid` 11.1.1; re-test DIAL and cloud pairing when upgrading them.
+The unofficial Lounge protocol and YouTube extraction can change without notice.
+Sign-in-required, private, age-restricted and regional videos are not guaranteed.
+SponsorBlock is best-effort; upstream can invalidate a persisted screen identity.

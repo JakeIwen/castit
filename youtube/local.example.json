@@ -1,0 +1,14 @@
+{
+  "receiver": {
+    "sshTarget": "pi@raspberrypi.local",
+    "hostnames": ["raspberrypi.local"],
+    "lanAddress": "192.168.1.50",
+    "audioDevice": "alsa/hdmi:CARD=vc4hdmi0,DEV=0",
+    "roomCommand": null,
+    "videoLibrary": null
+  },
+  "senders": {
+    "receiverUrls": ["http://raspberrypi.local:8795", "http://192.168.1.50:8795"],
+    "extensionId": "van-tv@example.invalid"
+  }
+}

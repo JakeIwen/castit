@@ -1,0 +1,27 @@
+{
+  "manifest_version": 2,
+  "name": "Van TV",
+  "version": "1.4.0",
+  "description": "Cast YouTube videos to a Van TV receiver on your local network.",
+  "browser_specific_settings": {
+    "gecko": { "strict_min_version": "102.0" }
+  },
+  "permissions": ["contextMenus", "tabs"],
+  "background": { "page": "background.html" },
+  "browser_action": {
+    "default_title": "Van TV", "default_popup": "popup.html", "default_icon": "icon.svg"
+  },
+  "icons": { "48": "icon.svg", "96": "icon.svg" },
+  "content_scripts": [{
+    "matches": ["*://www.youtube.com/*"],
+    "js": ["config.js", "content.js"],
+    "css": ["tokens.css", "content.css"],
+    "run_at": "document_idle"
+  }],
+  "commands": {
+    "cast-active-tab": {
+      "suggested_key": { "default": "Alt+Shift+V" },
+      "description": "Cast the active YouTube tab to Van TV"
+    }
+  }
+}
