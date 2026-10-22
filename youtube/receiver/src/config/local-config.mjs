@@ -52,7 +52,7 @@ function receiverConfig(value) {
   requireValue(value.roomCommand === null || (Array.isArray(value.roomCommand)
     && isText(value.roomCommand[0])
     && value.roomCommand.every(argument => typeof argument === 'string' && !argument.includes('\0'))),
-  'receiver.roomCommand', 'null or a non-empty argv array of strings');
+  'receiver.roomCommand', 'null or a non-empty argv array for an idempotent command run ~1.5 s after each playback start and resume');
   return Object.freeze({ sshTarget: value.sshTarget, hostnames: Object.freeze(hostnames),
     lanAddress: value.lanAddress, audioDevice: value.audioDevice,
     roomCommand: value.roomCommand === null ? null : Object.freeze([...value.roomCommand]),

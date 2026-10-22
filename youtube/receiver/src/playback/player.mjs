@@ -64,7 +64,10 @@ export class MpvPlayer extends Player {
       if (this.status === PlayerStatus.PLAYING) await super.stop();
       this.activeRequest = request;
       const started = await super.play(video, position, aid);
-      if (started) this.castQueue.recordPlayed(this.video || video, queuedEntry);
+      if (started) {
+        this.castQueue.recordPlayed(this.video || video, queuedEntry);
+        if (request === this.request && !this.abort?.signal.aborted) this.room.afterPlayback();
+      }
       return started;
     });
     this.playTail = operation;
@@ -74,6 +77,7 @@ export class MpvPlayer extends Player {
   stop(aid) {
     ++this.request;
     this.abort?.abort();
+    this.room.cancelPending();
     return super.stop(aid);
   }
 
@@ -94,7 +98,7 @@ export class MpvPlayer extends Player {
     try {
       const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal }))
         .catch(() => { signal.throwIfAborted(); return null; });
-      const room = timing.measure('room', () => this.room.beforeVideo(signal));
+      const wake = timing.measure('wake', () => this.room.beforeVideo(signal));
       const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
         timing.measure('mpv_start', async () => {
           signal.throwIfAborted();
@@ -116,7 +120,7 @@ export class MpvPlayer extends Player {
             await mpv.command(['set_property', property, this[name]]);
           }
         }));
-      const preparing = [resolving, room, starting];
+      const preparing = [resolving, wake, starting];
       this.pendingPreparation = Promise.allSettled(preparing);
       const [stream] = await Promise.all(preparing);
       signal.throwIfAborted();
@@ -138,6 +142,7 @@ export class MpvPlayer extends Player {
 
   async release() {
     this.abort?.abort();
+    this.room.cancelPending();
     const mpv = this.mpv;
     const preparing = this.pendingPreparation;
     this.mpv = null;
@@ -149,12 +154,17 @@ export class MpvPlayer extends Player {
 
   async doStop() {
     await this.release();
-    // Other playback may change the room setup between cast sessions.
     this.room.endSession();
     return true;
   }
   async doPause() { return this.send(['set_property', 'pause', true]); }
-  async doResume() { return this.send(['set_property', 'pause', false]); }
+  async doResume() {
+    const mpv = this.mpv;
+    const request = this.request;
+    const resumed = await this.send(['set_property', 'pause', false]);
+    if (resumed && this.mpv === mpv && request === this.request) this.room.afterPlayback();
+    return resumed;
+  }
   async doSeek(position) {
     if (!Number.isFinite(position) || position < 0) return false;
     const result = await this.send(['seek', position, 'absolute+exact']);

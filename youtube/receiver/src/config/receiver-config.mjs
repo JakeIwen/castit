@@ -30,6 +30,7 @@ export const config = Object.freeze({
   vlcStopCommand: local.videoLibrary === null ? null
     : ['/usr/bin/systemctl', '--user', 'stop', local.videoLibrary.unit],
   roomTimeoutMs: 18_000,
+  roomCheckDelayMs: 1500,
   loadTimeoutMs: 90_000,
   pairingLifetimeMs: 300_000,
   pairingRetryMs: 30_000,
@@ -44,8 +45,9 @@ const ytdlpRawOptions = [
   ['js-runtimes', `deno:${join(config.installDirectory, 'venv/bin/deno')}`],
 ];
 
-// PLAYER TUNING BLOCK: xv and bounded H.264 formats reduce dropped frames on
-// the Pi 4. Re-measure for other hardware; the audio device is installation-specific.
+// PLAYER TUNING BLOCK: OpenGL ES avoids xv's video backlog and A/V drift on
+// the Pi 4's rotated X screen; bounded H.264 formats reduce dropped frames.
+// Re-measure for other hardware; the audio device is installation-specific.
 // yt-dlp needs Node >= 22 or Deno for YouTube's JS challenges; the venv ships Deno.
 export const playback = Object.freeze({
   mpv: '/usr/bin/mpv',
@@ -65,7 +67,8 @@ export const playback = Object.freeze({
     + 'bv*[vcodec^=vp9][height<=720][fps<=30]+ba/b[height<=720]/best',
   args: ['--no-config', '--fullscreen', '--idle=yes', '--force-window=no',
     '--keep-open=no', '--no-terminal', '--osd-level=0', '--no-osc',
-    '--no-input-default-bindings', '--hwdec=v4l2m2m-copy', '--vo=xv', '--ao=alsa',
+    '--no-input-default-bindings', '--hwdec=v4l2m2m-copy', '--vo=gpu',
+    '--gpu-context=x11egl', '--opengl-es=yes', '--ao=alsa',
     `--audio-device=${local.audioDevice}`, '--cache=yes',
     '--demuxer-readahead-secs=20', '--demuxer-max-bytes=96MiB'],
   ytdlpOptions: ytdlpRawOptions.map(([name, value]) => `${name}=${value}`).join(','),

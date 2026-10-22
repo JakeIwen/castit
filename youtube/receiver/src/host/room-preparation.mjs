@@ -6,23 +6,47 @@ export class RoomPreparation {
     this.run = run;
     this.log = log;
     this.roomCommand = roomCommand;
-    this.prepared = false;
-    this.pending = null;
+    this.timer = null;
+    this.running = false;
+    this.rerun = false;
   }
 
   async beforeVideo(signal) {
     signal?.throwIfAborted();
-    const wake = this.run(config.wakeCommand, { signal }).catch(() => this.log.warn('Screen wake failed'));
-    // A null room command means this install has no audio routing to switch.
-    if (this.roomCommand !== null && !this.prepared && !this.pending) {
-      this.pending = this.run(this.roomCommand, { timeoutMs: config.roomTimeoutMs, signal })
-        .then(() => { this.prepared = true; })
-        .catch(() => this.log.warn('Room preparation failed; continuing playback'))
-        .finally(() => { this.pending = null; });
-    }
-    await Promise.all([wake, this.pending]);
+    await this.run(config.wakeCommand, { signal }).catch(() => this.log.warn('Screen wake failed'));
     signal?.throwIfAborted();
   }
 
-  endSession() { this.prepared = false; }
+  afterPlayback() {
+    this.cancelPending();
+    if (this.roomCommand === null) return;
+    // Optical audio can undo speaker grouping, so repair only after it starts.
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.checkRoom();
+    }, config.roomCheckDelayMs);
+    this.timer.unref?.();
+  }
+
+  async checkRoom() {
+    if (this.running) { this.rerun = true; return; }
+    this.running = true;
+    try { await this.run(this.roomCommand, { timeoutMs: config.roomTimeoutMs }); }
+    catch { this.log.warn('Room check failed; continuing playback'); }
+    finally {
+      this.running = false;
+      if (this.rerun) {
+        this.rerun = false;
+        void this.checkRoom();
+      }
+    }
+  }
+
+  cancelPending() {
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.rerun = false;
+  }
+
+  endSession() { this.cancelPending(); }
 }

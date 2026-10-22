@@ -40,8 +40,8 @@ a clean checkout.
   yt-dlp adapter and failure vocabulary.
   `host/process-command.mjs` owns bounded subprocess groups (`runCommand`,
   and `runCommandOutput` for captured output), also used by playback and
-  history; `host/room-preparation.mjs` owns the optional pre-cast command
-  and screen wake; `host/vlc-handoff.mjs` owns the optional local player stop.
+  history; `host/room-preparation.mjs` owns the screen wake and the
+  optional idempotent room check run ~1.5 s after each start and resume; `host/vlc-handoff.mjs` owns the optional local player stop.
   `storage/private-data-store.mjs` preserves screen identity and settings
   (volume, speed, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
   SSDP UUID and `pairing/pairing-codes.mjs` owns TV codes.

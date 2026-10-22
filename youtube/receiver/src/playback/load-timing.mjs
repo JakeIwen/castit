@@ -1,4 +1,4 @@
-const PHASES = ['handoff', 'room', 'mpv_start', 'resolve', 'load'];
+const PHASES = ['handoff', 'wake', 'mpv_start', 'resolve', 'load'];
 
 // Durations overlap; total is elapsed time, not the sum of the phases.
 export class LoadTiming {

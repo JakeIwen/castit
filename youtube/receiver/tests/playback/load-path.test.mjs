@@ -21,19 +21,19 @@ test('Timing measures overlapping phases, with only receiver phase data in its o
   let now = 0;
   const timing = new LoadTiming({ now: () => now });
   const handoff = gate();
-  const room = gate();
+  const wake = gate();
   const first = timing.measure('handoff', () => handoff.promise);
-  const second = timing.measure('room', () => room.promise);
+  const second = timing.measure('wake', () => wake.promise);
   now = 20; handoff.resolve(); await first;
-  now = 30; room.resolve(); await second;
+  now = 30; wake.resolve(); await second;
   const logs = [];
   timing.report({ info: line => logs.push(line) }, 'loaded');
-  assert.deepEqual(logs, ['Video load timing handoff=20ms room=30ms mpv_start=0ms resolve=0ms load=0ms total=30ms outcome=loaded']);
+  assert.deepEqual(logs, ['Video load timing handoff=20ms wake=30ms mpv_start=0ms resolve=0ms load=0ms total=30ms outcome=loaded']);
 });
 
-test('Resolution and room preparation overlap handoff; mpv never starts before handoff', async t => {
+test('Resolution and screen wake overlap handoff; mpv never starts before handoff', async t => {
   const handoff = gate();
-  const room = gate();
+  const wake = gate();
   const resolved = gate();
   const phases = [];
   const stream = { videoUrl: 'https://media.invalid/video', title: 'Private title' };
@@ -47,25 +47,26 @@ test('Resolution and room preparation overlap handoff; mpv never starts before h
   const logs = [];
   const { player } = playerFixture({ createMpv: () => new ObservedMpv(),
     handoff: () => { phases.push('handoff'); return handoff.promise; },
-    room: { beforeVideo: () => { phases.push('room'); return room.promise; }, endSession() {} },
+    room: { beforeVideo: () => { phases.push('wake'); return wake.promise; },
+      afterPlayback() {}, cancelPending() {}, endSession() {} },
     resolver: { resolve: () => { phases.push('resolve'); return resolved.promise; } },
     log: { warn() {}, info: line => logs.push(line) },
   });
   t.after(() => player.endSession());
   const playing = player.play({ ...VIDEO, title: 'Sender private title' }, 12);
   await settleUntil(() => phases.length === 3);
-  assert.deepEqual(new Set(phases), new Set(['resolve', 'room', 'handoff']));
+  assert.deepEqual(new Set(phases), new Set(['resolve', 'wake', 'handoff']));
   handoff.resolve();
   await settleUntil(() => phases.includes('mpv'));
   resolved.resolve(stream);
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(phases.includes('load'), false, 'do not lose the opening audio while routing changes');
-  room.resolve();
+  assert.equal(phases.includes('load'), false, 'screen wakes before each video loads');
+  wake.resolve();
   assert.equal(await playing, true);
   assert.equal(loaded, stream);
   assert.equal(player.video.title, stream.title);
   assert.equal(logs.length, 1);
-  assert.match(logs[0], /^Video load timing handoff=\d+ms room=\d+ms mpv_start=\d+ms resolve=\d+ms load=\d+ms total=\d+ms outcome=loaded$/);
+  assert.match(logs[0], /^Video load timing handoff=\d+ms wake=\d+ms mpv_start=\d+ms resolve=\d+ms load=\d+ms total=\d+ms outcome=loaded$/);
   assert.ok(!logs[0].includes(VIDEO.id));
   assert.ok(!logs[0].includes('Private'));
 });
@@ -98,7 +99,7 @@ test('New play cancels every old independent phase and awaits their cleanup', as
   const handoff = pending('handoff');
   const { player, instances } = playerFixture({
     resolver: { resolve: (_id, { signal }) => resolve(signal) },
-    room: { beforeVideo: pending('room'), endSession() {} },
+    room: { beforeVideo: pending('wake'), afterPlayback() {}, cancelPending() {}, endSession() {} },
     handoff: ({ signal }) => handoff(signal),
   });
   t.after(() => player.endSession());
@@ -113,7 +114,7 @@ test('New play cancels every old independent phase and awaits their cleanup', as
   assert.equal(player.video.id, SECOND.id);
 });
 
-test('Handoff failure aborts room and resolution and prevents mpv startup', async () => {
+test('Handoff failure aborts screen wake and resolution and prevents mpv startup', async () => {
   const cancelled = new Set();
   let starts = 0;
   const mpv = new FakeMpv();
@@ -121,11 +122,12 @@ test('Handoff failure aborts room and resolution and prevents mpv startup', asyn
   const { player } = playerFixture({ createMpv: () => mpv,
     handoff: async () => { throw new Error('busy'); },
     resolver: { resolve: (_id, { signal }) => untilAborted(signal, () => cancelled.add('resolve')) },
-    room: { beforeVideo: signal => untilAborted(signal, () => cancelled.add('room')), endSession() {} },
+    room: { beforeVideo: signal => untilAborted(signal, () => cancelled.add('wake')),
+      afterPlayback() {}, cancelPending() {}, endSession() {} },
   });
   assert.equal(await player.play(VIDEO), false);
   assert.equal(starts, 0);
-  assert.deepEqual(cancelled, new Set(['resolve', 'room']));
+  assert.deepEqual(cancelled, new Set(['resolve', 'wake']));
   assert.equal(mpv.closed, true);
   await player.endSession();
 });

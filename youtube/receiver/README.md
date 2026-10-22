@@ -30,9 +30,12 @@ cp ../local.example.json ../local.json
 - `lanAddress`: Pi IPv4 LAN address for discovery and status binding.
   `YOUTUBE_CAST_LAN_ADDRESS` overrides it at runtime.
 - `audioDevice`: mpv audio-device value; inspect devices with `mpv --audio-device=help`.
-- `roomCommand`: optional argv array, run once per cast session with an
-  18-second timeout. Each video also wakes the screen. `null` skips room
-  preparation; the screen wake still runs. Preparation failures do not block playback.
+- `roomCommand`: optional argv array for an idempotent command run ~1.5 s after
+  each playback start and resume, with an 18-second timeout. It must be cheap
+  when the room is already correct and repair routing/grouping only as needed.
+  Playback never waits for it; failures and timeouts are logged and ignored.
+  Checks coalesce without overlapping. Stop cancels pending checks, not a running
+  command. `null` disables checks. Each video still wakes the screen before loading.
   If the command sets an amplifier's volume, give it a level suited to YouTube's
   loudness-normalized audio (louder than most films) and trim from there with
   the receiver's own volume.
@@ -55,16 +58,19 @@ CASTIT_LOCAL_CONFIG=../local.json npm start
 
 `src/config/receiver-config.mjs` owns fixed ports, paths and playback tuning. Its format and
 video-output defaults target Pi 4 hardware; re-measure for another device.
-`mpvArguments()` is the single player argv builder.
+OpenGL ES (`vo=gpu`, `gpu-context=x11egl`, `opengl-es=yes`) avoids the video
+backlog and A/V drift seen with xv on the rotated X screen; hardware decoding
+remains `v4l2m2m-copy`. `mpvArguments()` is the single player argv builder.
 
 ## Load path and timings
 
 Each load resolves streams with the same yt-dlp selector, Deno runtime and hook
-options while room preparation and VLC handoff run independently. mpv starts
-only after handoff releases the audio device. Loading waits for room preparation
-(including its existing timeout/failure tolerance), so the opening audio is not
-lost while routing switches. A replacement or Stop cancels and drains old work.
-mpv still closes on each replacement; its process is not reused.
+options while screen wake and VLC handoff run independently. mpv starts only
+after handoff releases the audio device, and loading waits for the screen wake,
+not `roomCommand`. The room check runs after playback starts so it can repair
+routing/grouping that optical audio may reset. A replacement or Stop cancels
+and drains old load work. mpv still closes on each replacement; its process is
+not reused.
 
 `src/playback/stream-resolver.mjs` runs bounded subprocess groups at nice 10.
 Simple selected HTTP(S) video/audio tracks load directly using mpv 0.35's
@@ -78,9 +84,10 @@ never runs two prefetches at once, and never consumes or reorders the queue.
 The phone's queue is not prefetched. No client/format-selection experiments are
 applied, and no account cookies are added to playback extraction.
 
-Each attempted load writes one `Video load timing` line with `handoff`, `room`,
+Each attempted load writes one `Video load timing` line with `handoff`, `wake`,
 `mpv_start` (including property setup), `resolve`, `load` and `total` milliseconds,
-plus a loaded/failed/cancelled outcome. Total covers `doPlay`, not sender/network
+plus a loaded/failed/cancelled outcome. `wake` measures only screen wake; the
+post-start room check is outside the load timing. Total covers `doPlay`, not sender/network
 latency or a prior base-player stop. Phases overlap, so their sum exceeds total;
 `load` includes extraction on fallback. Logs contain no URLs, IDs or titles.
 

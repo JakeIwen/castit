@@ -50,20 +50,17 @@ test('Pairing code expires, supports refresh and does not expose invalid server 
   assert.equal(pairing.snapshot().error, 'Pairing code unavailable; retrying');
 });
 
-test('Room prepares once per session, wakes every video and tolerates preparation failure', async () => {
+test('Room wakes every video without running the post-playback check and tolerates wake failure', async () => {
   const commands = [];
   const roomCommand = ['/usr/bin/true'];
-  const room = new RoomPreparation({ roomCommand, log: quiet, run: async (command, options) => {
+  const room = new RoomPreparation({ roomCommand, log: quiet, run: async command => {
     commands.push(command);
-    if (command === roomCommand) assert.ok(options.timeoutMs <= 20_000);
   } });
   await room.beforeVideo();
   await room.beforeVideo();
-  assert.equal(commands.filter(command => command === roomCommand).length, 1);
-  assert.equal(commands.filter(command => command === config.wakeCommand).length, 2);
   room.endSession();
   await room.beforeVideo();
-  assert.equal(commands.filter(command => command === roomCommand).length, 2);
+  assert.deepEqual(commands, [config.wakeCommand, config.wakeCommand, config.wakeCommand]);
   const failing = new RoomPreparation({ roomCommand, log: quiet,
     run: async () => { throw new Error('offline'); } });
   await failing.beforeVideo();

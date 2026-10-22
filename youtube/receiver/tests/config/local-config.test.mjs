@@ -111,6 +111,12 @@ test('Release config requires its own local file and preserves configured playba
   assert.ok(args.includes(`--audio-device=${document.receiver.audioDevice}`));
   assert.equal(args.filter(argument => argument.startsWith('--audio-device=')).length, 1);
   assert.ok(args.includes('--input-ipc-server=/run/test/socket'));
+  for (const option of ['--hwdec=v4l2m2m-copy', '--vo=gpu', '--gpu-context=x11egl', '--opengl-es=yes']) {
+    assert.ok(args.includes(option), option);
+  }
+  assert.deepEqual(args.filter(argument => argument.startsWith('--vo=')), ['--vo=gpu']);
+  assert.ok(!args.includes('--vo=xv'));
+  assert.equal(config.roomCheckDelayMs, 1500);
   assert.equal(config.installDirectory, '/home/pi/youtube-cast');
   assert.equal(config.stateDirectory, '/home/pi/.local/state/youtube-cast');
   assert.deepEqual([config.dialPort, config.statusPort], [8794, 8795]);
