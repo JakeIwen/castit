@@ -1,3 +1,5 @@
 #!/bin/zsh
-./build.zsh
-open -a "Firefox Developer Edition" ./dist/van-tv.xpi
+
+here=${${(%):-%x}:A:h}
+zsh "$here/build.zsh"
+open -a "Firefox Developer Edition" "$here/dist/van-tv.xpi"
