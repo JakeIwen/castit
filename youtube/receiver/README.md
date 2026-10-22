@@ -158,8 +158,13 @@ its resolver children. Starting another player later does not stop this one.
   first, excluding the currently loaded video. Repeated video ids move to the
   end; titles follow mpv, falling back to the queued video's oEmbed title. Entry
   keys are unique across both lists.
-- `POST /api/cast`: JSON `{"videoId":"dQw4w9WgXcQ","position":12.5}`. Position
-  is optional and non-negative. Returns 202 while loading; poll status for the result.
+- `POST /api/cast`: JSON with exactly one of `videoId` or `url`, for example
+  `{"videoId":"dQw4w9WgXcQ","position":12.5}` or
+  `{"url":"https://youtu.be/dQw4w9WgXcQ?t=1m30s"}`. An optional non-negative
+  `position` in seconds overrides the link's timestamp; otherwise links use their
+  timestamp and bare ids start at zero. Returns 202 with `{videoId, position}`
+  while loading; poll status for the result. Invalid links return 400 with
+  `{"error":"Not a YouTube video link"}`; both or neither id/link also return 400.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
   `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the phone's next
   video (or its autoplay pick), then the cast queue; with neither it does nothing.
@@ -179,7 +184,9 @@ its resolver children. Starting another player later does not stop this one.
 - Speed, volume and A/V offset apply live, can be set while idle, and are saved
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
-  `{"action":"add","videoId":"…"}` appends (up to 50); it starts at once only
+  `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`
+  appends (up to 50), with exactly one of `videoId` or `url`. Queued videos always
+  start at zero, ignoring link timestamps. An addition starts at once only
   when nothing is playing and the queue was empty, so a kept queue never jumps
   ahead or starts on its own. `play` and `remove` take an entry `key` from status.
   `play` also accepts a `played` key to replay from the start; it stays in history
@@ -195,6 +202,16 @@ its resolver children. Starting another player later does not stop this one.
 - The library ignores sender messages it doesn't implement. The receiver logs
   each one's name (never its payload) as `Unhandled sender message: <name>` in
   the journal, to show what a phone feature such as its speed menu sends.
+
+Links must be a single HTTP(S) URL on `youtube.com`, `www.youtube.com`,
+`m.youtube.com` or `music.youtube.com` (`/watch?v=ID`, `/shorts/ID`, `/live/ID`,
+`/embed/ID`), or `youtu.be`/`www.youtu.be` (`/ID`). Credentials and explicit ports
+are rejected. Surrounding whitespace is trimmed; text containing a link is not
+accepted. Extra parameters such as `si`, `feature` and `list` are ignored.
+Timestamps use `t`, then `start`, then `#t=`, in seconds (including decimals) or
+forms such as `1h2m3s`; invalid timestamps start at zero. `url` must be a string
+of at most 2048 characters; JSON bodies over 4096 bytes return 413. The status
+page's YouTube link box casts on Enter or **Cast**, or appends with **Add to Queue**.
 
 POSTs require `Content-Type: application/json` and an absent, `null`, extension
 or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin

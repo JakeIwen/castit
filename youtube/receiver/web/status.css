@@ -16,3 +16,5 @@ output { color: var(--foreground); font-variant-numeric: tabular-nums; }
 #code { font: 600 clamp(20px,6vw,32px)/1.5 monospace; letter-spacing: .04em; }
 button { font: inherit; padding: 10px 16px; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); background: var(--control); cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; } p { color: var(--muted); }
+#youtube-link { display: block; width: 100%; min-width: 0; margin-top: 6px; font: inherit; padding: 10px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); background: var(--control); }
+.link-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

@@ -1,7 +1,13 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Van TV</title><link rel="stylesheet" href="/status.css"><script type="module" src="/status.mjs"></script></head>
-<body><main><h1>Van TV</h1><dl><dt>Receiver</dt><dd id="receiver">Connecting…</dd>
+<body><main><h1>Van TV</h1>
+<form id="link-form"><label for="youtube-link">YouTube link</label>
+<input id="youtube-link" name="url" type="url" autocomplete="off" enterkeyhint="go" maxlength="2048" required>
+<div class="link-actions"><button type="submit" value="cast">Cast</button>
+<button type="submit" value="queue">Add to Queue</button></div></form>
+<p id="message" role="status"></p>
+<dl><dt>Receiver</dt><dd id="receiver">Connecting…</dd>
 <dt>Player</dt><dd id="player">—</dd><dt>Video</dt><dd id="video">None</dd>
 <dt>Position</dt><dd id="position">—</dd><dt>Connected senders</dt><dd id="senders">0</dd></dl>
 <div class="setting-row" role="group" aria-label="Volume">
@@ -24,7 +30,7 @@
 <h2>Queue</h2><ol id="queue" class="video-list"></ol><p id="queue-empty">Nothing queued.</p>
 <h2>Recently played</h2><ol id="played" class="video-list"></ol><p id="played-empty">Nothing played yet.</p>
 <h2>Link with TV code</h2><p id="code" aria-live="polite">Requesting code…</p>
-<button id="refresh" type="button">Get a fresh code</button><p id="message" role="status"></p>
+<button id="refresh" type="button">Get a fresh code</button>
 <p>YouTube app → Settings → Watch on TV → Enter TV code.</p>
 <p>Pair once, then choose Van TV from Cast. This also works when your phone is the hotspot.</p>
 </main></body></html>

@@ -211,6 +211,15 @@ test('Queue move arguments require an integer key and a non-negative safe intege
   }
 });
 
+test('Queue add arguments accept one id or link and discard link timestamps', () => {
+  const url = `https://youtu.be/${VIDEO.id}?t=1h2m3s`;
+  assert.deepEqual(queueArguments({ action: 'add', url }), { videoId: VIDEO.id });
+  for (const body of [{}, { videoId: VIDEO.id, url }, { videoId: VIDEO.id, url: null },
+    { videoId: null, url }, { url: 'not a URL' }, { url: null }, { url: 123 }]) {
+    assert.equal(queueArguments({ action: 'add', ...body }), null, JSON.stringify(body));
+  }
+});
+
 test('Queue arguments need a video id to add and an integer key to remove or play', () => {
   assert.deepEqual(queueArguments({ action: 'add', videoId: VIDEO.id }), { videoId: VIDEO.id });
   assert.equal(queueArguments({ action: 'add', videoId: 'bad' }), null);

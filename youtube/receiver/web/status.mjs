@@ -1,13 +1,42 @@
 const element = id => document.getElementById(id);
 const refresh = element('refresh');
+const linkForm = element('link-form');
+const linkInput = element('youtube-link');
+let linkMessage = '';
 let renderedQueue = '';
 let renderedPlayed = '';
 
 async function post(path, body) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body) });
-  if (!response.ok) throw new Error('Request failed');
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Request failed');
+  }
+  return response.json();
 }
+
+function showLinkMessage(message) {
+  linkMessage = message;
+  element('message').textContent = message;
+}
+
+linkForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const queued = event.submitter?.value === 'queue';
+  const buttons = [...linkForm.querySelectorAll('button')];
+  buttons.forEach(button => { button.disabled = true; });
+  showLinkMessage(queued ? 'Adding to the queue…' : 'Casting…');
+  try {
+    const body = queued ? { action: 'add', url: linkInput.value } : { url: linkInput.value };
+    const result = await post(queued ? '/api/queue' : '/api/cast', body);
+    if (queued && !result.done) throw new Error('Cannot add to the queue (it may be full)');
+    linkInput.value = '';
+    showLinkMessage(queued ? 'Added to the queue' : 'Casting…');
+    await update();
+  } catch (error) { showLinkMessage(error.message); }
+  finally { buttons.forEach(button => { button.disabled = false; }); }
+});
 
 // `hint` names an icon-only button for tooltips and screen readers.
 function queueButton(label, body, disabled = false, hint) {
@@ -84,7 +113,7 @@ async function update() {
     renderQueue(data.queue);
     renderPlayed(data.played);
     element('code').textContent = data.pairing.code || (data.pairing.error ? 'Unavailable' : 'Requesting code…');
-    element('message').textContent = data.pairing.error || '';
+    element('message').textContent = data.pairing.error || linkMessage;
     refresh.disabled = data.pairing.requesting;
   } catch {
     element('receiver').textContent = 'Offline';

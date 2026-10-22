@@ -2,10 +2,11 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { config } from '../config/receiver-config.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
+import { parseYouTubeVideo } from '../youtube/video-url.mjs';
 import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, speedArguments,
   volumeArguments, muteArguments, queueArguments } from '../controls/player-controls.mjs';
 
-const MAX_POST_BODY = 256;
+const MAX_POST_BODY = 4096;
 // Web pages can't forge these origins, and a JSON body already forces a CORS
 // preflight this server never answers; the status page itself is same-origin.
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
@@ -73,9 +74,11 @@ function trustedOrigin(origin, own) {
 
 async function readJsonBody(request) {
   let body = '';
+  let bytes = 0;
   for await (const chunk of request) {
+    bytes += chunk.length;
+    if (bytes > MAX_POST_BODY) throw new RangeError('Request too large');
     body += chunk;
-    if (body.length > MAX_POST_BODY) throw new RangeError('Request too large');
   }
   const parsed = JSON.parse(body);
   if (!parsed || typeof parsed !== 'object') throw new TypeError('Object required');
@@ -102,7 +105,12 @@ async function handleQueue(request, { queue }) {
     const { action } = body;
     if (!QUEUE_ACTIONS.includes(action)) return [400, { error: 'Unknown queue action' }];
     const fields = queueArguments(body);
-    if (!fields) return [400, { error: 'Queue add needs a videoId; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
+    if (!fields) {
+      if (action === 'add' && body.url !== undefined && body.videoId === undefined) {
+        return [400, { error: 'Not a YouTube video link' }];
+      }
+      return [400, { error: 'Queue add needs exactly one of videoId or url; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
+    }
     return [200, { action, done: Boolean(await queue(action, fields)) }];
   } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid queue request' }];
@@ -116,12 +124,18 @@ async function handleCast(request, { cast }) {
   try { body = await readJsonBody(request); } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid cast request' }];
   }
-  const position = body.position === undefined ? 0 : Number(body.position);
-  if (!isVideoId(body.videoId)) return [400, { error: 'Invalid videoId' }];
+  if ((body.videoId !== undefined) === (body.url !== undefined)) {
+    return [400, { error: 'Cast needs exactly one of videoId or url' }];
+  }
+  const selection = body.url === undefined ? null : parseYouTubeVideo(body.url);
+  if (body.url !== undefined && !selection) return [400, { error: 'Not a YouTube video link' }];
+  const videoId = selection?.videoId ?? body.videoId;
+  const position = body.position === undefined ? selection?.position ?? 0 : Number(body.position);
+  if (!isVideoId(videoId)) return [400, { error: 'Invalid videoId' }];
   if (!Number.isFinite(position) || position < 0) return [400, { error: 'Invalid position' }];
   try {
-    await cast(body.videoId, position);
-    return [202, { videoId: body.videoId, position }];
+    await cast(videoId, position);
+    return [202, { videoId, position }];
   } catch { return [503, { error: 'Van TV is not ready to cast' }]; }
 }
 

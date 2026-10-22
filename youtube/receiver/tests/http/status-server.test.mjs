@@ -56,6 +56,63 @@ test('Cast route accepts extension and header-less senders, validates ids, repor
   assert.deepEqual(casts, [['dQw4w9WgXcQ', 12.5], ['jNQXAC9IVRw', 0], ['jNQXAC9IVRw', 0]]);
 });
 
+test('Cast links resolve ids and timestamps, keep explicit positions and reject ambiguous inputs', async t => {
+  const casts = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) },
+    cast: async (videoId, position) => { casts.push([videoId, position]); },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (body, headers = {}) => fetch(`${base}/api/cast`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  const url = `https://youtu.be/${VIDEO.id}?si=shared&t=1h2m3s`;
+  for (const [body, position] of [[{ url }, 3723], [{ url, position: 12.5 }, 12.5],
+    [{ url, position: 0 }, 0], [{ url: ` https://music.youtube.com/watch?v=${VIDEO.id} ` }, 0]]) {
+    const response = await post(body);
+    assert.deepEqual([response.status, await response.json()], [202, { videoId: VIDEO.id, position }]);
+  }
+  for (const body of [{}, { videoId: VIDEO.id, url }, { videoId: VIDEO.id, url: null },
+    { videoId: null, url }, { url, position: -1 }, { url, position: 'nope' }]) {
+    assert.equal((await post(body)).status, 400, JSON.stringify(body));
+  }
+  for (const invalid of ['not a URL', `https://example.com/watch?v=${VIDEO.id}`, null, 12, {}, [],
+    `https://youtu.be/${VIDEO.id}?si=${'x'.repeat(2048)}`]) {
+    const response = await post({ url: invalid });
+    assert.deepEqual([response.status, await response.json()], [400, { error: 'Not a YouTube video link' }]);
+  }
+  assert.equal((await post({ url }, { Origin: 'https://evil.example' })).status, 403);
+  assert.equal((await post({ url }, { 'Content-Type': 'text/plain' })).status, 403);
+  assert.deepEqual(casts, [[VIDEO.id, 3723], [VIDEO.id, 12.5], [VIDEO.id, 0], [VIDEO.id, 0]]);
+});
+
+test('Cast and queue accept long shared links but bound URL characters and body bytes', async t => {
+  const calls = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) }, cast: async (...fields) => { calls.push(fields); },
+    queue: async (...fields) => { calls.push(fields); return true; },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const post = (path, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const prefix = `https://youtu.be/${VIDEO.id}?si=`;
+  const url = prefix + 'x'.repeat(2048 - prefix.length);
+  for (const [path, action, accepted] of [['/api/cast', undefined, 202], ['/api/queue', 'add', 200]]) {
+    assert.equal((await post(path, { action, url })).status, accepted);
+    const oversizedUrl = await post(path, { action, url: `${url}x` });
+    assert.deepEqual([oversizedUrl.status, await oversizedUrl.json()], [400, { error: 'Not a YouTube video link' }]);
+    for (const padding of ['x'.repeat(4096), 'é'.repeat(1500)]) {
+      const oversizedBody = await post(path, { action, url, padding });
+      assert.deepEqual([oversizedBody.status, await oversizedBody.json()], [413, { error: 'Request too large' }]);
+    }
+  }
+  assert.deepEqual(calls, [[VIDEO.id, 0], ['add', { videoId: VIDEO.id }]]);
+});
+
 test('Control route runs only known actions from the same origin', async t => {
   const actions = [];
   const server = await createStatusServer({ snapshot: () => ({ ok: true }),
@@ -116,7 +173,7 @@ test('Audio delay HTTP controls validate finite seconds and expose the current s
     assert.equal(response.status, 400);
   }
   assert.equal((await post('{"action":"audio_delay","delay":NaN}')).status, 400);
-  assert.equal((await post(JSON.stringify({ action: 'audio_delay', delay: 0, padding: 'x'.repeat(256) }))).status, 413);
+  assert.equal((await post(JSON.stringify({ action: 'audio_delay', delay: 0, padding: 'x'.repeat(4096) }))).status, 413);
   assert.equal((await status()).audioDelay, 0);
   assert.equal(instances.length, 0);
   await player.play(VIDEO);
@@ -189,6 +246,39 @@ test('Queue route validates actions and fields before reaching the queue', async
   assert.equal((await post({ action: 'move', key: '2', index: 0 })).status, 400);
   assert.deepEqual(calls, [['add', { videoId: VIDEO.id }], ['remove', { key: 4 }], ['play', { key: 2 }],
     ['move', { key: 2, index: 0 }], ['move', { key: 2, index: Number.MAX_SAFE_INTEGER }], ['clear', {}]]);
+});
+
+test('Queue link additions start at zero and need exactly one videoId or url', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const queue = createQueueControls(player, { log: quiet });
+  const server = await createStatusServer({ snapshot: () => ({ ok: true, queue: player.castQueue.snapshot() }),
+    pairing: { snapshot: () => ({}) }, queue: (action, fields) => queue[action](fields),
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (body, headers = {}) => fetch(`${base}/api/queue`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  const url = `https://youtu.be/${VIDEO.id}?t=90s`;
+  const added = await post({ action: 'add', url });
+  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true }]);
+  await settleUntil(() => instances[0]?.loaded);
+  assert.deepEqual(instances[0].loaded, { id: VIDEO.id, position: 0 });
+  assert.equal((await post({ action: 'add', url: `https://youtube.com/shorts/${SECOND.id}#t=2m` })).status, 200);
+  for (const body of [{ action: 'add' }, { action: 'add', videoId: VIDEO.id, url },
+    { action: 'add', videoId: null, url }, { action: 'add', videoId: VIDEO.id, url: null }]) {
+    assert.equal((await post(body)).status, 400, JSON.stringify(body));
+  }
+  for (const invalid of ['not a URL', `https://example.com/watch?v=${VIDEO.id}`, null, 12, {}, []]) {
+    const response = await post({ action: 'add', url: invalid });
+    assert.deepEqual([response.status, await response.json()], [400, { error: 'Not a YouTube video link' }]);
+  }
+  assert.equal((await post({ action: 'add', url }, { Origin: 'https://evil.example' })).status, 403);
+  assert.equal((await post({ action: 'add', url }, { 'Content-Type': 'text/plain' })).status, 403);
+  const state = await (await fetch(`${base}/api/status`)).json();
+  assert.deepEqual(state.queue.map(entry => entry.id), [SECOND.id]);
 });
 
 test('Queue HTTP actions reorder upcoming videos, expose played history and replay a played key', async t => {
