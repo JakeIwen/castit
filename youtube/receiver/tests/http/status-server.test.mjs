@@ -4,8 +4,8 @@ import { once } from 'node:events';
 import { get } from 'node:http';
 import { createStatusServer } from '../../src/http/status-server.mjs';
 import { config } from '../../src/config/receiver-config.mjs';
-import { createPlayerControls } from '../../src/controls/player-controls.mjs';
-import { playerFixture, VIDEO } from '../playback/player-fixture.mjs';
+import { createPlayerControls, createQueueControls } from '../../src/controls/player-controls.mjs';
+import { playerFixture, VIDEO, SECOND, settleUntil, quiet } from '../playback/player-fixture.mjs';
 
 test('Status trusts configured hostnames as well as loopback and the LAN address', async t => {
   const server = await createStatusServer({ snapshot: () => ({ ok: true }),
@@ -172,11 +172,70 @@ test('Queue route validates actions and fields before reaching the queue', async
   assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true }]);
   assert.deepEqual(await (await post({ action: 'remove', key: 4 })).json(), { action: 'remove', done: false });
   assert.equal((await post({ action: 'play', key: 2 })).status, 200);
+  for (const index of [0, Number.MAX_SAFE_INTEGER]) {
+    const moved = await post({ action: 'move', key: 2, index });
+    assert.deepEqual([moved.status, await moved.json()], [200, { action: 'move', done: true }]);
+  }
   assert.equal((await post({ action: 'clear' })).status, 200);
   for (const body of [{ action: 'add', videoId: 'nope' }, { action: 'play' }, { action: 'shuffle' }, { action: 'remove', key: 1.5 }]) {
     assert.equal((await post(body)).status, 400, JSON.stringify(body));
   }
-  assert.deepEqual(calls, [['add', { videoId: VIDEO.id }], ['remove', { key: 4 }], ['play', { key: 2 }], ['clear', {}]]);
+  for (const index of [undefined, null, -1, 0.5, '0', false, [], {}, Number.MAX_SAFE_INTEGER + 1]) {
+    const response = await post({ action: 'move', key: 2, index });
+    assert.equal(response.status, 400, String(index));
+    assert.match((await response.json()).error, /move needs a non-negative safe integer index/);
+  }
+  assert.equal((await post({ action: 'move', index: 0 })).status, 400);
+  assert.equal((await post({ action: 'move', key: '2', index: 0 })).status, 400);
+  assert.deepEqual(calls, [['add', { videoId: VIDEO.id }], ['remove', { key: 4 }], ['play', { key: 2 }],
+    ['move', { key: 2, index: 0 }], ['move', { key: 2, index: Number.MAX_SAFE_INTEGER }], ['clear', {}]]);
+});
+
+test('Queue HTTP actions reorder upcoming videos, expose played history and replay a played key', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  const queue = createQueueControls(player, { log: quiet });
+  const server = await createStatusServer({ snapshot: () => ({ ok: true, video: player.video,
+    queue: player.castQueue.snapshot(), played: player.castQueue.playedSnapshot(player.video) }),
+    pairing: { snapshot: () => ({}) }, control: (action, fields) => controls[action](fields),
+    queue: (action, fields) => queue[action](fields),
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const status = async () => (await fetch(`${base}/api/status`)).json();
+  const post = async (body, path = '/api/queue') => (await fetch(`${base}${path}`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  await player.play(VIDEO);
+  instances[0].property('media-title', 'First');
+  await player.play(SECOND);
+  const [previous] = (await status()).played;
+  assert.deepEqual(previous, { key: previous.key, id: VIDEO.id, title: 'First' });
+  assert.equal((await status()).video.id, SECOND.id);
+  await post({ action: 'add', videoId: 'aaaaaaaaaaa' });
+  await post({ action: 'add', videoId: 'bbbbbbbbbbb' });
+  const [a, b] = (await status()).queue;
+  assert.deepEqual(await post({ action: 'move', key: a.key, index: 999 }), { action: 'move', done: true });
+  assert.deepEqual((await status()).queue.map(entry => entry.key), [b.key, a.key]);
+  assert.deepEqual(await post({ action: 'move', key: a.key, index: 0 }), { action: 'move', done: true });
+  assert.deepEqual((await status()).queue.map(entry => entry.key), [a.key, b.key]);
+  for (const key of [previous.key, 9999]) {
+    assert.deepEqual(await post({ action: 'move', key, index: 0 }), { action: 'move', done: false });
+  }
+  assert.deepEqual(await post({ action: 'play', key: previous.key }), { action: 'play', done: true });
+  await settleUntil(() => player.castQueue.findPlayed(previous.key) === null);
+  assert.deepEqual(instances[2].loaded, { id: VIDEO.id, position: 0 });
+  assert.deepEqual((await status()).played.map(entry => entry.id), [SECOND.id]);
+  assert.deepEqual(await post({ action: 'play', key: previous.key }), { action: 'play', done: false });
+  assert.deepEqual(await post({ action: 'play', key: 9999 }), { action: 'play', done: false });
+  assert.deepEqual(await post({ action: 'stop' }, '/api/control'), { action: 'stop', done: true });
+  const stopped = await status();
+  assert.deepEqual(stopped.queue, []);
+  assert.deepEqual(stopped.played.map(entry => entry.id), [SECOND.id, VIDEO.id]);
+  await post({ action: 'clear' });
+  assert.deepEqual((await status()).played, stopped.played);
 });
 
 test('Control route parses speed, volume and mute fields', async t => {

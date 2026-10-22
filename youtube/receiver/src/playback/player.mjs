@@ -49,7 +49,7 @@ export class MpvPlayer extends Player {
     }
   }
 
-  play(video, position = 0, aid) {
+  play(video, position = 0, aid, queuedEntry) {
     if (!isVideoId(video?.id) || !Number.isFinite(position) || position < 0) return Promise.resolve(false);
     const request = ++this.request;
     this.abort?.abort();
@@ -58,7 +58,9 @@ export class MpvPlayer extends Player {
       // The base play() stops an already playing track; do it without invalidating this request.
       if (this.status === PlayerStatus.PLAYING) await super.stop();
       this.activeRequest = request;
-      return super.play(video, position, aid);
+      const started = await super.play(video, position, aid);
+      if (started) this.castQueue.recordPlayed(this.video || video, queuedEntry);
+      return started;
     });
     this.playTail = operation;
     return operation;
@@ -189,11 +191,12 @@ export class MpvPlayer extends Player {
   // Resolves false, leaving playback alone, when there is nothing to play.
   playNext() { return this.phoneHasNext ? this.next() : this.playQueued(); }
 
-  // Plays the first cast-queue entry, or the one with `key`.
+  // Plays the first cast-queue entry, or an upcoming/played entry with `key`.
   playQueued(key) {
-    const entry = this.castQueue.take(key);
+    const entry = this.castQueue.take(key)
+      ?? (key === undefined ? null : this.castQueue.findPlayed(key, this.video));
     if (!entry) return Promise.resolve(false);
-    return this.play({ id: entry.id, title: entry.title, client: Constants.CLIENTS.YT }, 0);
+    return this.play({ id: entry.id, title: entry.title, client: Constants.CLIENTS.YT }, 0, undefined, entry);
   }
 
   async doGetVolume() { return { ...this.volume }; }

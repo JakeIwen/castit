@@ -102,7 +102,7 @@ async function handleQueue(request, { queue }) {
     const { action } = body;
     if (!QUEUE_ACTIONS.includes(action)) return [400, { error: 'Unknown queue action' }];
     const fields = queueArguments(body);
-    if (!fields) return [400, { error: 'Queue add needs a videoId; remove and play need an integer key' }];
+    if (!fields) return [400, { error: 'Queue add needs a videoId; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
     return [200, { action, done: Boolean(await queue(action, fields)) }];
   } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid queue request' }];

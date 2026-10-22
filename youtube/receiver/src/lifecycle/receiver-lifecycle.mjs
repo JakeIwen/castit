@@ -18,6 +18,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
     player: Object.keys(PlayerStatus).find(key => PlayerStatus[key] === player.status) || 'UNKNOWN',
     video: player.video, position: player.position, duration: player.duration, audioDelay: player.audioDelay,
     speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
+    played: player.castQueue.playedSnapshot(player.video),
     senders: receiver.getConnectedSenders().length,
   });
   const stop = (code = 0) => {

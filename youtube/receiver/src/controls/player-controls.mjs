@@ -5,7 +5,7 @@ import { isVideoId } from '../youtube/video-id.mjs';
 // the Firefox popup, the Pi's vlcmd/pp shell functions behind the BTT buttons).
 export const CONTROL_ACTIONS = Object.freeze(['pause', 'resume', 'toggle', 'stop', 'next', 'previous',
   'seek', 'audio_delay', 'speed', 'volume', 'mute']);
-export const QUEUE_ACTIONS = Object.freeze(['add', 'remove', 'play', 'clear']);
+export const QUEUE_ACTIONS = Object.freeze(['add', 'remove', 'play', 'move', 'clear']);
 
 // Returns `seek` arguments from a request body, or null when they are invalid:
 // exactly one of an absolute `position` (>= 0) or a relative `offset`.
@@ -37,8 +37,11 @@ export function muteArguments({ muted }) {
   return typeof muted === 'boolean' ? { muted } : null;
 }
 
-export function queueArguments({ action, videoId, key }) {
+export function queueArguments({ action, videoId, key, index }) {
   if (action === 'add') return isVideoId(videoId) ? { videoId } : null;
+  if (action === 'move') {
+    return Number.isSafeInteger(key) && Number.isSafeInteger(index) && index >= 0 ? { key, index } : null;
+  }
   if (action === 'remove' || action === 'play') return Number.isSafeInteger(key) ? { key } : null;
   return {};
 }
@@ -94,7 +97,9 @@ export function createQueueControls(player, { log = console } = {}) {
       return isIdle(player) ? start(entry.key) : true;
     },
     remove: ({ key }) => player.castQueue.take(key) !== null,
-    play: ({ key }) => player.castQueue.snapshot().some(entry => entry.key === key) && start(key),
+    play: ({ key }) => (player.castQueue.snapshot().some(entry => entry.key === key)
+      || player.castQueue.findPlayed(key, player.video) !== null) && start(key),
+    move: ({ key, index }) => player.castQueue.move(key, index),
     clear: () => { player.castQueue.clear(); return true; },
   };
 }

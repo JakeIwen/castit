@@ -9,8 +9,10 @@ dt { color: var(--muted); } dd { margin: 0; }
 .setting-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .setting-row > span { color: var(--muted); flex-basis: 100%; }
 output { color: var(--foreground); font-variant-numeric: tabular-nums; }
-#queue { padding-left: 1.5em; } #queue li { margin: 8px 0; }
-#queue li > span { display: block; } #queue li button { margin: 6px 8px 0 0; }
+.video-list { padding-left: 1.5em; } .video-list li { margin: 8px 0; }
+.video-list li > a { display: block; color: var(--foreground); }
+.queue-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.video-list button:disabled { cursor: default; }
 #code { font: 600 clamp(20px,6vw,32px)/1.5 monospace; letter-spacing: .04em; }
 button { font: inherit; padding: 10px 16px; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); background: var(--control); cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; } p { color: var(--muted); }

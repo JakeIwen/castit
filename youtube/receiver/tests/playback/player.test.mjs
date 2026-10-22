@@ -246,6 +246,133 @@ test('At the end of a video the cast queue plays next, then playback stops', asy
   await settleUntil(() => player.status === PlayerStatus.STOPPED);
 });
 
+test('Played history records direct, phone-next and cast-queue starts and survives stopping or disconnecting', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const played = () => player.castQueue.playedSnapshot(player.video);
+  await player.queue.updateByMessage({ name: 'setPlaylist', payload: {
+    listId: 'queue', videoIds: `${VIDEO.id},${SECOND.id}`, videoId: VIDEO.id, currentIndex: '0',
+  } }, VIDEO.client);
+  await player.play(VIDEO, 12);
+  assert.deepEqual(played(), []);
+  instances[0].property('media-title', 'First title');
+  await settleUntil(() => !player.queue.isUpdating);
+  assert.equal(await player.playNext(), true);
+  assert.deepEqual(played().map(({ id, title }) => ({ id, title })), [{ id: VIDEO.id, title: 'First title' }]);
+  const queued = player.castQueue.add('zzzzzzzzzzz');
+  await settleUntil(() => !player.queue.isUpdating);
+  assert.equal(await player.playNext(), true);
+  assert.deepEqual(instances[2].loaded, { id: queued.id, position: 0 });
+  assert.deepEqual(played().map(entry => entry.id), [VIDEO.id, SECOND.id]);
+  assert.equal(played()[1].title, null);
+  instances[2].property('media-title', 'Last title');
+  await player.stop();
+  const history = played();
+  assert.deepEqual(history.map(entry => entry.id), [VIDEO.id, SECOND.id, queued.id]);
+  assert.equal(history[2].title, 'Last title');
+  assert.equal(new Set([...history.map(entry => entry.key), queued.key]).size, 4);
+  player.castQueue.add(VIDEO.id);
+  player.castQueue.clear();
+  assert.deepEqual(played(), history);
+  await player.endSession();
+  assert.deepEqual(played(), history);
+});
+
+test('Played history retains the latest 20 previous videos, dedupes and moves repeats to the end', async t => {
+  const { player } = playerFixture();
+  t.after(() => player.endSession());
+  const ids = Array.from({ length: 23 }, (_, index) => String(index).padStart(11, '0'));
+  for (const id of ids) assert.equal(await player.play({ id, client: VIDEO.client }), true);
+  const played = () => player.castQueue.playedSnapshot(player.video);
+  assert.deepEqual(played().map(entry => entry.id), ids.slice(2, -1));
+  const previous = played().find(entry => entry.id === ids[5]);
+  assert.equal(await player.playQueued(previous.key), true);
+  assert.deepEqual(played().map(entry => entry.id), ids.slice(2).filter(id => id !== previous.id));
+  assert.equal(await player.playQueued(previous.key), false);
+  await player.stop();
+  const history = played();
+  assert.equal(history.length, 20);
+  assert.equal(new Set(history.map(entry => entry.id)).size, 20);
+  assert.equal(history.at(-1).id, previous.id);
+  assert.ok(history.at(-1).key > previous.key);
+  assert.deepEqual(playerFixture().player.castQueue.playedSnapshot(), []);
+});
+
+test('Replaying a played key starts at zero and keeps its history entry until a successful start', async t => {
+  let finishLoad;
+  class DeferredMpv extends FakeMpv {
+    async load(id, position, signal) {
+      if (id === VIDEO.id) await new Promise(resolve => { finishLoad = resolve; });
+      await super.load(id, position, signal);
+    }
+  }
+  const instances = [];
+  const { player } = playerFixture({ createMpv: () => {
+    const mpv = instances.length < 2 ? new FakeMpv() : new DeferredMpv();
+    instances.push(mpv);
+    return mpv;
+  } });
+  t.after(() => player.endSession());
+  await player.play(VIDEO, 35);
+  instances[0].property('media-title', 'Original title');
+  await player.play(SECOND);
+  const [previous] = player.castQueue.playedSnapshot(player.video);
+  const upcoming = player.castQueue.add('zzzzzzzzzzz');
+  const replay = player.playQueued(previous.key);
+  await settleUntil(() => finishLoad);
+  assert.equal(player.status, PlayerStatus.LOADING);
+  assert.deepEqual(player.castQueue.findPlayed(previous.key), previous);
+  finishLoad();
+  assert.equal(await replay, true);
+  assert.deepEqual(instances[2].loaded, { id: VIDEO.id, position: 0 });
+  assert.equal(player.castQueue.findPlayed(previous.key), null);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.key), [upcoming.key]);
+  assert.equal(await player.playQueued(9999), false);
+  assert.equal(instances.length, 3);
+  instances[2].property('media-title', 'Replay title');
+  await player.stop();
+  assert.deepEqual(player.castQueue.playedSnapshot().map(({ id, title }) => ({ id, title })),
+    [{ id: SECOND.id, title: null }, { id: VIDEO.id, title: 'Replay title' }]);
+});
+
+test('Queued playback history follows a late oEmbed title until mpv supplies the loaded title', async t => {
+  let supplyTitle;
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  player.castQueue.lookupTitle = () => new Promise(resolve => { supplyTitle = resolve; });
+  const queued = player.castQueue.add(VIDEO.id);
+  assert.equal(await player.playQueued(queued.key), true);
+  assert.deepEqual(player.castQueue.playedSnapshot(player.video), []);
+  assert.equal(player.castQueue.playedSnapshot()[0].title, null);
+  supplyTitle('Late oEmbed title');
+  await settleUntil(() => player.castQueue.playedSnapshot()[0].title === 'Late oEmbed title');
+  instances[0].property('media-title', 'Loaded mpv title');
+  await player.stop();
+  assert.equal(player.castQueue.playedSnapshot()[0].title, 'Loaded mpv title');
+});
+
+test('Failed and cancelled loads do not enter played history, including a failed replay', async t => {
+  let fail = false;
+  const { player } = playerFixture({ createMpv: () => {
+    const mpv = new FakeMpv();
+    if (fail) mpv.load = async () => { throw new Error('load failed'); };
+    return mpv;
+  } });
+  t.after(() => player.endSession());
+  const cancelled = player.play(VIDEO);
+  const successful = player.play(SECOND);
+  assert.equal(await cancelled, false);
+  assert.equal(await successful, true);
+  await player.stop();
+  const history = player.castQueue.playedSnapshot();
+  assert.deepEqual(history.map(entry => entry.id), [SECOND.id]);
+  fail = true;
+  assert.equal(await player.play(VIDEO), false);
+  assert.deepEqual(player.castQueue.playedSnapshot(), history);
+  assert.equal(await player.playQueued(history[0].key), false);
+  assert.deepEqual(player.castQueue.playedSnapshot(), history);
+});
+
 test('Playback errors and bad video IDs leave no player window', async () => {
   const mpv = new FakeMpv();
   mpv.load = async () => { throw new Error('yt-dlp failed'); };

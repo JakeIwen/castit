@@ -125,7 +125,11 @@ its resolver children. Starting another player later does not stop this one.
 - `GET /health`: supervisor health without pairing codes or identity.
 - `GET /api/status`: receiver/player state, video, position, duration, pairing
   status, `audioDelay` in seconds, `speed`, `volume` (`{level, muted}`) and
-  `queue` (`[{key, id, title}]`, title null until YouTube supplies it).
+  `queue` (`[{key, id, title}]`, title null until YouTube supplies it). `played`
+  has the same entry shape: up to 20 videos that started on this receiver, oldest
+  first, excluding the currently loaded video. Repeated video ids move to the
+  end; titles follow mpv, falling back to the queued video's oEmbed title. Entry
+  keys are unique across both lists.
 - `POST /api/cast`: JSON `{"videoId":"dQw4w9WgXcQ","position":12.5}`. Position
   is optional and non-negative. Returns 202 while loading; poll status for the result.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
@@ -148,10 +152,17 @@ its resolver children. Starting another player later does not stop this one.
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` appends (up to 50) and starts it at once when
-  nothing is playing; `play` and `remove` take an entry `key` from status;
-  `clear` empties it. Queued videos play after the phone's own queue, at the end
-  of each video or on Next. The queue is in memory; Stop and the last sender's
-  disconnect clear it. Titles come from YouTube's oEmbed endpoint.
+  nothing is playing; `play` and `remove` take an entry `key` from status.
+  `play` also accepts a `played` key to replay from the start; it stays in history
+  until playback starts again, when it gets a new key at the end. `move` takes
+  `key` and a non-negative safe integer `index`: the upcoming entry's final
+  zero-based position, clamped to the queue's last position. `play`, `remove`
+  and `move` return `done:false` for missing keys; played entries cannot be moved
+  or removed. `clear` empties the upcoming queue. Queued videos play after the
+  phone's own queue, at the end of each video or on Next. Both lists are in
+  memory and lost on restart; Stop and the last sender's disconnect clear only
+  the upcoming queue, preserving played history. Queue titles come from YouTube's
+  oEmbed endpoint. The status page shows recently played videos newest first.
 - The library ignores sender messages it doesn't implement. The receiver logs
   each one's name (never its payload) as `Unhandled sender message: <name>` in
   the journal, to show what a phone feature such as its speed menu sends.
@@ -159,6 +170,49 @@ its resolver children. Starting another player later does not stop this one.
 POSTs require `Content-Type: application/json` and an absent, `null`, extension
 or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin
 CORS preflight is not supported. Control responses include `action` and `done`.
+
+## Watch history (optional)
+
+With account cookies installed, `src/history/watch-history.mjs` requests a
+YouTube watch-history mark after 20 seconds in the Player's `PLAYING` state.
+Loading and paused time do not count; seeking does not advance this clock.
+Each play gets one attempt, including a later replay. It runs yt-dlp separately
+at low priority with a two-minute timeout, never awaiting it on the playback
+path. Only one attempt runs at once; the newest qualified video replaces any
+older pending attempt, without interrupting the active one.
+
+On the Mac, sign in to YouTube in Firefox, then run from this directory:
+
+```sh
+zsh ./push-youtube-cookies.zsh
+zsh ./push-youtube-cookies.zsh --remove
+```
+
+The first command exports Google/YouTube cookies from the default Firefox
+profile's default container and atomically installs a mode-600
+`youtube-cookies.txt` in the receiver's private state directory, using
+`../local.json`'s SSH target. The second deletes it to disable history. No
+restart is needed. `--profile <dir>` selects another profile; `--output <file>`
+exports locally instead of contacting the receiver. Keep that file outside this
+public repository; never commit or share account cookies.
+
+Without the file, history is off. Non-regular files, symlinks, another owner's
+file or any mode other than 600 are rejected. Status includes only
+`watchHistory: { enabled, state, reason, lastMarkedAt }`: state is `off`, `ok`
+or `failed`; reason is null, `signed-out`, `rejected-file` or `error`.
+`lastMarkedAt` is an ISO timestamp of the last successful attempt this process,
+not confirmation from your account's history page. No video details or yt-dlp
+output are included in that record or history logs.
+
+YouTube rotates cookies, so this can stop working. If status says `signed-out`,
+further attempts wait until you re-run the exporter. yt-dlp recommends exporting
+from a private window and then closing it to keep the session valid longer;
+Firefox private-window cookies are memory-only, so this SQLite exporter cannot
+capture those sessions. It exports the on-disk, non-private session only.
+
+**Account risk:** yt-dlp warns that automated access with account cookies can
+get an account flagged. One attempt per video play is light use, not a safety
+guarantee; enabling it is your choice.
 
 ## Tests and limitations
 

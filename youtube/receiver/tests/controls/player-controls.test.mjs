@@ -151,6 +151,51 @@ test('Queue add starts at once when idle and waits behind a playing video', asyn
   assert.equal(player.castQueue.length, 0);
 });
 
+test('Queue controls move upcoming entries, replay played keys and preserve history on Stop or clear', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  const queue = createQueueControls(player, { log: quiet });
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  const [previous] = player.castQueue.playedSnapshot(player.video);
+  queue.add({ videoId: 'aaaaaaaaaaa' });
+  queue.add({ videoId: 'bbbbbbbbbbb' });
+  const [a, b] = player.castQueue.snapshot();
+  assert.equal(queue.move({ key: b.key, index: 0 }), true);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.key), [b.key, a.key]);
+  assert.equal(queue.move({ key: b.key, index: 999 }), true);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.key), [a.key, b.key]);
+  assert.equal(queue.move({ key: previous.key, index: 0 }), false);
+  assert.equal(queue.remove({ key: previous.key }), false);
+  assert.equal(queue.move({ key: 999, index: 0 }), false);
+  assert.equal(queue.play({ key: previous.key }), true);
+  await settleUntil(() => instances[2]?.loaded && player.status === PlayerStatus.PLAYING);
+  assert.deepEqual(instances[2].loaded, { id: VIDEO.id, position: 0 });
+  await settleUntil(() => player.castQueue.findPlayed(previous.key) === null);
+  assert.equal(queue.play({ key: previous.key }), false);
+  assert.equal(queue.play({ key: 999 }), false);
+  assert.equal(await controls.stop(), true);
+  assert.equal(player.castQueue.length, 0);
+  const history = player.castQueue.playedSnapshot();
+  assert.deepEqual(history.map(entry => entry.id), [SECOND.id, VIDEO.id]);
+  assert.equal(queue.clear(), true);
+  assert.deepEqual(player.castQueue.playedSnapshot(), history);
+  assert.equal(queue.move({ key: a.key, index: 0 }), false);
+});
+
+test('Queue move arguments require an integer key and a non-negative safe integer index', () => {
+  for (const index of [0, 2, Number.MAX_SAFE_INTEGER]) {
+    assert.deepEqual(queueArguments({ action: 'move', key: 3, index }), { key: 3, index });
+  }
+  for (const index of [undefined, null, -1, 1.5, '1', false, [], {}, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(queueArguments({ action: 'move', key: 3, index }), null);
+  }
+  for (const key of [undefined, null, '3', 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(queueArguments({ action: 'move', key, index: 0 }), null);
+  }
+});
+
 test('Queue arguments need a video id to add and an integer key to remove or play', () => {
   assert.deepEqual(queueArguments({ action: 'add', videoId: VIDEO.id }), { videoId: VIDEO.id });
   assert.equal(queueArguments({ action: 'add', videoId: 'bad' }), null);
