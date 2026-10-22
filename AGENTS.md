@@ -19,7 +19,7 @@ a clean checkout.
 |---|---|
 | `/home/pi/youtube-cast/` releases, `youtube-cast.service`, state in `/home/pi/.local/state/youtube-cast/` | the live Pi install; `youtube/receiver/deploy.sh` owns them |
 | `/home/pi/youtube-cast/current/controller.sh update-ytdlp` | the Pi's weekly crontab line |
-| DIAL port 8794, status/API port 8795, `/api/status`, `/api/control`, `/api/cast` | the extension, `vantv.zsh`, and the Pi shell's `vantv_*` functions (in `JakeIwen/scripts` `pi/.bashrc`) that route BTT media buttons |
+| DIAL port 8794, status/API port 8795, `/api/status`, `/api/control`, `/api/cast`, `/api/queue` | the extension, `vantv.zsh`, and the Pi shell's `vantv_*` functions (in `JakeIwen/scripts` `pi/.bashrc`) that route BTT media buttons |
 | extension ID from `senders.extensionId` | installed Firefox add-on; changing it installs a separate add-on |
 | `youtube/vantv.zsh` | the Mac `vantv` alias in `~/.zshrc` |
 
@@ -30,9 +30,12 @@ a clean checkout.
   derived commands. `mpv-ipc`/`mpv-process`/`mpv-player` own playback,
   `process-command` bounded subprocess groups, `room-preparation` the optional
   pre-cast command and screen wake, `vlc-handoff` the optional local player
-  stop, `private-data-store` screen identity and settings (volume, A/V offset),
+  stop, `private-data-store` screen identity and settings (volume, speed, A/V offset),
   `stable-dial-uuid` the SSDP UUID, `video-id` the one video-id check,
-  `player-controls` the `/api/control` actions, `status-server` HTTP.
+  `player-controls` the `/api/control` and `/api/queue` actions, `cast-queue`
+  the queue for senders without a phone session (and its title lookup),
+  `unhandled-message-log` the one library log line kept (unhandled sender
+  message names), `status-server` HTTP.
   `deploy.sh` (Mac) stages a release and `controller.sh` (Pi) installs it.
 - `youtube/firefox/`: `build-config.mjs` validates `senders` and generates the
   manifest (from `manifest.template.json`) and `local-config.js`; `build.zsh`

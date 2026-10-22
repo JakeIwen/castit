@@ -4,7 +4,7 @@ import { config } from './config.mjs';
 import { PairingCodes } from './pairing-codes.mjs';
 import { listenStatus } from './status-server.mjs';
 import { PlayerStatus } from './mpv-player.mjs';
-import { createPlayerControls } from './player-controls.mjs';
+import { createPlayerControls, createQueueControls } from './player-controls.mjs';
 
 export async function runReceiver({ receiver, player, store, log = console }) {
   const instance = randomUUID();
@@ -17,6 +17,7 @@ export async function runReceiver({ receiver, player, store, log = console }) {
     name: config.name, pid: process.pid, instance, receiver: receiver.status,
     player: Object.keys(PlayerStatus).find(key => PlayerStatus[key] === player.status) || 'UNKNOWN',
     video: player.video, position: player.position, duration: player.duration, audioDelay: player.audioDelay,
+    speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
     senders: receiver.getConnectedSenders().length,
   });
   const stop = (code = 0) => {
@@ -49,13 +50,15 @@ export async function runReceiver({ receiver, player, store, log = console }) {
     await store.initialize();
     await player.initialize();
     const controls = createPlayerControls(player);
+    const queueControls = createQueueControls(player, { log });
     const cast = async (videoId, position) => {
       if (receiver.status !== Constants.STATUSES.RUNNING) throw new Error('Receiver not running');
       void player.play({ id: videoId, client: Constants.CLIENTS.YT }, position)
         .catch(() => log.warn('Direct cast failed'));
     };
     closeStatus = await listenStatus({ snapshot, pairing, cast,
-      control: (action, fields) => controls[action](fields) });
+      control: (action, fields) => controls[action](fields),
+      queue: (action, fields) => queueControls[action](fields) });
     const startup = setTimeout(() => { log.error('Receiver startup timeout'); void stop(1); }, 60_000);
     try { await receiver.start(); } finally { clearTimeout(startup); }
     if (!stopping) pairing.start();

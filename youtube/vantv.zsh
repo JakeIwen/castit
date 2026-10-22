@@ -25,6 +25,9 @@ usage() {
   print -u2 'usage: vantv [youtube-url]   cast a link (default: front Chrome/Safari YouTube tab, then clipboard)'
   print -u2 '       vantv pause|resume|stop|status'
   print -u2 '       vantv delay [+ms|-ms|ms]   show, nudge or set the audio offset (+ plays sound later)'
+  print -u2 '       vantv vol [+n|-n|n|mute|unmute]   show, nudge or set the volume (0-100, saved)'
+  print -u2 '       vantv speed [+x|-x|x]   show, nudge or set the playback speed (0.25-3, saved)'
+  print -u2 '       vantv queue [youtube-url|list|clear]   add a video (default: as for casting), list or clear'
   exit 2
 }
 
@@ -48,6 +51,60 @@ set_delay() {
   if [[ -n $match[1] ]]; then post control "{\"action\":\"audio_delay\",\"offset\":$seconds}" >/dev/null
   else post control "{\"action\":\"audio_delay\",\"delay\":$seconds}" >/dev/null
   fi
+}
+
+# Reads one field of the receiver's status JSON (given on stdin) as text.
+status_field() { /usr/bin/plutil -extract "$1" raw -o - - 2>/dev/null }
+
+show_volume() {
+  local state level
+  state=$(curl -fsS -m 10 "$VAN_TV/api/status")
+  level=$(status_field volume.level <<< "$state") || { print -u2 'Van TV did not report a volume.'; exit 1 }
+  [[ $(status_field volume.muted <<< "$state") == true ]] && print "Volume: ${level%.*} (muted)" || print "Volume: ${level%.*}"
+}
+
+set_volume() {
+  case $1 in
+    mute) post control '{"action":"mute","muted":true}' >/dev/null ;;
+    unmute) post control '{"action":"mute","muted":false}' >/dev/null ;;
+    [+-][0-9]*) [[ $1 =~ '^[+-][0-9]+$' ]] || usage; post control "{\"action\":\"volume\",\"offset\":${1#+}}" >/dev/null ;;
+    <0-100>) post control "{\"action\":\"volume\",\"level\":$(( 10#$1 ))}" >/dev/null ;;
+    *) usage ;;
+  esac
+}
+
+show_speed() {
+  local speed
+  speed=$(curl -fsS -m 10 "$VAN_TV/api/status" | status_field speed) || { print -u2 'Van TV did not report a speed.'; exit 1 }
+  printf 'Speed: %gx\n' $speed
+}
+
+# A signed value nudges the speed; an unsigned one sets it.
+set_speed() {
+  [[ $1 =~ '^([+-]?)[0-9]+(\.[0-9]+)?$' ]] || usage
+  if [[ -n $match[1] ]]; then post control "{\"action\":\"speed\",\"offset\":${1#+}}" >/dev/null
+  else post control "{\"action\":\"speed\",\"speed\":$1}" >/dev/null
+  fi
+}
+
+list_queue() {
+  local state count i title
+  state=$(curl -fsS -m 10 "$VAN_TV/api/status")
+  count=$(status_field queue <<< "$state") || { print -u2 'Van TV did not report a queue.'; exit 1 }
+  (( count )) || { print 'Queue is empty.'; return }
+  for (( i = 0; i < count; i++ )); do
+    title=$(status_field queue.$i.title <<< "$state") || title=$(status_field queue.$i.id <<< "$state")
+    print -r -- "$(( i + 1 )). $title"
+  done
+}
+
+queue_video() {
+  local url=${1:-$(front_tab_url)} id start reply
+  is_youtube "$url" || usage
+  read -r id start <<< "$(video_id "$url")" || { print -u2 "No video id in $url"; exit 1 }
+  reply=$(post queue "{\"action\":\"add\",\"videoId\":\"$id\"}")
+  [[ $reply == *'"done":true'* ]] || { print -u2 'Van TV did not queue the video (the queue may be full).'; exit 1 }
+  print -r -- "Queued on Van TV: $url"
 }
 
 is_youtube() { [[ $1 =~ '^https://(((www|m|music)\.)?youtube\.com|youtu\.be)/' ]] }
@@ -86,6 +143,15 @@ case ${1:-} in
   pause|resume|stop) post control "{\"action\":\"$1\"}"; exit ;;
   status) curl -fsS -m 10 "$VAN_TV/api/status"; print; exit ;;
   delay) [[ -n ${2:-} ]] && set_delay $2; show_delay; exit ;;
+  vol|volume) [[ -n ${2:-} ]] && set_volume $2; show_volume; exit ;;
+  speed) [[ -n ${2:-} ]] && set_speed $2; show_speed; exit ;;
+  queue)
+    case ${2:-} in
+      list) list_queue ;;
+      clear) post queue '{"action":"clear"}' >/dev/null; print 'Queue cleared.' ;;
+      *) queue_video ${2:-} ;;
+    esac
+    exit ;;
 esac
 url=${1:-$(front_tab_url)}
 is_youtube "$url" || usage

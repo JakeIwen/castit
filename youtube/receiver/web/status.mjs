@@ -1,5 +1,39 @@
 const element = id => document.getElementById(id);
 const refresh = element('refresh');
+let renderedQueue = '';
+
+async function post(path, body) {
+  const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body) });
+  if (!response.ok) throw new Error('Request failed');
+}
+
+function queueButton(label, body) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.addEventListener('click', async () => {
+    try { await post('/api/queue', body); await update(); }
+    catch { element('message').textContent = 'Cannot change the queue'; }
+  });
+  return button;
+}
+
+// Rebuilt only when the queue changes, so a poll never steals focus.
+function renderQueue(queue = []) {
+  const signature = JSON.stringify(queue);
+  if (signature === renderedQueue) return;
+  renderedQueue = signature;
+  element('queue').replaceChildren(...queue.map(entry => {
+    const item = document.createElement('li');
+    const title = document.createElement('span');
+    title.textContent = entry.title || entry.id;
+    item.append(title, queueButton('Play now', { action: 'play', key: entry.key }),
+      queueButton('Remove', { action: 'remove', key: entry.key }));
+    return item;
+  }));
+  element('queue-empty').hidden = queue.length > 0;
+}
 
 async function update() {
   try {
@@ -13,6 +47,10 @@ async function update() {
     element('senders').textContent = String(data.senders);
     const delayMs = Math.round(data.audioDelay * 1000);
     element('audio-delay').textContent = `${delayMs > 0 ? '+' : ''}${delayMs} ms`;
+    element('volume').textContent = data.volume.muted ? `${data.volume.level} (muted)` : String(data.volume.level);
+    element('mute').textContent = data.volume.muted ? 'Unmute' : 'Mute';
+    element('speed').textContent = `${data.speed}×`;
+    renderQueue(data.queue);
     element('code').textContent = data.pairing.code || (data.pairing.error ? 'Unavailable' : 'Requesting code…');
     element('message').textContent = data.pairing.error || '';
     refresh.disabled = data.pairing.requesting;
@@ -36,16 +74,13 @@ for (const button of document.querySelectorAll('button[data-action]')) {
   button.addEventListener('click', async () => {
     try {
       const body = { action: button.dataset.action };
-      for (const field of ['delay', 'offset']) {
+      for (const field of ['delay', 'offset', 'speed']) {
         if (button.dataset[field] !== undefined) body[field] = Number(button.dataset[field]);
       }
-      const response = await fetch('/api/control', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body) });
-      if (!response.ok) throw new Error('Control failed');
+      await post('/api/control', body);
       await update();
     } catch {
-      element('message').textContent = button.dataset.action === 'audio_delay'
-        ? 'Cannot adjust the A/V offset' : `Cannot ${button.dataset.action} playback`;
+      element('message').textContent = `Cannot change ${button.closest('[aria-label]')?.getAttribute('aria-label') ?? 'playback'}`;
     }
   });
 }

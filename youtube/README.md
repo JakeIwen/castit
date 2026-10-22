@@ -6,8 +6,8 @@ HTTP API on port 8795 lets other senders cast and control playback directly.
 
 | Path | Role |
 |---|---|
-| [`receiver/`](receiver/README.md) | The Pi service: pairing, mpv playback, SponsorBlock skips, A/V offset, status page |
-| [`firefox/`](firefox/README.md) | Firefox extension: cast button on YouTube, context menu, toolbar remote |
+| [`receiver/`](receiver/README.md) | The Pi service: pairing, mpv playback, SponsorBlock skips, volume, speed, A/V offset, queue, status page |
+| [`firefox/`](firefox/README.md) | Firefox extension: cast button on YouTube, cast and queue menus, toolbar remote |
 | `vantv.zsh` | Mac CLI: cast a link or the front Chrome/Safari tab, control playback |
 
 ## Configure
@@ -28,6 +28,9 @@ receiver URLs the extension and CLI use, primary first, and the extension ID.
 vantv [youtube-url]          # cast a link; default: front Chrome/Safari tab, then clipboard
 vantv pause|resume|stop|status
 vantv delay [+ms|-ms|ms]     # show, nudge or set the A/V offset (+ plays sound later)
+vantv vol [+n|-n|n|mute|unmute]  # show, nudge or set the volume (0-100)
+vantv speed [+x|-x|x]        # show, nudge or set the playback speed (0.25-3)
+vantv queue [youtube-url|list|clear]  # queue a video (same default as casting), list or clear
 ```
 
 Alias it to `youtube/vantv.zsh`; it reads `local.json` beside itself, or the

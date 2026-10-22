@@ -33,6 +33,10 @@ export const config = Object.freeze({
   loadTimeoutMs: 90_000,
   pairingLifetimeMs: 300_000,
   pairingRetryMs: 30_000,
+  // Titles for queued videos; YouTube's oEmbed endpoint needs no key.
+  titleLookupUrl: 'https://www.youtube.com/oembed',
+  titleLookupTimeoutMs: 5000,
+  queueLimit: 50,
 });
 
 // PLAYER TUNING BLOCK: xv and bounded H.264 formats reduce dropped frames on

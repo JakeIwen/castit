@@ -2,16 +2,20 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { config } from './config.mjs';
 import { isVideoId } from './video-id.mjs';
-import { CONTROL_ACTIONS, seekArguments, audioDelayArguments } from './player-controls.mjs';
+import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, speedArguments,
+  volumeArguments, muteArguments, queueArguments } from './player-controls.mjs';
 
 const MAX_POST_BODY = 256;
 // Web pages can't forge these origins, and a JSON body already forces a CORS
 // preflight this server never answers; the status page itself is same-origin.
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
-const POST_ROUTES = ['/api/pairing', '/api/control', '/api/cast'];
+const POST_ROUTES = ['/api/pairing', '/api/control', '/api/cast', '/api/queue'];
 const controlArguments = {
   seek: { parse: seekArguments, error: 'Seek needs one of position (>= 0) or offset' },
   audio_delay: { parse: audioDelayArguments, error: 'Audio delay needs exactly one of delay or offset (finite seconds)' },
+  speed: { parse: speedArguments, error: 'Speed needs exactly one of speed or offset (finite numbers)' },
+  volume: { parse: volumeArguments, error: 'Volume needs exactly one of level or offset (finite numbers)' },
+  mute: { parse: muteArguments, error: 'Mute takes an optional boolean muted' },
 };
 
 const assets = {
@@ -21,6 +25,7 @@ const assets = {
 };
 
 export async function createStatusServer({ snapshot, pairing, control = async () => false,
+  queue = async () => false,
   cast = async () => { throw new Error('Cast unavailable'); },
   hosts = ['localhost', '127.0.0.1', config.lanAddress, ...config.hostnames] }) {
   const content = new Map(await Promise.all(Object.entries(assets).map(async ([path, [file, type]]) =>
@@ -50,8 +55,8 @@ export async function createStatusServer({ snapshot, pairing, control = async ()
         request.resume();
         json(202, { requested: pairing.refresh() });
       } else {
-        const handler = url.pathname === '/api/cast' ? handleCast : handleControl;
-        void handler(request, { control, cast }).then(([code, body]) => json(code, body));
+        const handler = { '/api/cast': handleCast, '/api/queue': handleQueue }[url.pathname] ?? handleControl;
+        void handler(request, { control, cast, queue }).then(([code, body]) => json(code, body));
       }
     } else if (request.method === 'GET' && content.has(url.pathname)) {
       const asset = content.get(url.pathname);
@@ -88,6 +93,19 @@ async function handleControl(request, { control }) {
     return [200, { action, done: Boolean(await control(action, fields)) }];
   } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid control request' }];
+  }
+}
+
+async function handleQueue(request, { queue }) {
+  try {
+    const body = await readJsonBody(request);
+    const { action } = body;
+    if (!QUEUE_ACTIONS.includes(action)) return [400, { error: 'Unknown queue action' }];
+    const fields = queueArguments(body);
+    if (!fields) return [400, { error: 'Queue add needs a videoId; remove and play need an integer key' }];
+    return [200, { action, done: Boolean(await queue(action, fields)) }];
+  } catch (error) {
+    return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid queue request' }];
   }
 }
 

@@ -4,6 +4,7 @@ import { PrivateDataStore } from './private-data-store.mjs';
 import { MpvPlayer } from './mpv-player.mjs';
 import { runReceiver } from './receiver-lifecycle.mjs';
 import { useStableDialUuid } from './stable-dial-uuid.mjs';
+import { unhandledMessageLogger } from './unhandled-message-log.mjs';
 
 process.umask(0o077);
 const store = new PrivateDataStore(config.stateDirectory);
@@ -15,8 +16,9 @@ const receiver = new YouTubeCastReceiver(player, {
   dial: { port: config.dialPort, prefix: '/ytcr',
     bindToAddresses: [config.lanAddress], corsAllowOrigins: false },
   dataStore: store,
-  // Upstream debug/error objects can contain lounge tokens and pairing data.
-  logLevel: Constants.LOG_LEVELS.NONE,
+  // Upstream debug/error objects can contain lounge tokens and pairing data;
+  // only the names of unhandled sender messages get through.
+  logLevel: Constants.LOG_LEVELS.NONE, logger: unhandledMessageLogger(),
   // Like a TV, keep playing when a remote just goes away (ytcast exits, phone
   // sleeps); only an explicit disconnect from every sender ends the session.
   app: { resetPlayerOnDisconnectPolicy: Constants.RESET_PLAYER_ON_DISCONNECT_POLICIES.ALL_EXPLICITLY_DISCONNECTED },

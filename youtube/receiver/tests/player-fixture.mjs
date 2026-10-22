@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import YouTubeCastReceiver, { Constants, PlaylistRequestHandler } from 'yt-cast-receiver';
 import { MpvPlayer } from '../src/mpv-player.mjs';
+import { CastQueue } from '../src/cast-queue.mjs';
 
 export const VIDEO = { id: 'abcdefghijk', client: Constants.CLIENTS.YT, context: { playlistId: 'queue', index: 0 } };
 export const SECOND = { id: '0123456789a', client: Constants.CLIENTS.YT, context: { playlistId: 'queue', index: 1 } };
@@ -35,6 +36,7 @@ export function playerFixture(options = {}) {
     createMpv: () => { const instance = new FakeMpv(); instances.push(instance); return instance; },
     room: { beforeVideo: async () => { prepared++; }, endSession: () => { ended++; } },
     handoff: async () => {}, segments: async () => [], log: quiet,
+    castQueue: new CastQueue({ lookupTitle: async () => null }),
     ...options,
   });
   // Construction wires the library's real state/queue implementation without starting networks.

@@ -4,6 +4,7 @@ import { fetchSegments, SponsorSkipper } from './sponsor-block.mjs';
 import { RoomPreparation } from './room-preparation.mjs';
 import { stopVideoLibrary } from './vlc-handoff.mjs';
 import { isVideoId } from './video-id.mjs';
+import { CastQueue } from './cast-queue.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
 
@@ -12,13 +13,26 @@ function normalizeAudioDelay(delay) {
   return Math.round(Math.max(-1, Math.min(1, delay)) * 100) / 100 || 0;
 }
 
+// mpv keeps pitch at any speed (scaletempo2); past 3x speech stops being useful.
+export const SPEED_LIMITS = Object.freeze({ min: 0.25, max: 3 });
+
+function normalizeSpeed(speed) {
+  if (!Number.isFinite(speed)) return 1;
+  return Math.round(Math.max(SPEED_LIMITS.min, Math.min(SPEED_LIMITS.max, speed)) * 100) / 100;
+}
+
+// Saved playback settings and the mpv property each one drives.
+const MPV_SETTINGS = Object.freeze({ audioDelay: 'audio-delay', speed: 'speed' });
+
 export class MpvPlayer extends Player {
   constructor({ createMpv = () => new MpvProcess(), room = new RoomPreparation(),
-    handoff = stopVideoLibrary, segments = fetchSegments, store, log = console } = {}) {
+    handoff = stopVideoLibrary, segments = fetchSegments, store, log = console,
+    castQueue = new CastQueue() } = {}) {
     super();
-    Object.assign(this, { createMpv, room, handoff, segments, store, log });
+    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue });
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
+    this.speed = 1;
     this.position = 0;
     this.duration = 0;
     this.video = null;
@@ -29,6 +43,7 @@ export class MpvPlayer extends Player {
   async initialize() {
     const settings = await this.store?.get('settings');
     this.audioDelay = normalizeAudioDelay(settings?.audioDelay);
+    this.speed = normalizeSpeed(settings?.speed);
     if (Number.isFinite(settings?.volume?.level) && typeof settings.volume.muted === 'boolean') {
       this.volume = { level: Math.min(100, Math.max(0, settings.volume.level)), muted: settings.volume.muted };
     }
@@ -61,7 +76,7 @@ export class MpvPlayer extends Player {
     const abort = this.abort = new AbortController();
     const signal = abort.signal;
     const mpv = this.mpv = this.createMpv();
-    this.video = { id: video.id, title: video.id };
+    this.video = { id: video.id, title: video.title || video.id };
     this.position = position;
     this.skipper = new SponsorSkipper();
     void this.segments(video.id, { signal }).then(segments => {
@@ -83,7 +98,9 @@ export class MpvPlayer extends Player {
         await mpv.command(['observe_property', index + 1, property]);
       }
       await this.applyVolume();
-      await mpv.command(['set_property', 'audio-delay', this.audioDelay]);
+      for (const [name, property] of Object.entries(MPV_SETTINGS)) {
+        await mpv.command(['set_property', property, this[name]]);
+      }
       await mpv.load(video.id, position, signal);
       signal.throwIfAborted();
       return true;
@@ -143,17 +160,40 @@ export class MpvPlayer extends Player {
   }
 
   async saveSettings() {
-    await this.store?.set('settings', { volume: this.volume, audioDelay: this.audioDelay });
+    await this.store?.set('settings', { volume: this.volume, audioDelay: this.audioDelay, speed: this.speed });
   }
 
-  async setAudioDelay(delay) {
-    if (!Number.isFinite(delay)) return false;
-    this.audioDelay = normalizeAudioDelay(delay);
+  async updateSetting(name, value) {
+    this[name] = value;
     try {
       await this.saveSettings();
-      if (this.mpv) await this.mpv.command(['set_property', 'audio-delay', this.audioDelay]);
+      if (this.mpv) await this.mpv.command(['set_property', MPV_SETTINGS[name], value]);
       return true;
-    } catch { this.log.warn('Audio delay update failed'); return false; }
+    } catch { this.log.warn(`Setting ${name} update failed`); return false; }
+  }
+
+  setAudioDelay(delay) {
+    return Number.isFinite(delay) ? this.updateSetting('audioDelay', normalizeAudioDelay(delay)) : Promise.resolve(false);
+  }
+
+  setSpeed(speed) {
+    return Number.isFinite(speed) ? this.updateSetting('speed', normalizeSpeed(speed)) : Promise.resolve(false);
+  }
+
+  // The phone's queue, or its autoplay pick, goes before the cast queue.
+  get phoneHasNext() {
+    return this.queue.hasNext
+      || (this.autoplayMode === Constants.AUTOPLAY_MODES.ENABLED && Boolean(this.queue.autoplay));
+  }
+
+  // Resolves false, leaving playback alone, when there is nothing to play.
+  playNext() { return this.phoneHasNext ? this.next() : this.playQueued(); }
+
+  // Plays the first cast-queue entry, or the one with `key`.
+  playQueued(key) {
+    const entry = this.castQueue.take(key);
+    if (!entry) return Promise.resolve(false);
+    return this.play({ id: entry.id, title: entry.title, client: Constants.CLIENTS.YT }, 0);
   }
 
   async doGetVolume() { return { ...this.volume }; }
@@ -165,7 +205,7 @@ export class MpvPlayer extends Player {
       if (event.reason === 'eof') {
         await this.notifyExternalStateChange(PlayerStatus.PAUSED);
         if (this.mpv !== source) return;
-        if (!await this.next()) await this.stop();
+        if (!await this.playNext()) await this.stop();
       } else if (event.reason === 'error') await this.failedPlayback();
       return;
     }
@@ -198,6 +238,7 @@ export class MpvPlayer extends Player {
   }
 
   async endSession() {
+    this.castQueue.clear();
     const stopping = this.stop();
     const request = this.request;
     const pendingPlay = this.playTail;

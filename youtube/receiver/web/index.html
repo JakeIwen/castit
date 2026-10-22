@@ -4,13 +4,24 @@
 <body><main><h1>Van TV</h1><dl><dt>Receiver</dt><dd id="receiver">Connecting…</dd>
 <dt>Player</dt><dd id="player">—</dd><dt>Video</dt><dd id="video">None</dd>
 <dt>Position</dt><dd id="position">—</dd><dt>Connected senders</dt><dd id="senders">0</dd></dl>
-<div class="audio-delay-row" role="group" aria-label="A/V offset">
+<div class="setting-row" role="group" aria-label="Volume">
+<span>Volume: <output id="volume">—</output></span>
+<button type="button" data-action="volume" data-offset="-5" title="Volume down 5">Quieter</button>
+<button type="button" data-action="volume" data-offset="5" title="Volume up 5">Louder</button>
+<button type="button" data-action="mute" id="mute">Mute</button></div>
+<div class="setting-row" role="group" aria-label="Playback speed">
+<span>Speed: <output id="speed">—</output></span>
+<button type="button" data-action="speed" data-offset="-0.25" title="Slower by 0.25×">Slower</button>
+<button type="button" data-action="speed" data-offset="0.25" title="Faster by 0.25×">Faster</button>
+<button type="button" data-action="speed" data-speed="1" title="Back to normal speed">1×</button></div>
+<div class="setting-row" role="group" aria-label="A/V offset">
 <span>A/V offset: <output id="audio-delay">0 ms</output></span>
 <button type="button" data-action="audio_delay" data-offset="-0.05" title="If voices come after lips move, press Sound earlier (−50 ms).">Sound earlier</button>
 <button type="button" data-action="audio_delay" data-offset="0.05" title="If voices come before lips move, press Sound later (+50 ms).">Sound later</button>
 <button type="button" data-action="audio_delay" data-delay="0" title="Reset the A/V offset to 0 ms.">Reset</button></div>
 <p><button type="button" data-action="pause">Pause</button> <button type="button" data-action="resume">Resume</button>
 <button type="button" data-action="stop">Stop</button></p>
+<h2>Queue</h2><ol id="queue"></ol><p id="queue-empty">Nothing queued.</p>
 <h2>Link with TV code</h2><p id="code" aria-live="polite">Requesting code…</p>
 <button id="refresh" type="button">Get a fresh code</button><p id="message" role="status"></p>
 <p>YouTube app → Settings → Watch on TV → Enter TV code.</p>

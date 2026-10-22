@@ -33,6 +33,9 @@ cp ../local.example.json ../local.json
 - `roomCommand`: optional argv array, run once per cast session with an
   18-second timeout. Each video also wakes the screen. `null` skips room
   preparation; the screen wake still runs. Preparation failures do not block playback.
+  If the command sets an amplifier's volume, give it a level suited to YouTube's
+  loudness-normalized audio (louder than most films) and trim from there with
+  the receiver's own volume.
 - `videoLibrary`: `null` disables playback handoff. Otherwise set `controlUrl`
   to a bookmarking HTTP stop endpoint and `unit` to its systemd user service.
   The receiver checks that unit, POSTs form `action=stop`, and expects JSON
@@ -113,25 +116,45 @@ additional isolation is needed.
 
 Private state lives in `/home/pi/.local/state/youtube-cast/` (directory mode 700,
 files 600); mpv sockets/cache use `/run/youtube-cast/`. Keep state across updates
-and restarts to preserve pairing, volume and A/V offset. Corrupt identity files
+and restarts to preserve pairing, volume, speed and A/V offset. Corrupt identity files
 fail closed. Stopping or the last sender's explicit disconnect closes mpv and
 its resolver children. Starting another player later does not stop this one.
 
-## HTTP API and A/V offset
+## HTTP API, settings and queue
 
 - `GET /health`: supervisor health without pairing codes or identity.
 - `GET /api/status`: receiver/player state, video, position, duration, pairing
-  status and `audioDelay` in seconds.
+  status, `audioDelay` in seconds, `speed`, `volume` (`{level, muted}`) and
+  `queue` (`[{key, id, title}]`, title null until YouTube supplies it).
 - `POST /api/cast`: JSON `{"videoId":"dQw4w9WgXcQ","position":12.5}`. Position
   is optional and non-negative. Returns 202 while loading; poll status for the result.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
-  `next` or `previous`. Stop clears the queue. `seek` requires exactly one of
-  absolute `position` (>= 0) or relative `offset`, in seconds, clamped to the video.
+  `next` or `previous`. Stop clears both queues. Next plays the phone's next
+  video (or its autoplay pick), then the cast queue; with neither it does nothing.
+  `seek` requires exactly one of absolute `position` (>= 0) or relative
+  `offset`, in seconds, clamped to the video.
 - `POST /api/control` with `{"action":"audio_delay","delay":-0.12}` sets the
   A/V offset. Use exactly one of absolute `delay` or relative `offset`, in finite
   seconds. Values clamp to −1…+1 second and round to 0.01 second; positive values
   delay audio. Changes apply live and persist while idle and across restarts.
   The page's Sound earlier/later buttons step by 50 ms; Reset restores zero.
+- `speed` takes exactly one of absolute `speed` or relative `offset`; values
+  clamp to 0.25–3 and round to 0.01. mpv keeps the pitch. Faster playback needs
+  proportionally more bandwidth and decoding; check for dropped frames at 1080p.
+- `volume` takes exactly one of absolute `level` (0–100) or relative `offset`,
+  and unmutes. `mute` takes an optional boolean `muted`; without it, it toggles.
+  This is mpv's software volume, shared with the phone's volume control.
+- Speed, volume and A/V offset apply live, can be set while idle, and are saved
+  in `settings.json` across sessions and restarts.
+- `POST /api/queue`: the cast queue, for senders without a phone session.
+  `{"action":"add","videoId":"…"}` appends (up to 50) and starts it at once when
+  nothing is playing; `play` and `remove` take an entry `key` from status;
+  `clear` empties it. Queued videos play after the phone's own queue, at the end
+  of each video or on Next. The queue is in memory; Stop and the last sender's
+  disconnect clear it. Titles come from YouTube's oEmbed endpoint.
+- The library ignores sender messages it doesn't implement. The receiver logs
+  each one's name (never its payload) as `Unhandled sender message: <name>` in
+  the journal, to show what a phone feature such as its speed menu sends.
 
 POSTs require `Content-Type: application/json` and an absent, `null`, extension
 or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin
@@ -147,8 +170,8 @@ npm test
 Tests use `../local.example.json`, temporary stores, local HTTP/IPC fixtures and
 fake playback processes; no real room command or media handoff runs.
 `local-config.mjs` validates installation settings; `index.mjs` wires the receiver;
-`mpv-player.mjs` implements playback, with process/IPC, room preparation and VLC
-handoff in sibling modules. Pairing, private persistence, status and SponsorBlock
+`mpv-player.mjs` implements playback, with process/IPC, room preparation, VLC
+handoff and the cast queue (`cast-queue.mjs`) in sibling modules. Pairing, private persistence, status and SponsorBlock
 also have dedicated modules.
 
 `yt-cast-receiver` is pinned to 2.1.0. Security overrides pin `query-string`

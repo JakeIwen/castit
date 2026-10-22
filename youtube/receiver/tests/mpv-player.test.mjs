@@ -181,7 +181,7 @@ test('Audio delay applies before each load and live without replacing playback',
   assert.equal(player.status, PlayerStatus.PAUSED);
 });
 
-test('Idle and concurrent settings writes preserve both volume and audio delay across reopening', async t => {
+test('Idle and concurrent settings writes preserve volume, audio delay and speed across reopening', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'yt-player-settings-'));
   t.after(() => rm(directory, { recursive: true }));
   const store = new PrivateDataStore(directory);
@@ -194,15 +194,17 @@ test('Idle and concurrent settings writes preserve both volume and audio delay a
   assert.equal(player.audioDelay, 0);
   assert.equal(await player.setAudioDelay(0.176), true);
   assert.equal(instances.length, 0);
-  assert.deepEqual(await store.get('settings'), { volume, audioDelay: 0.18 });
+  assert.deepEqual(await store.get('settings'), { volume, audioDelay: 0.18, speed: 1 });
   await player.setVolume({ level: 36, muted: false });
-  assert.deepEqual(await store.get('settings'), { volume: { level: 36, muted: false }, audioDelay: 0.18 });
+  assert.deepEqual(await store.get('settings'), { volume: { level: 36, muted: false }, audioDelay: 0.18, speed: 1 });
   await player.play(VIDEO);
   assert.deepEqual(await Promise.all([
-    player.setVolume({ level: 42, muted: true }), player.setAudioDelay(-0.15),
-  ]), [true, true]);
+    player.setVolume({ level: 42, muted: true }), player.setAudioDelay(-0.15), player.setSpeed(1.5),
+  ]), [true, true, true]);
+  assert.equal(instances[0].properties.get('speed'), 1.5);
   const reopened = new PrivateDataStore(directory);
-  assert.deepEqual(await reopened.get('settings'), { volume: { level: 42, muted: true }, audioDelay: -0.15 });
+  assert.deepEqual(await reopened.get('settings'),
+    { volume: { level: 42, muted: true }, audioDelay: -0.15, speed: 1.5 });
   const restored = playerFixture({ store: reopened });
   t.after(() => restored.player.endSession());
   await restored.player.initialize();
@@ -210,6 +212,38 @@ test('Idle and concurrent settings writes preserve both volume and audio delay a
   assert.equal(restored.player.audioDelay, -0.15);
   await restored.player.play(SECOND);
   assert.equal(restored.instances[0].propertiesAtLoad.get('audio-delay'), -0.15);
+  assert.equal(restored.instances[0].propertiesAtLoad.get('speed'), 1.5);
+});
+
+test('Speed clamps to 0.25-3x, rounds to hundredths and falls back to 1x', async t => {
+  const { player } = playerFixture({ store: { get: async () => ({ speed: 'fast' }), set: async () => {} } });
+  t.after(() => player.endSession());
+  await player.initialize();
+  assert.equal(player.speed, 1);
+  for (const [speed, expected] of [[1.333, 1.33], [0.1, 0.25], [9, 3], [2, 2]]) {
+    assert.equal(await player.setSpeed(speed), true);
+    assert.equal(player.speed, expected);
+  }
+  assert.equal(await player.setSpeed(NaN), false);
+  assert.equal(player.speed, 2);
+});
+
+test('At the end of a video the cast queue plays next, then playback stops', async t => {
+  const titles = new Map([['0123456789a', 'Second video']]);
+  const { player, instances } = playerFixture();
+  player.castQueue.lookupTitle = async id => titles.get(id) ?? null;
+  t.after(() => player.endSession());
+  // A video the fake phone queue has nothing after.
+  await player.play({ id: 'zzzzzzzzzzz', client: VIDEO.client });
+  player.castQueue.add(SECOND.id);
+  await settleUntil(() => player.castQueue.snapshot()[0].title === 'Second video');
+  instances[0].emit('event', { event: 'end-file', reason: 'eof' });
+  await settleUntil(() => instances[1]?.loaded);
+  assert.deepEqual(instances[1].loaded, { id: SECOND.id, position: 0 });
+  assert.equal(player.video.title, 'Second video');
+  assert.equal(player.castQueue.length, 0);
+  instances[1].emit('event', { event: 'end-file', reason: 'eof' });
+  await settleUntil(() => player.status === PlayerStatus.STOPPED);
 });
 
 test('Playback errors and bad video IDs leave no player window', async () => {

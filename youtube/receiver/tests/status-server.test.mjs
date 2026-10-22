@@ -156,3 +156,45 @@ test('Status serves code locally, keeps health code-free and rejects cross-origi
   });
   assert.equal(foreignHost, 403);
 });
+
+test('Queue route validates actions and fields before reaching the queue', async t => {
+  const calls = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) },
+    queue: async (action, fields) => { calls.push([action, fields]); return action !== 'remove'; },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const post = body => fetch(`http://127.0.0.1:${server.address().port}/api/queue`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'moz-extension://abc' }, body: JSON.stringify(body) });
+  const added = await post({ action: 'add', videoId: VIDEO.id });
+  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true }]);
+  assert.deepEqual(await (await post({ action: 'remove', key: 4 })).json(), { action: 'remove', done: false });
+  assert.equal((await post({ action: 'play', key: 2 })).status, 200);
+  assert.equal((await post({ action: 'clear' })).status, 200);
+  for (const body of [{ action: 'add', videoId: 'nope' }, { action: 'play' }, { action: 'shuffle' }, { action: 'remove', key: 1.5 }]) {
+    assert.equal((await post(body)).status, 400, JSON.stringify(body));
+  }
+  assert.deepEqual(calls, [['add', { videoId: VIDEO.id }], ['remove', { key: 4 }], ['play', { key: 2 }], ['clear', {}]]);
+});
+
+test('Control route parses speed, volume and mute fields', async t => {
+  const calls = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) },
+    control: async (action, fields) => { calls.push([action, fields]); return true; },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const post = body => fetch(`http://127.0.0.1:${server.address().port}/api/control`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  for (const body of [{ action: 'speed', speed: 1.5 }, { action: 'volume', offset: -5 }, { action: 'mute' }, { action: 'mute', muted: true }]) {
+    assert.equal((await post(body)).status, 200, JSON.stringify(body));
+  }
+  for (const body of [{ action: 'speed' }, { action: 'volume', level: 'loud' }, { action: 'mute', muted: 1 }]) {
+    assert.equal((await post(body)).status, 400, JSON.stringify(body));
+  }
+  assert.deepEqual(calls, [['speed', { speed: 1.5 }], ['volume', { offset: -5 }], ['mute', {}], ['mute', { muted: true }]]);
+});
