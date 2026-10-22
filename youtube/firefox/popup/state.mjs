@@ -2,7 +2,7 @@ import '../config.js';
 
 const { player, control, historyReason } = globalThis.VAN_TV_CONFIG;
 const playbackActions = Object.freeze([
-  control.previous, control.seek, control.toggle, control.next, control.stop,
+  control.seek, control.toggle, control.next, control.stop,
 ]);
 const loadingActions = Object.freeze([control.stop]);
 const availableActions = Object.freeze({

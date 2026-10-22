@@ -10,7 +10,7 @@ import { defaultStatus } from '../background/receiver-fixture.mjs';
 const { player, control } = globalThis.VAN_TV_CONFIG;
 
 const playbackActions = [
-  control.previous, control.seek, control.toggle, control.next, control.stop,
+  control.seek, control.toggle, control.next, control.stop,
 ];
 
 test('elapsed time supports hours and handles unavailable or invalid values', () => {

@@ -32,7 +32,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   }),
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
-    next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
+    next: 'next', seek: 'seek', audioDelay: 'audio_delay',
     speed: 'speed', volume: 'volume', mute: 'mute',
   }),
   queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear', move: 'move' }),
@@ -41,8 +41,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   speedStep: 0.25,
   volumeStep: 5,
   skipOffsets: Object.freeze({
-    backwardFiveMinutes: -300, backwardTwentySeconds: -20,
-    forwardTwentySeconds: 20, forwardFiveMinutes: 300,
+    backwardTwentySeconds: -20, forwardTwentySeconds: 20,
   }),
   command: 'cast-active-tab',
 });

@@ -81,8 +81,8 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - The popup's title opens the video on YouTube; under it, the channel's avatar,
   name, verified badge and subscriber count link to the channel.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
-  to seek; click total time to toggle remaining time. Controls include
-  previous/next, play/pause, ±20 seconds, ±5 minutes, restart and stop.
+  to seek; click total time to toggle remaining time. Controls include next,
+  play/pause, ±20 seconds, restart and stop.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
 - **Volume** steps by 5 and mutes; **Speed** steps by 0.25× and resets to 1×.
