@@ -8,7 +8,6 @@ HTTP API on port 8795 lets other senders cast and control playback directly.
 |---|---|
 | [`receiver/`](receiver/README.md) | The Pi service: pairing, mpv playback, SponsorBlock skips, volume, speed, A/V offset, queue, status page |
 | [`firefox/`](firefox/README.md) | Firefox extension: cast button on YouTube, cast and queue menus, toolbar remote |
-| [`ios-shortcut/`](ios-shortcut/README.md) | iPhone share-sheet Shortcut: Cast or Add to Queue from Safari or a shared link; no YouTube app needed |
 | `vantv.zsh` | Mac CLI: cast a link or the front Chrome/Safari tab, control playback |
 
 ## Configure
@@ -20,7 +19,7 @@ cp local.example.json local.json
 `receiver` holds the Pi's SSH target, trusted hostnames, LAN address, audio
 device and optional integrations (a command run before each cast session, a
 local video player to stop first); see the receiver README. `senders` holds the
-receiver URLs the extension, CLI and iOS Shortcut use, primary first, and the extension ID.
+receiver URLs the extension and CLI use, primary first, and the extension ID.
 `local.json` is ignored by Git; the deploy script copies it to the Pi.
 
 ## Build and deploy

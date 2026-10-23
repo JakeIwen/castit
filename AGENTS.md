@@ -61,8 +61,7 @@ a clean checkout.
   playback tests. `deploy.sh` (Mac) stages a release and `controller.sh`
   (Pi) installs it.
 - `youtube/firefox/`: `build/generate-config.mjs` exports `readLocalConfig`
-  and `senderConfig`, the shared sender reader/validator for the extension and
-  iOS Shortcut; its CLI generates the manifest (from `manifest.template.json`) and root
+  and `senderConfig`, the extension's sender reader/validator; its CLI generates the manifest (from `manifest.template.json`) and root
   `local-config.js`; `build.zsh` writes folder-preserving `dist/van-tv.xpi`
   and unpacked `dist/extension/`. Root `config.js` owns extension-wide
   vocabulary. `background/page.html` loads local config before
@@ -81,10 +80,4 @@ a clean checkout.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
-- `youtube/ios-shortcut/`: `build.zsh` generates and signs `dist/Van TV.shortcut`
-  on macOS; `generate.mjs` reads the same sender config and converts the workflow
-  with plutil. `workflow.mjs` owns the share-sheet/direct-input flow and API
-  requests; `workflow-format.mjs` owns plist action, token, dictionary and block
-  serialization. `tests/workflow.test.mjs` checks the generated artifact and
-  clean-checkout builds without requiring signing or a phone.
 - `youtube/vantv.zsh`: the Mac CLI over the same HTTP API.
