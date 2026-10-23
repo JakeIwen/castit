@@ -134,7 +134,7 @@ function updateControls() {
   setAttribute(element.mute, 'aria-pressed', Boolean(view?.muted));
   setProperty(element.subtitles, 'disabled', busy || !view?.subtitlesEnabled);
   setAttribute(element.subtitles, 'aria-pressed', Boolean(view?.subtitlesOn));
-  const subtitleStatus = view?.subtitlesLabel ?? 'Subtitles unavailable';
+  const subtitleStatus = view?.subtitlesLabel ?? '';
   setProperty(element.subtitles, 'title', subtitleStatus);
   setText(element['subtitle-status'], subtitleStatus);
   qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);

@@ -198,5 +198,6 @@ test('CC remains available while idle, reports missing English tracks and handle
   assert.match(popupState({ ...status, subtitles: { ...subtitles, loading: true } }).subtitlesLabel, /Loading English/);
   assert.match(popupState({ ...status, subtitles: { ...subtitles, error: true } }).subtitlesLabel, /failed to load/);
   assert.equal(popupState(defaultStatus).subtitlesEnabled, false);
+  assert.equal(popupState(defaultStatus).subtitlesLabel, '');
   assert.equal(popupState({ ...status, ok: false }).subtitlesEnabled, false);
 });
