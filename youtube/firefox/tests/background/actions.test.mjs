@@ -8,8 +8,10 @@ import { startReceiver, videoId } from './receiver-fixture.mjs';
 const config = globalThis.VAN_TV_CONFIG;
 const tab = { id: 4, url: `https://www.youtube.com/watch?v=${videoId}&t=15` };
 
-function browserFixture({ current = { videoId, position: 64 }, noScript = false } = {}) {
+function browserFixture({ current = { videoId, position: 64 }, noScript = false,
+  openPopup = async () => {} } = {}) {
   const messages = [], menus = [], titles = [], badges = [];
+  const popups = [];
   let onClick, onCommand, finish;
   const completed = new Promise(resolve => { finish = resolve; });
   const browserApi = {
@@ -27,11 +29,12 @@ function browserFixture({ current = { videoId, position: 64 }, noScript = false 
     },
     commands: { onCommand: { addListener: callback => { onCommand = callback; } } },
     browserAction: {
+      openPopup: () => { popups.push('open'); return openPopup(); },
       setBadgeText: async value => badges.push(value.text),
       setTitle: async value => { titles.push(value.title); finish(); },
     },
   };
-  return { browserApi, messages, menus, titles, badges, completed,
+  return { browserApi, messages, menus, titles, badges, popups, completed,
     click: info => onClick(info, tab), command: name => onCommand(name) };
 }
 
@@ -142,6 +145,7 @@ test('queue menus add a link or the watch page from the start without touching t
     await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
     const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Van TV: Queue Cast');
     browser.click({ menuItemId: menu.id, ...info });
+    assert.deepEqual(browser.popups, ['open']);
     await browser.completed;
     return browser;
   };
@@ -154,6 +158,18 @@ test('queue menus add a link or the watch page from the start without touching t
     assert.equal(browser.messages.length, 0);
     assert.deepEqual(browser.titles, ['Van TV — added to the queue']);
   }
+});
+
+test('a rejected popup still queues the video and reports the queue result', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const fixture = await startReceiver(t);
+  const browser = browserFixture({ openPopup: async () => { throw new Error('Popup unavailable'); } });
+  await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+  browser.click({ menuItemId: 'queue-link', linkUrl: `https://youtu.be/${videoId}` });
+  await browser.completed;
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST')
+    .map(request => request.body), [{ action: 'add', videoId }]);
+  assert.deepEqual(browser.titles, ['Van TV — added to the queue']);
 });
 
 test('a full queue shows as a toolbar error', async t => {

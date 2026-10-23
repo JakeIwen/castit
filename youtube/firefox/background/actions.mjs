@@ -76,6 +76,11 @@ export async function installContextMenus(browserApi, receiver) {
   browserApi.contextMenus.onClicked.addListener((info, tab) => {
     const action = actions[info.menuItemId];
     if (!action) return;
+    // Open directly from the menu gesture, before the receiver request yields.
+    // A popup failure must not prevent the video from being queued.
+    void browserApi.browserAction.openPopup().catch(error => {
+      console.warn('Van TV popup could not open', error);
+    });
     void showCastResult(browserApi, () => action(info, tab), 'Van TV — added to the queue');
   });
 }
