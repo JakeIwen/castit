@@ -56,8 +56,8 @@ npm ci
 CASTIT_LOCAL_CONFIG=../local.json npm start
 ```
 
-`src/config/receiver-config.mjs` owns fixed ports, paths and playback tuning. Its format and
-video-output defaults target Pi 4 hardware; re-measure for another device.
+`src/config/receiver-config.mjs` owns fixed ports, paths and playback tuning. Its video-output defaults and
+`src/playback/quality.mjs` format policy target Pi 4 hardware; re-measure for another device.
 OpenGL ES (`vo=gpu`, `gpu-context=x11egl`, `opengl-es=yes`) avoids the video
 backlog and A/V drift seen with xv on the rotated X screen; hardware decoding
 remains `v4l2m2m-copy`. `mpvArguments()` is the single player argv builder.
@@ -78,12 +78,12 @@ per-file option map, with external audio and ytdl disabled only for that file.
 Extraction errors and hook-dependent results (live/fragmented streams
 or incompatible per-track headers) use the original watch-URL/ytdl-hook path.
 The in-memory cache holds at most 16 results, expiring one minute before the
-earliest stream or subtitle URL expiration, keyed by video and subtitle language.
+earliest stream or subtitle URL expiration, keyed by video, subtitle language and quality.
 Subtitles never force a hook fallback; disabled subtitles are ignored. The first upcoming cast-queue entry is
 prefetched at nice 19 while playing; polling notices additions every two seconds,
 never runs two prefetches at once, and never consumes or reorders the queue.
-The phone's queue is not prefetched. No client/format-selection experiments are
-applied, and no account cookies are added to playback extraction.
+The phone's queue is not prefetched. Quality changes cancel old prefetch work and use separate cache entries. No account
+cookies are added to playback extraction.
 
 Each attempted load writes one `Video load timing` line with `handoff`, `wake`,
 `mpv_start` (including property setup), `resolve`, `load` and `total` milliseconds,
@@ -153,7 +153,7 @@ additional isolation is needed.
 Private state lives in `/home/pi/.local/state/youtube-cast/` (directory mode 700,
 files 600); yt-dlp's cache uses its `cache/` subfolder, surviving service restarts.
 mpv sockets and temporary files use `/run/youtube-cast/`. Keep state across updates
-and restarts to preserve pairing, volume, speed, subtitles and A/V offset. Corrupt identity files
+and restarts to preserve pairing, volume, speed, quality, subtitles and A/V offset. Corrupt identity files
 fail closed. Stopping or the last sender's explicit disconnect closes mpv and
 its resolver children. Starting another player later does not stop this one.
 
@@ -162,7 +162,8 @@ its resolver children. Starting another player later does not stop this one.
 - `GET /health`: supervisor health without pairing codes or identity.
 - `GET /api/status`: receiver/player state, video, position, duration, pairing
   status, `audioDelay` in seconds, `speed`, `volume` (`{level, muted}`) and
-  `subtitles` (`{enabled, language, available, loading, error}`), and
+  `subtitles` (`{enabled, language, available, loading, error}`),
+  `quality` (`{selected, options: [{value, label}], loading, error}`), and
   `queue` (`[{key, id, title}]`, title null until YouTube supplies it). `played`
   has the same entry shape: up to 20 videos that started on this receiver, oldest
   first, excluding the currently loaded video. Repeated video ids move to the
@@ -191,6 +192,20 @@ its resolver children. Starting another player later does not stop this one.
 - `volume` takes exactly one of absolute `level` (0–100) or relative `offset`,
   and unmutes. `mute` takes an optional boolean `muted`; without it, it toggles.
   This is mpv's software volume, shared with the phone's volume control.
+- `quality` takes a string: `{"action":"quality","quality":"720"}`. Options are
+  `auto` (default), `1080`, `720`, `480`, `360`; explicit choices are maximum heights
+  at up to 30 fps. H.264/AAC is preferred; every fallback stays within the selected
+  height and frame-rate caps. No matching format produces a playback error rather
+  than silently exceeding the cap. Auto preserves the original Pi selector,
+  including its last-resort compatibility fallbacks; it is not adaptive streaming.
+  Choose quality on the status page, in the Firefox popup, or with
+  `vantv quality [auto|1080|720|480|360]`. Changes save while idle and across restarts.
+  During playback they reload at the current position, keeping pause, volume,
+  speed, subtitles, queues and played history. There is a short playback interruption.
+  The HTTP `done:true` acknowledges the saved setting; poll `quality.loading` and
+  `quality.error` for the reload outcome. Retry repeats a failed reload; the API also accepts the same selection again.
+  Stop or a new cast cancels stale reloads; rapid choices keep only the latest one.
+  The ytdl hook uses the same selected format as direct extraction.
 - `subtitles` takes a boolean `enabled` and/or a `language` code (such as `en`,
   `es`, `pt-BR`). A language alone enables subtitles; on/off keeps the saved
   language. Examples: `{"action":"subtitles","enabled":true}` and
@@ -210,7 +225,7 @@ its resolver children. Starting another player later does not stop this one.
 - The installed `yt-cast-receiver` 2.1.0 library exposes no subtitle/caption
   event or control, so the YouTube phone app's own CC button cannot change this
   setting. Use the receiver page, Firefox popup or CLI, including for phone casts.
-- Speed, volume, subtitles and A/V offset apply live, can be set while idle, and are saved
+- Speed, volume, quality, subtitles and A/V offset apply live, can be set while idle, and are saved
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`
@@ -252,7 +267,8 @@ CORS preflight is not supported. Control responses include `action` and `done`.
 With account cookies installed, `src/history/watch-history.mjs` requests a
 YouTube watch-history mark after 20 seconds in the Player's `PLAYING` state.
 Loading and paused time do not count; seeking does not advance this clock.
-Each play gets one attempt, including a later replay. It runs yt-dlp separately
+Each play gets one attempt, including a later replay. A quality reload pauses the
+clock and preserves that play’s attempt. It runs yt-dlp separately
 at low priority with a two-minute timeout, never awaiting it on the playback
 path. Only one attempt runs at once; the newest qualified video replaces any
 older pending attempt, without interrupting the active one.

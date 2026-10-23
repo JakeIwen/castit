@@ -2,12 +2,13 @@ import '../config.js';
 import {
   createScrubState, formatTime, isWorking, popupState, queueListModel, transitionScrub, watchHistoryNotice,
 } from './state.mjs';
+import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [
-  'subtitles', 'subtitle-status', 'state', 'video', 'elapsed', 'duration', 'scrub', 'notice', 'cast-tab',
+  'quality', 'quality-status', 'quality-retry', 'subtitles', 'subtitle-status', 'state', 'video', 'elapsed', 'duration', 'scrub', 'notice', 'cast-tab',
   'previous', 'back-twenty', 'toggle', 'forward-twenty', 'next', 'stop', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
@@ -54,6 +55,8 @@ let showRemaining = false;
 let detailsVideoId = null;
 let requestsInFlight = 0;
 let statusRequest = 0;
+const qualitySelector = new QualitySelector(element.quality, element['quality-status'], element['quality-retry'], quality =>
+  void perform(config.message.control, { action: config.control.quality, quality }, '', 'Cannot save quality'));
 const queueList = new QueueList({ list: element.queue, section: element['queue-section'],
   jumpButton: element['queue-end'],
   onAction: fields => perform(config.message.queue, fields, '', 'This video is no longer in the list'),
@@ -129,6 +132,7 @@ function updateControls() {
   element.subtitles.setAttribute('aria-pressed', String(Boolean(view?.subtitlesOn)));
   element.subtitles.title = view?.subtitlesOn ? 'Turn subtitles off' : 'Turn subtitles on';
   element['subtitle-status'].textContent = view?.subtitlesLabel ?? 'Subtitles unavailable';
+  qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);
   queueList.setBusy(busy);
   element['queue-clear'].disabled = busy || !view?.queueList.upcomingCount;
   element['cast-tab'].disabled = busy || !tabAvailable;

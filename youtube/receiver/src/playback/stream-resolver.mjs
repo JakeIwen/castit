@@ -1,6 +1,7 @@
 import { playback, resolverArguments } from '../config/receiver-config.mjs';
 import { runCommandOutput } from '../host/process-command.mjs';
 import { isSubtitleLanguage, selectSubtitle } from './subtitles.mjs';
+import { DEFAULT_QUALITY, isQuality, withinQuality } from './quality.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 
 /**
@@ -32,14 +33,14 @@ function httpOptions(headers = {}) {
   return options;
 }
 
-function selectStream(data, videoId) {
+function selectStream(data, videoId, quality) {
   if (!data || data.id !== videoId || (data._type && data._type !== 'video') || data.is_live
     || data.has_drm) return null;
   const tracks = data.requested_formats || [data];
   if (!Array.isArray(tracks) || !tracks.length || tracks.length > 2) return null;
   const video = tracks.find(track => track.vcodec && track.vcodec !== 'none');
   const audio = tracks.find(track => track.vcodec === 'none' && track.acodec && track.acodec !== 'none');
-  if (!video || (tracks.length === 2 && (!audio || video.acodec !== 'none'))) return null;
+  if (!video || !withinQuality(video, quality) || (tracks.length === 2 && (!audio || video.acodec !== 'none'))) return null;
   const videoUrl = directUrl(video);
   const audioUrl = audio ? directUrl(audio) : null;
   if (!videoUrl || (audio && !audioUrl)) return null;
@@ -76,16 +77,16 @@ export class StreamResolver {
     return (await this.extract(videoId, options))?.subtitle;
   }
 
-  async extract(videoId, { signal, prefetch = false, language = null } = {}) {
+  async extract(videoId, { signal, prefetch = false, language = null, quality = DEFAULT_QUALITY } = {}) {
     signal?.throwIfAborted();
-    if (!isVideoId(videoId) || (language !== null && !isSubtitleLanguage(language))) return null;
+    if (!isQuality(quality) || !isVideoId(videoId) || (language !== null && !isSubtitleLanguage(language))) return null;
     language = language?.toLowerCase() ?? null;
-    const key = `${videoId}:${language || ''}`;
+    const key = `${videoId}:${language || ''}:${quality}`;
     const cached = this.cache.get(key);
     if (cached && cached.until > this.now()) return cached.result;
     this.cache.delete(key);
     try {
-      const result = await this.run(resolverArguments(videoId, { prefetch, language }), {
+      const result = await this.run(resolverArguments(videoId, { prefetch, language, quality }), {
         timeoutMs: playback.resolveTimeoutMs, signal, maxBytes: playback.resolveMaxBytes,
       });
       signal?.throwIfAborted();
@@ -93,7 +94,7 @@ export class StreamResolver {
       const data = JSON.parse(result.stdout);
       if (!data || data.id !== videoId || (data._type && data._type !== 'video')) return null;
       const subtitle = language ? selectSubtitle(data, language) : null;
-      const direct = selectStream(data, videoId);
+      const direct = selectStream(data, videoId, quality);
       const stream = direct && language
         ? Object.freeze({ ...direct, subtitle, subtitleLanguage: language }) : direct;
       const selected = { stream, subtitle };

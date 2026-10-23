@@ -9,6 +9,8 @@ import { LoadTiming } from './load-timing.mjs';
 import { StreamResolver } from './stream-resolver.mjs';
 import { SubtitlePlayback } from './subtitle-playback.mjs';
 import { savedSubtitles, subtitleArguments } from './subtitles.mjs';
+import { QualityPlayback } from './quality-playback.mjs';
+import { savedQuality, qualityFormat } from './quality.mjs';
 import { QueuePrefetch } from './queue-prefetch.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
@@ -35,8 +37,9 @@ export class MpvPlayer extends Player {
     castQueue = new CastQueue(), resolver = new StreamResolver() } = {}) {
     super();
     Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver });
+    this.qualityPlayback = new QualityPlayback(this);
     this.subtitlePlayback = new SubtitlePlayback(resolver, log);
-    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage);
+    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
     this.speed = 1;
@@ -51,6 +54,7 @@ export class MpvPlayer extends Player {
     const settings = await this.store?.get('settings');
     this.audioDelay = normalizeAudioDelay(settings?.audioDelay);
     this.speed = normalizeSpeed(settings?.speed);
+    this.qualityPlayback.selected = this.qualityPlayback.saved = savedQuality(settings?.quality);
     this.subtitlePlayback.configure(savedSubtitles(settings?.subtitles));
     if (Number.isFinite(settings?.volume?.level) && typeof settings.volume.muted === 'boolean') {
       this.volume = { level: Math.min(100, Math.max(0, settings.volume.level)), muted: settings.volume.muted };
@@ -60,6 +64,8 @@ export class MpvPlayer extends Player {
 
   play(video, position = 0, aid, queuedEntry) {
     if (!isVideoId(video?.id) || !Number.isFinite(position) || position < 0) return Promise.resolve(false);
+    this.qualityPlayback.cancel();
+    this.playTarget = { video, position, queuedEntry, recorded: false };
     const request = ++this.request;
     this.abort?.abort();
     const operation = this.playTail.catch(() => {}).then(async () => {
@@ -68,8 +74,10 @@ export class MpvPlayer extends Player {
       if (this.status === PlayerStatus.PLAYING) await super.stop();
       this.activeRequest = request;
       const started = await super.play(video, position, aid);
+      if (!started && request === this.request) this.playTarget = null;
       if (started) {
         this.castQueue.recordPlayed(this.video || video, queuedEntry);
+        if (request === this.request) this.playTarget.recorded = true;
         if (request === this.request && !this.abort?.signal.aborted) this.room.afterPlayback();
       }
       return started;
@@ -79,19 +87,23 @@ export class MpvPlayer extends Player {
   }
 
   stop(aid) {
+    this.qualityPlayback.cancel();
+    this.playTarget = null;
     ++this.request;
     this.abort?.abort();
     this.room.cancelPending();
     return super.stop(aid);
   }
 
-  async doPlay(video, position) {
+  async doPlay(video, position, paused = false) {
     const timing = new LoadTiming();
     await this.release();
     if (this.activeRequest !== this.request) return false;
     const abort = this.abort = new AbortController();
     const signal = abort.signal;
+    const quality = this.quality.selected;
     const mpv = this.mpv = this.createMpv();
+    this.videoRequest = this.activeRequest;
     this.video = { id: video.id, title: video.title || video.id };
     this.position = position;
     this.skipper = new SponsorSkipper();
@@ -100,7 +112,7 @@ export class MpvPlayer extends Player {
     }).catch(() => {});
     let outcome = 'failed';
     try {
-      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage }))
+      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
         .catch(() => { signal.throwIfAborted(); return null; });
       const wake = timing.measure('wake', () => this.room.beforeVideo(signal));
       const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
@@ -119,6 +131,8 @@ export class MpvPlayer extends Player {
           for (const [index, property] of ['time-pos', 'duration', 'pause', 'volume', 'mute', 'media-title'].entries()) {
             await mpv.command(['observe_property', index + 1, property]);
           }
+          await mpv.command(['set_property', 'ytdl-format', qualityFormat(quality)]);
+          if (paused) await mpv.command(['set_property', 'pause', true]);
           await this.applyVolume();
           for (const [name, property] of Object.entries(MPV_SETTINGS)) {
             await mpv.command(['set_property', property, this[name]]);
@@ -132,7 +146,7 @@ export class MpvPlayer extends Player {
       if (stream?.title) this.video.title = stream.title;
       await timing.measure('load', () => mpv.load(video.id, position, signal, stream));
       signal.throwIfAborted();
-      this.subtitlePlayback.loaded(mpv, video.id, signal, stream);
+      this.subtitlePlayback.loaded(mpv, video.id, signal, stream, quality);
       this.prefetch.start(signal);
       outcome = 'loaded';
       return true;
@@ -204,7 +218,7 @@ export class MpvPlayer extends Player {
 
   async saveSettings() {
     await this.store?.set('settings', { volume: this.volume, audioDelay: this.audioDelay,
-      speed: this.speed, subtitles: this.subtitlePlayback.setting });
+      speed: this.speed, quality: this.quality.selected, subtitles: this.subtitlePlayback.setting });
   }
 
   async updateSetting(name, value) {
@@ -222,6 +236,40 @@ export class MpvPlayer extends Player {
 
   setSpeed(speed) {
     return Number.isFinite(speed) ? this.updateSetting('speed', normalizeSpeed(speed)) : Promise.resolve(false);
+  }
+
+  get quality() { return this.qualityPlayback.snapshot(); }
+  get qualityReloading() { return Boolean(this.qualityPlayback.target); }
+  setQuality(value) { return this.qualityPlayback.set(value); }
+
+  qualityTarget() {
+    if (!this.playTarget) return null;
+    const current = this.videoRequest === this.request && this.video?.id === this.playTarget.video.id;
+    return { ...this.playTarget, position: current ? this.position : this.playTarget.position,
+      paused: current ? this.status === PlayerStatus.PAUSED : Boolean(this.playTarget.paused) };
+  }
+
+  reloadQuality(target) {
+    const request = ++this.request;
+    this.abort?.abort();
+    this.playTarget = target;
+    const operation = this.playTail.catch(() => {}).then(async () => {
+      if (request !== this.request) return false;
+      this.activeRequest = request;
+      await this.notifyExternalStateChange(PlayerStatus.LOADING);
+      const started = await this.doPlay(target.video, target.position, target.paused);
+      if (request !== this.request) return false;
+      if (started && !target.recorded) {
+        this.castQueue.recordPlayed(this.video || target.video, target.queuedEntry);
+        target.recorded = true;
+      }
+      await this.notifyExternalStateChange(started
+        ? (target.paused ? PlayerStatus.PAUSED : PlayerStatus.PLAYING) : PlayerStatus.STOPPED);
+      if (started && !target.paused) this.room.afterPlayback();
+      return started;
+    });
+    this.playTail = operation;
+    return operation;
   }
 
   get subtitles() { return this.subtitlePlayback.snapshot(); }

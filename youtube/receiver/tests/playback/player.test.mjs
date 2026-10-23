@@ -194,9 +194,9 @@ test('Idle and concurrent settings writes preserve volume, audio delay and speed
   assert.equal(player.audioDelay, 0);
   assert.equal(await player.setAudioDelay(0.176), true);
   assert.equal(instances.length, 0);
-  assert.deepEqual(await store.get('settings'), { volume, audioDelay: 0.18, speed: 1, subtitles: { enabled: false, language: 'en' } });
+  assert.deepEqual(await store.get('settings'), { volume, audioDelay: 0.18, speed: 1, quality: 'auto', subtitles: { enabled: false, language: 'en' } });
   await player.setVolume({ level: 36, muted: false });
-  assert.deepEqual(await store.get('settings'), { volume: { level: 36, muted: false }, audioDelay: 0.18, speed: 1, subtitles: { enabled: false, language: 'en' } });
+  assert.deepEqual(await store.get('settings'), { volume: { level: 36, muted: false }, audioDelay: 0.18, speed: 1, quality: 'auto', subtitles: { enabled: false, language: 'en' } });
   await player.play(VIDEO);
   assert.deepEqual(await Promise.all([
     player.setVolume({ level: 42, muted: true }), player.setAudioDelay(-0.15), player.setSpeed(1.5),
@@ -204,7 +204,7 @@ test('Idle and concurrent settings writes preserve volume, audio delay and speed
   assert.equal(instances[0].properties.get('speed'), 1.5);
   const reopened = new PrivateDataStore(directory);
   assert.deepEqual(await reopened.get('settings'),
-    { volume: { level: 42, muted: true }, audioDelay: -0.15, speed: 1.5, subtitles: { enabled: false, language: 'en' } });
+    { volume: { level: 42, muted: true }, audioDelay: -0.15, speed: 1.5, quality: 'auto', subtitles: { enabled: false, language: 'en' } });
   const restored = playerFixture({ store: reopened });
   t.after(() => restored.player.endSession());
   await restored.player.initialize();

@@ -68,3 +68,16 @@ test('Prefetch follows live language changes even when the queue head stays the 
   await prefetch.stop();
   assert.deepEqual(calls, [null, 'en', 'es', null]);
 });
+
+test('Prefetch follows quality changes for the same video and language', async () => {
+  let quality = 'auto';
+  const calls = [];
+  const prefetch = new QueuePrefetch({ resolve: async (_id, options) => calls.push(options.quality) },
+    () => [{ id: 'abcdefghijk' }], () => 'en', () => quality);
+  prefetch.start(new AbortController().signal);
+  await flush();
+  quality = '720'; prefetch.tick(); await flush();
+  quality = '360'; prefetch.tick(); await flush();
+  await prefetch.stop();
+  assert.deepEqual(calls, ['auto', '720', '360']);
+});

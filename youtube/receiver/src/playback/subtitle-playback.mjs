@@ -33,8 +33,8 @@ export class SubtitlePlayback {
     this.refresh();
   }
 
-  loaded(mpv, videoId, signal, stream) {
-    this.session = { mpv, videoId, signal, tracks: new Map(), stream, tail: Promise.resolve() };
+  loaded(mpv, videoId, signal, stream, quality) {
+    this.session = { mpv, videoId, signal, quality, tracks: new Map(), stream, tail: Promise.resolve() };
     this.refresh();
   }
 
@@ -85,7 +85,7 @@ export class SubtitlePlayback {
     if (id === undefined) {
       session.stream = null;
       const track = stream?.subtitleLanguage === language ? stream.subtitle
-        : await this.resolver.resolveSubtitle(videoId, { language, signal });
+        : await this.resolver.resolveSubtitle(videoId, { language, signal, quality: session.quality });
       signal.throwIfAborted();
       if (track === undefined) throw new Error('Subtitle extraction failed');
       this.available = Boolean(track);

@@ -89,7 +89,9 @@ test('Release config requires its own local file and preserves configured playba
     await copyFile(new URL(`../../src/config/${module}`, import.meta.url), join(release, 'src/config', module));
   }
   await mkdir(join(release, 'src/playback'), { recursive: true });
-  await copyFile(new URL('../../src/playback/subtitles.mjs', import.meta.url), join(release, 'src/playback/subtitles.mjs'));
+  for (const module of ['subtitles.mjs', 'quality.mjs']) {
+    await copyFile(new URL(`../../src/playback/${module}`, import.meta.url), join(release, 'src/playback', module));
+  }
   // A parent file must not hide a missing release-local configuration.
   await writeFile(file, JSON.stringify(document));
   const module = join(release, 'src/config/receiver-config.mjs');

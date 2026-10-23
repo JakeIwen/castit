@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { qualityFormat, DEFAULT_QUALITY } from '../playback/quality.mjs';
 import { SUBTITLE_FORMATS } from '../playback/subtitles.mjs';
 import { loadLocalConfig } from './local-config.mjs';
 
@@ -70,10 +71,7 @@ export const playback = Object.freeze({
   resolveExpiryMarginMs: 60_000,
   resolveCacheEntries: 16,
   prefetchIntervalMs: 2000,
-  format: 'bv*[vcodec^=avc1][height=1080][fps<=25]+ba[acodec^=mp4a]/'
-    + 'bv*[vcodec^=avc1][height<=720][fps<=30]+ba[acodec^=mp4a]/'
-    + 'bv*[vcodec^=avc1][height<=480]+ba[acodec^=mp4a]/'
-    + 'bv*[vcodec^=vp9][height<=720][fps<=30]+ba/b[height<=720]/best',
+  format: qualityFormat(),
   args: ['--no-config', '--fullscreen', '--idle=yes', '--force-window=no',
     '--keep-open=no', '--no-terminal', '--osd-level=0', '--no-osc',
     '--no-input-default-bindings', '--hwdec=v4l2m2m-copy', '--vo=gpu',
@@ -85,10 +83,10 @@ export const playback = Object.freeze({
 
 export const watchUrl = videoId => `https://www.youtube.com/watch?v=${videoId}`;
 
-export function resolverArguments(videoId, { prefetch = false, language = null } = {}) {
+export function resolverArguments(videoId, { prefetch = false, language = null, quality = DEFAULT_QUALITY } = {}) {
   return [playback.nice, '-n', String(prefetch ? playback.prefetchNice : playback.resolveNice),
     playback.ytdlp, '--no-warnings', '-J', '--flat-playlist',
-    '--format', playback.format,
+    '--format', qualityFormat(quality),
     ...ytdlpRawOptions.flatMap(([name, value]) => value ? [`--${name}`, value] : [`--${name}`]),
     ...(language ? ['--write-subs', '--write-auto-subs', '--sub-langs', language,
       '--sub-format', SUBTITLE_FORMATS.join('/')] : ['--no-write-subs', '--no-write-auto-subs']),

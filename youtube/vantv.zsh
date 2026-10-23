@@ -24,6 +24,7 @@ fi
 usage() {
   print -u2 'usage: vantv [youtube-url]   cast a link (default: front Chrome/Safari YouTube tab, then clipboard)'
   print -u2 '       vantv pause|resume|stop|status'
+  print -u2 '       vantv quality [auto|1080|720|480|360]   show or set saved maximum resolution'
   print -u2 '       vantv subs [on|off|<lang>]   show or set saved subtitles (default language: en)'
   print -u2 '       vantv delay [+ms|-ms|ms]   show, nudge or set the audio offset (+ plays sound later)'
   print -u2 '       vantv vol [+n|-n|n|mute|unmute]   show, nudge or set the volume (0-100, saved)'
@@ -86,6 +87,26 @@ set_speed() {
   if [[ -n $match[1] ]]; then post control "{\"action\":\"speed\",\"offset\":${1#+}}" >/dev/null
   else post control "{\"action\":\"speed\",\"speed\":$1}" >/dev/null
   fi
+}
+
+show_quality() {
+  local state selected loading failed
+  state=$(curl -fsS -m 10 "$VAN_TV/api/status")
+  selected=$(status_field quality.selected <<< "$state") || { print -u2 'Van TV did not report quality support.'; exit 1 }
+  loading=$(status_field quality.loading <<< "$state") || loading=false
+  failed=$(status_field quality.error <<< "$state") || failed=false
+  [[ $selected == auto ]] && selected=Auto || selected="${selected}p maximum"
+  if [[ $failed == true ]]; then print -r -- "Quality: $selected, change failed; select again"; return 1
+  elif [[ $loading == true ]]; then print -r -- "Quality: $selected, applying"
+  else print -r -- "Quality: $selected"
+  fi
+}
+
+set_quality() {
+  local reply
+  case $1 in auto|1080|720|480|360) ;; *) usage ;; esac
+  reply=$(post control "{\"action\":\"quality\",\"quality\":\"$1\"}")
+  [[ $(status_field done <<< "$reply") == true ]] || { print -u2 'Van TV could not save quality.'; exit 1 }
 }
 
 show_subtitles() {
@@ -172,6 +193,7 @@ case ${1:-} in
   -h|--help) usage ;;
   pause|resume|stop) post control "{\"action\":\"$1\"}"; exit ;;
   status) curl -fsS -m 10 "$VAN_TV/api/status"; print; exit ;;
+  quality) (( $# <= 2 )) || usage; if (( $# == 2 )); then set_quality "$2"; fi; show_quality; exit ;;
   subs) (( $# <= 2 )) || usage; [[ -n ${2:-} ]] && set_subtitles "$2"; show_subtitles; exit ;;
   delay) [[ -n ${2:-} ]] && set_delay $2; show_delay; exit ;;
   vol|volume) [[ -n ${2:-} ]] && set_volume $2; show_volume; exit ;;

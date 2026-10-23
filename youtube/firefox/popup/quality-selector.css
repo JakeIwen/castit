@@ -1,0 +1,19 @@
+.quality-setting {
+  display: flex; flex: 1; flex-wrap: wrap; align-items: center;
+  justify-content: flex-end; gap: 6px; font-size: 12px;
+}
+.quality-setting label { color: var(--van-tv-muted); }
+.quality-setting select {
+  min-width: 82px; min-height: 30px; padding: 4px 8px; font: inherit;
+  color: var(--van-tv-text); background: var(--van-tv-control);
+  border: 1px solid var(--van-tv-border); border-radius: var(--van-tv-control-radius);
+}
+.quality-setting select:focus-visible { outline: 2px solid var(--van-tv-focus); outline-offset: 2px; }
+.quality-setting select:disabled { opacity: .6; }
+#quality-retry { width: auto; padding: 0 8px; height: 30px; margin: 0; }
+#quality-status { order: 1; flex-basis: 100%; text-align: right; font-size: 11px; color: var(--van-tv-muted); }
+#quality-status:empty { display: none; }
+/* Preserve the queue header and one visible row when a short popup must scroll. */
+body { overflow-y: auto; }
+#queue-section { min-height: 96px; }
+.queue-header { flex-shrink: 0; }

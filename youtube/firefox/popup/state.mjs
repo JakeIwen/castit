@@ -96,7 +96,7 @@ export function queueListModel(status) {
 }
 
 export function isWorking(status, requestsInFlight = 0) {
-  return status?.player === player.loading || requestsInFlight > 0;
+  return status?.player === player.loading || Boolean(status?.quality?.loading) || requestsInFlight > 0;
 }
 
 // Centers belong to the remaining upcoming rows, with the dragged row excluded.

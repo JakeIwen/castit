@@ -144,7 +144,7 @@ test('Speed, volume and mute controls work while idle and save the result', asyn
   assert.deepEqual(player.volume, { level: 100, muted: false });
   assert.equal(await controls.mute({ muted: false }), true);
   assert.equal(player.volume.muted, false);
-  assert.deepEqual(saved.at(-1), { volume: { level: 100, muted: false }, audioDelay: 0, speed: 1.75, subtitles: { enabled: false, language: 'en' } });
+  assert.deepEqual(saved.at(-1), { volume: { level: 100, muted: false }, audioDelay: 0, speed: 1.75, quality: 'auto', subtitles: { enabled: false, language: 'en' } });
   await player.play(VIDEO);
   assert.equal(instances[0].propertiesAtLoad.get('speed'), 1.75);
   assert.equal(instances[0].propertiesAtLoad.get('volume'), 100);

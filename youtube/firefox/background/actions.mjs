@@ -10,7 +10,7 @@ const menuTitle = 'Van TV: Queue Cast';
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'index']) {
+  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'index', 'quality', 'enabled', 'language']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;

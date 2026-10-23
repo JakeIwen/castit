@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Van TV",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "Cast YouTube videos to a Van TV receiver on your local network.",
   "browser_specific_settings": {
     "gecko": { "strict_min_version": "102.0" }

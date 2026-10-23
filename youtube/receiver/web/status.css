@@ -21,3 +21,6 @@ button:disabled { opacity: .6; cursor: wait; } p { color: var(--muted); }
 
 #subtitle-language { display: inline-block; width: 7em; margin: 0; }
 #subtitles[aria-pressed="true"] { background: var(--foreground); color: var(--background); }
+
+#quality { font: inherit; padding: 8px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); background: var(--control); }
+#quality:disabled { opacity: .6; }

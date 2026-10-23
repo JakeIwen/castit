@@ -92,6 +92,29 @@ test('Each new play starts its own clock, including a replay of the same video',
   assert.deepEqual(f.calls.map(call => call.id), [B, B]);
 });
 
+test('Quality reload pauses the watch clock and keeps its single attempt for the same play', async t => {
+  const f = fixture(t);
+  f.state(Status.PLAYING, A);
+  f.advance(12_000);
+  f.player.qualityReloading = true;
+  f.state(Status.LOADING, null);
+  f.advance(60_000);
+  await f.flush();
+  assert.equal(f.calls.length, 0);
+  f.state(Status.PLAYING, A);
+  f.player.qualityReloading = false;
+  f.advance(8000);
+  await f.flush();
+  assert.deepEqual(f.calls.map(call => call.id), [A]);
+  f.player.qualityReloading = true;
+  f.state(Status.LOADING, null);
+  f.state(Status.PLAYING, A);
+  f.player.qualityReloading = false;
+  f.advance(30_000);
+  await f.flush();
+  assert.equal(f.calls.length, 1);
+});
+
 test('Absent and rejected cookie files fail closed; replacing one enables a qualified current play', async t => {
   const f = fixture(t, { file: { enabled: false, reason: null, version: null } });
   f.state(Status.PLAYING, A);

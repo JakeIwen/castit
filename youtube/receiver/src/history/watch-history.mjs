@@ -36,7 +36,9 @@ export class WatchHistory {
     }
     const { status, video } = this.player;
     // LOADING delimits a new play, even when replaying the very same video.
-    if (status !== Status.PLAYING && status !== Status.PAUSED) this.play = null;
+    if (status === Status.LOADING && this.player.qualityReloading) {
+      // A format reload pauses this play's clock without creating a new watch.
+    } else if (status !== Status.PLAYING && status !== Status.PAUSED) this.play = null;
     else if (isVideoId(video?.id) && (!this.play || this.play.id !== video.id)) {
       this.play = { id: video.id, elapsed: 0, attempted: false };
     } else if (!isVideoId(video?.id)) this.play = null;

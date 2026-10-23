@@ -6,6 +6,7 @@
   <title>Van TV</title>
   <link rel="stylesheet" href="../theme/tokens.css">
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="quality-selector.css">
 </head>
 <body>
   <header>
@@ -52,12 +53,21 @@
     <button id="stop" class="icon-button" type="button" title="Stop casting" aria-label="Stop casting" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
     </button>
+    <div class="quality-setting">
+      <label for="quality">Quality</label>
+      <select id="quality" title="Maximum resolution; changing quality reloads at the current position" aria-describedby="quality-status" disabled>
+        <option value="">Unavailable</option>
+      </select>
+      <output id="quality-status" aria-live="polite"></output>
+      <button id="quality-retry" class="setting-reset" type="button" hidden>Retry</button>
+    </div>
   </div>
   <div class="subtitle-controls" role="group" aria-label="Subtitles">
     <button id="subtitles" class="icon-button" type="button" title="Turn subtitles on"
       aria-label="Subtitles" aria-pressed="false" aria-describedby="subtitle-status" disabled>CC</button>
     <span id="subtitle-status" role="status">Subtitles unavailable</span>
   </div>
+
   <div class="setting" role="group" aria-label="Volume">
     <span>Volume</span>
     <button id="volume-down" class="icon-button" type="button" title="Volume down 5" aria-label="Volume down" disabled>

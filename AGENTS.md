@@ -31,9 +31,11 @@ a clean checkout.
   and derived commands. `playback/player.mjs` owns the MpvPlayer,
   `playback/mpv/ipc.mjs` and `playback/mpv/process.mjs` its IPC/process,
   and `playback/sponsor-block.mjs` SponsorBlock. `playback/stream-resolver.mjs`
-  runs yt-dlp ahead of mpv and caches direct stream and subtitle URLs by video/language until they expire,
+  runs yt-dlp ahead of mpv and caches direct stream and subtitle URLs by video/language/quality until they expire,
   `playback/subtitles.mjs` owns subtitle settings, validation and track selection;
-  `playback/subtitle-playback.mjs` owns live subtitle loading and status,
+  `playback/subtitle-playback.mjs` owns live subtitle loading and status;
+  `playback/quality.mjs` owns quality choices, validation and format policy,
+  `playback/quality-playback.mjs` owns saved-selection changes and reload status,
   `playback/queue-prefetch.mjs` resolves the next queued video during
   playback, and `playback/load-timing.mjs` logs per-phase load times.
   `history/watch-history.mjs` marks videos watched on the signed-in account
@@ -45,7 +47,7 @@ a clean checkout.
   history; `host/room-preparation.mjs` owns the screen wake and the
   optional idempotent room check run ~1.5 s after each start and resume; `host/vlc-handoff.mjs` owns the optional local player stop.
   `storage/private-data-store.mjs` preserves screen identity and settings
-  (volume, speed, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
+  (volume, speed, quality, subtitles, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
   SSDP UUID and `pairing/pairing-codes.mjs` owns TV codes.
   `youtube/video-id.mjs` is the one video-id check; `youtube/video-url.mjs`
   parses shared YouTube links and timestamps for casting and queueing.
@@ -73,7 +75,8 @@ a clean checkout.
   player button; `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css`
   own the toolbar remote. `popup/queue-list.mjs` owns its combined queue/history
   list, anchoring and drag interactions; `popup/state.mjs` owns pure popup
-  state, list models and reorder math. `theme/tokens.css` owns
+  state, list models and reorder math; `popup/quality-selector.mjs` and its
+  colocated CSS own the capability-driven quality menu. `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
 - `youtube/ios-shortcut/`: `build.zsh` generates and signs `dist/Van TV.shortcut`

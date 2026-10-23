@@ -92,6 +92,12 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   captions. The label reports loading, missing tracks and failures. Change language
   on the receiver's status page or with `vantv subs <lang>`; turning CC off keeps it.
   Older receivers without subtitle support leave CC disabled.
+- **Quality** selects Auto or a maximum resolution (1080p, 720p, 480p, 360p),
+  with explicit choices limited to 30 fps. The receiver saves it and reloads the
+  current video at its position, keeping pause and other settings. Auto retains
+  the receiver's original format policy. Applying and failure states are shown;
+  use Retry after a failed reload. Options come from receiver capabilities, and older
+  receivers without quality support leave the selector disabled.
 - **Volume** steps by 5 and mutes; **Speed** steps by 0.25× and resets to 1×.
 - **A/V offset** nudges the receiver's saved offset by 50 ms or resets it.
   Use minus when voices come after lips move. Volume, speed and offset are saved
@@ -151,7 +157,8 @@ tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
 `content/player-button.js` and `content/player-button.css` own the player button;
 `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css` own the toolbar popup.
 `popup/queue-list.mjs` owns queue/history rendering, anchoring and drag interactions;
-`popup/state.mjs` owns pure view state and reorder math. Shared colors and sizes
+`popup/state.mjs` owns pure view state and reorder math.
+`popup/quality-selector.mjs` and its CSS own the quality menu. Shared colors and sizes
 live in `theme/tokens.css`. `tests/` mirrors these feature folders; the receiver
 fixture lives beside its background tests.
 `build.zsh` keeps the same feature folders in both packaged outputs.

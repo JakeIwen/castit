@@ -7,6 +7,11 @@ let renderedQueue = '';
 let renderedPlayed = '';
 let subtitles;
 let subtitleBusy = false;
+let quality;
+let qualityBusy = false;
+let qualityOptions = '';
+let qualityFailure = '';
+let receiverReady = false;
 
 async function post(path, body) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -112,6 +117,8 @@ async function update() {
     element('volume').textContent = data.volume.muted ? `${data.volume.level} (muted)` : String(data.volume.level);
     element('mute').textContent = data.volume.muted ? 'Unmute' : 'Mute';
     element('speed').textContent = `${data.speed}×`;
+    receiverReady = data.ok;
+    renderQuality(data.quality);
     renderSubtitles(data.subtitles);
     renderQueue(data.queue);
     renderPlayed(data.played);
@@ -119,6 +126,8 @@ async function update() {
     element('message').textContent = data.pairing.error || linkMessage;
     refresh.disabled = data.pairing.requesting;
   } catch {
+    receiverReady = false;
+    renderQuality(null);
     renderSubtitles(null);
     element('receiver').textContent = 'Offline';
     element('code').textContent = 'Unavailable';
@@ -126,6 +135,38 @@ async function update() {
     refresh.disabled = false;
   }
 }
+
+function renderQuality(value) {
+  quality = value;
+  const select = element('quality');
+  const options = value?.options ?? [];
+  const signature = JSON.stringify(options);
+  if (signature !== qualityOptions) {
+    qualityOptions = signature;
+    select.replaceChildren(...options.map(({ value, label }) => new Option(label, value)));
+    if (!options.length) select.add(new Option('Unavailable', ''));
+  }
+  if (value) select.value = value.selected;
+  select.disabled = qualityBusy || !receiverReady || !value;
+  element('quality-retry').hidden = !value?.error;
+  element('quality-retry').disabled = select.disabled || Boolean(value?.loading);
+  select.setAttribute('aria-busy', String(Boolean(value?.loading)));
+  element('quality-status').textContent = qualityFailure || (!value ? 'Unavailable'
+    : value.loading ? 'Applying…' : value.error ? 'Quality change failed' : '');
+}
+
+async function setQuality(selected) {
+  qualityBusy = true;
+  qualityFailure = '';
+  renderQuality(quality);
+  try {
+    const result = await post('/api/control', { action: 'quality', quality: selected });
+    if (!result.done) throw new Error('Cannot save quality');
+  } catch (error) { qualityFailure = error.message; }
+  finally { await update(); qualityBusy = false; renderQuality(quality); }
+}
+element('quality').addEventListener('change', event => void setQuality(event.currentTarget.value));
+element('quality-retry').addEventListener('click', () => void setQuality(quality?.selected));
 
 function renderSubtitles(value) {
   subtitles = value;

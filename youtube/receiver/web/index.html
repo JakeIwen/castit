@@ -10,6 +10,12 @@
 <dl><dt>Receiver</dt><dd id="receiver">Connecting…</dd>
 <dt>Player</dt><dd id="player">—</dd><dt>Video</dt><dd id="video">None</dd>
 <dt>Position</dt><dd id="position">—</dd><dt>Connected senders</dt><dd id="senders">0</dd></dl>
+<div class="setting-row" aria-label="Playback quality">
+<label for="quality">Quality</label>
+<select id="quality" title="Maximum resolution; changing quality reloads at the current position" aria-describedby="quality-status" disabled>
+<option value="">Unavailable</option></select>
+<output id="quality-status" aria-live="polite"></output>
+<button id="quality-retry" type="button" hidden>Retry</button></div>
 <form id="subtitle-form" class="setting-row" aria-label="Subtitles">
 <span>Subtitles: <output id="subtitle-status" aria-live="polite">—</output></span>
 <button id="subtitles" type="button" aria-label="Subtitles" aria-pressed="false" disabled>CC</button>
