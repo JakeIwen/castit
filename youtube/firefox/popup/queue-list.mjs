@@ -1,6 +1,7 @@
 import '../config.js';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { queueDropIndex, queueListModel, queueRowKind, reorderUpcoming } from './state.mjs';
+import { setAttribute, setClass, setProperty } from './dom-state.mjs';
 
 const { queue } = globalThis.VAN_TV_CONFIG;
 const dragThreshold = 5;
@@ -67,6 +68,11 @@ export class QueueList {
     window.addEventListener('pointerup', this.onPointerUp);
     window.addEventListener('pointercancel', this.onPointerCancel);
     window.addEventListener('keydown', this.onKeyDown);
+    this.resizeObserver = new ResizeObserver(() => {
+      this.sizeAnchorSpace();
+      this.updateFade();
+    });
+    this.resizeObserver.observe(list);
   }
 
   render(model) {
@@ -111,13 +117,17 @@ export class QueueList {
   }
 
   sizeAnchorSpace() {
-    this.list.style.paddingBottom = '0px';
     const geometry = this.anchorGeometry();
-    if (!geometry) return;
-    const { target, peek } = geometry;
-    // A tail spacer lets even the last current row sit at the viewport's top.
-    const below = this.list.scrollHeight - target.offsetTop;
-    this.list.style.paddingBottom = `${Math.max(0, this.list.clientHeight - below - peek)}px`;
+    const last = this.list.lastElementChild;
+    const contentHeight = last ? last.offsetTop + last.offsetHeight : 0;
+    let padding = 0;
+    // Only an overflowing list needs space to anchor near its end. Short lists
+    // should show every row, including history, without creating a scrollbar.
+    if (geometry && contentHeight > this.list.clientHeight) {
+      const below = contentHeight - geometry.target.offsetTop;
+      padding = Math.max(0, this.list.clientHeight - below - geometry.peek);
+    }
+    setProperty(this.list.style, 'paddingBottom', `${padding}px`);
   }
 
   anchor() {
@@ -128,8 +138,8 @@ export class QueueList {
   }
 
   updateFade() {
-    this.list.classList.toggle('is-scrolled', this.list.scrollTop > 1);
-    if (this.jumpButton) this.jumpButton.disabled = this.list.scrollTop >= this.endScrollTop() - 1;
+    setClass(this.list, 'is-scrolled', this.list.scrollTop > 1);
+    if (this.jumpButton) setProperty(this.jumpButton, 'disabled', this.list.scrollTop >= this.endScrollTop() - 1);
   }
 
   // The anchoring spacer pads the list's tail, so "the end" is where the last
@@ -147,13 +157,13 @@ export class QueueList {
 
   setBusy(busy) {
     this.busy = busy;
-    for (const button of this.list.querySelectorAll('.queue-remove')) button.disabled = busy;
+    for (const button of this.list.querySelectorAll('.queue-remove')) setProperty(button, 'disabled', busy);
     for (const handle of this.list.querySelectorAll('.queue-drag')) {
       // Keep keyboard focus on the grip across its own move request.
-      handle.setAttribute('aria-disabled', String(busy));
+      setAttribute(handle, 'aria-disabled', busy);
     }
     for (const link of this.list.querySelectorAll('.queue-play')) {
-      link.setAttribute('aria-disabled', String(busy));
+      setAttribute(link, 'aria-disabled', busy);
     }
   }
 
@@ -306,6 +316,7 @@ export class QueueList {
   }
 
   destroy() {
+    this.resizeObserver.disconnect();
     this.finishDrag(false);
     this.list.removeEventListener('scroll', this.onScroll);
     window.removeEventListener('pointermove', this.onPointerMove);

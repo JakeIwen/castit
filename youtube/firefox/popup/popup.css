@@ -1,14 +1,24 @@
 * { box-sizing: border-box; }
 [hidden] { display: none; }
+html { overflow-x: hidden; }
 body {
   color-scheme: light dark;
   width: 340px;
+  /* Firefox sizes the panel from this box; viewport units create a sizing cycle. */
+  height: 600px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  padding: 18px;
+  padding: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--van-tv-background);
   color: var(--van-tv-text);
   font: 14px/1.4 system-ui, sans-serif;
 }
+body > * { flex-shrink: 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 h1 { margin: 0; font-size: 16px; font-weight: 650; }
 p { margin: 0; overflow-wrap: anywhere; }
@@ -30,11 +40,13 @@ p { margin: 0; overflow-wrap: anywhere; }
 }
 @keyframes working-dots { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 #video {
-  display: block;
-  margin-top: 18px;
+  margin-top: 10px;
   min-height: 2.8em;
-  max-height: 4.2em;
-  overflow: auto;
+  max-height: 2.8em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow-wrap: anywhere;
   color: inherit;
   text-decoration: none;
@@ -46,13 +58,13 @@ p { margin: 0; overflow-wrap: anywhere; }
 .channel { display: flex; align-items: center; gap: 10px; margin-top: 10px; color: inherit; text-decoration: none; }
 .channel[hidden] { display: none; }
 #channel-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: var(--van-tv-control); object-fit: cover; }
-.channel-text { display: flex; flex-direction: column; min-width: 0; }
+.channel-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .channel-name { display: flex; align-items: center; gap: 4px; font-weight: 600; }
 #channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #channel-verified { width: 14px; height: 14px; fill: var(--van-tv-muted); stroke: var(--van-tv-background); stroke-width: 2.2; }
 #channel-verified circle { stroke: none; }
 #channel-subscribers { color: var(--van-tv-muted); font-size: 12px; }
-.scrubber { margin: 16px 0 10px; }
+.scrubber { margin: 10px 0 6px; }
 #scrub {
   display: block;
   width: 100%;
@@ -92,7 +104,7 @@ button:disabled { opacity: .35; cursor: default; }
 svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .icon-button { width: 40px; height: 40px; border-radius: var(--van-tv-pill-radius); }
 .transport { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.primary { width: 58px; height: 58px; background: var(--van-tv-primary); color: var(--van-tv-on-primary); }
+.primary { width: 48px; height: 48px; background: var(--van-tv-primary); color: var(--van-tv-on-primary); }
 .primary:hover:not(:disabled) { background: var(--van-tv-primary-hover); }
 .primary:active:not(:disabled) { background: var(--van-tv-primary-active); }
 .primary svg { width: 26px; height: 26px; stroke-width: 2.5; }
@@ -100,26 +112,29 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .skip { position: relative; }
 .skip svg { width: 30px; height: 30px; stroke-width: 1.5; }
 .skip span { position: absolute; top: 14px; font-size: 10px; font-weight: 650; line-height: 14px; }
-.secondary-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; color: var(--van-tv-muted); }
+.secondary-controls { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--van-tv-muted); }
+.secondary-controls > .icon-button { width: 32px; height: 32px; flex-shrink: 0; }
 .secondary-controls svg { width: 18px; height: 18px; }
 #duration { min-height: 24px; padding: 0 5px; margin-right: -5px; font: inherit; font-variant-numeric: tabular-nums; }
-.setting { display: flex; align-items: center; gap: 4px; margin-top: 8px; color: var(--van-tv-muted); font-size: 12px; }
-.secondary-controls + .setting { margin-top: 12px; }
+.setting { display: flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--van-tv-muted); font-size: 12px; }
 .setting > span { flex: 1; }
 .setting .icon-button { width: 32px; height: 32px; }
 .setting svg { width: 16px; height: 16px; }
 .setting output { min-width: 58px; text-align: center; color: var(--van-tv-text); font-variant-numeric: tabular-nums; }
 .setting-reset { width: 58px; height: 32px; margin-left: 4px; font-size: 12px; }
 :is(#mute, #subtitles)[aria-pressed="true"] { background: var(--van-tv-control); color: var(--van-tv-text); }
-#queue-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--van-tv-border); }
-.queue-header { display: flex; align-items: center; justify-content: space-between; }
+#queue-section { display: flex; flex-direction: column; flex: 1; min-height: 80px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--van-tv-border); }
+#queue-section[hidden] { display: none; }
+.queue-header { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
 .queue-actions { display: flex; gap: 2px; }
 .queue-actions button { height: 26px; padding: 0 8px; font-size: 11px; color: var(--van-tv-muted); }
 #queue {
   position: relative;
-  max-height: var(--van-tv-queue-height);
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   overflow-anchor: none;
   margin: 6px 0 0;
@@ -160,7 +175,7 @@ h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
 .drop-before::before, .drop-after::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--van-tv-focus); pointer-events: none; z-index: 1; }
 .drop-before::before { top: 0; }
 .drop-after::after { bottom: 0; }
-footer { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--van-tv-border); }
+footer { display: flex; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--van-tv-border); }
 footer button { flex: 1; min-height: 38px; background: var(--van-tv-control); font-size: 12px; font-weight: 550; }
 footer button:hover:not(:disabled) { background: var(--van-tv-control-hover); }
 footer svg { width: 18px; height: 18px; }
@@ -174,5 +189,4 @@ footer svg { width: 18px; height: 18px; }
 }
 @media (hover: none) { .queue-open { opacity: 1; } }
 
-.subtitle-controls { display: flex; align-items: center; gap: 8px; color: var(--van-tv-muted); font-size: 12px; }
 #subtitles { font-weight: 700; flex-shrink: 0; }

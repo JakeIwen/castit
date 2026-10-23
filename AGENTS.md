@@ -76,7 +76,9 @@ a clean checkout.
   own the toolbar remote. `popup/queue-list.mjs` owns its combined queue/history
   list, anchoring and drag interactions; `popup/state.mjs` owns pure popup
   state, list models and reorder math; `popup/quality-selector.mjs` and its
-  colocated CSS own the capability-driven quality menu. `theme/tokens.css` owns
+  colocated CSS own the capability-driven quality menu. `popup/dom-state.mjs`
+  applies only changed DOM values so background polls leave the rendered UI stable.
+  `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
 - `youtube/ios-shortcut/`: `build.zsh` generates and signs `dist/Van TV.shortcut`

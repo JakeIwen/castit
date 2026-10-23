@@ -95,7 +95,7 @@ test('queue models support older receivers, current-only, played-only and entire
   assert.equal(history.anchorIndex, -1);
 });
 
-test('working spans loading and any overlapping popup requests', () => {
+test('working spans loading and overlapping foreground actions', () => {
   for (const state of Object.values(player)) {
     assert.equal(isWorking({ player: state }), state === player.loading);
     for (const requests of [1, 2, 8]) assert.equal(isWorking({ player: state }, requests), true);

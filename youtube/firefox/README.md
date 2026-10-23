@@ -81,6 +81,9 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   cookies or a rejected cookie file), the popup says so and how to fix it.
 - The popup's title opens the video on YouTube; under it, the channel's avatar,
   name, verified badge and subscriber count link to the channel.
+  The panel keeps a stable 340×600 layout; the queue uses the remaining height
+  and scrolls only when its entries do not fit. Routine polling updates changed
+  values without flashing the activity indicator or rebuilding unchanged rows.
 - The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
   to seek; click total time to toggle remaining time. Controls include previous/next,
   play/pause, ±20 seconds and stop. Previous restarts the video when nothing
@@ -89,7 +92,7 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   without a content script, it uses the URL's start time and cannot pause the page.
 - **CC** toggles the receiver's saved subtitles live, including while idle.
   English is the default language; uploaded captions take priority over automatic
-  captions. The label reports loading, missing tracks and failures. Change language
+  captions. Hover CC for language, loading, missing-track and failure status. Change language
   on the receiver's status page or with `vantv subs <lang>`; turning CC off keeps it.
   Older receivers without subtitle support leave CC disabled.
 - **Quality** selects Auto or a maximum resolution (1080p, 720p, 480p, 360p),
@@ -116,7 +119,7 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - Drag an upcoming row's grip to reorder it; the list scrolls near its edges and
   **Escape** cancels. With an upcoming row or one of its controls focused,
   **Alt+ArrowUp/Down** moves it one place instead.
-- The state pill shows animated **Working…** while loading or awaiting a request;
+- The state pill shows animated **Working…** while loading or awaiting a user action;
   reduced-motion settings keep the indicator static. Older receivers without
   played history still show the current video and their upcoming queue.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
@@ -159,7 +162,8 @@ tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
 `popup/queue-list.mjs` owns queue/history rendering, anchoring and drag interactions;
 `popup/state.mjs` owns pure view state and reorder math.
 `popup/quality-selector.mjs` and its CSS own the quality menu. Shared colors and sizes
-live in `theme/tokens.css`. `tests/` mirrors these feature folders; the receiver
+live in `theme/tokens.css`. `popup/dom-state.mjs` avoids redundant text, attribute
+and property writes during polling. `tests/` mirrors these feature folders; the receiver
 fixture lives beside its background tests.
 `build.zsh` keeps the same feature folders in both packaged outputs.
 

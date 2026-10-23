@@ -5,6 +5,7 @@ import {
 import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
+import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [
@@ -69,23 +70,24 @@ async function withRequest(operation) {
   finally { requestsInFlight -= 1; renderActivity(); }
 }
 
-async function send(type, fields = {}) {
-  return withRequest(async () => {
+async function send(type, fields = {}, foreground = false) {
+  const request = async () => {
     const response = await browser.runtime.sendMessage({ type, ...fields });
     if (!response?.ok) throw new Error(response?.error || 'Van TV request failed');
     return response.data;
-  });
+  };
+  return foreground ? withRequest(request) : request();
 }
 
 function renderActivity() {
   const working = isWorking(latestStatus, requestsInFlight);
-  const state = latestStatus ? popupState(latestStatus).state
+  const state = latestStatus ? (latestStatus.ok ? latestStatus.player : 'Receiver not running')
     : (latestStatus === undefined ? 'Connecting…' : 'Van TV unreachable');
   const label = state === latestStatus?.player ? state[0] + state.slice(1).toLowerCase() : state;
-  element.state.textContent = working ? 'Working' : label;
-  element.state.classList.toggle('working', working);
-  element.state.setAttribute('aria-label', working ? 'Working…' : label);
-  element.state.title = working ? label : '';
+  setText(element.state, working ? 'Working' : label);
+  setClass(element.state, 'working', working);
+  setAttribute(element.state, 'aria-label', working ? 'Working…' : label);
+  setProperty(element.state, 'title', working ? label : '');
 }
 
 async function openYouTube(url, background = false) {
@@ -98,46 +100,49 @@ async function openYouTube(url, background = false) {
 function renderPlayback() {
   const duration = latestStatus?.duration ?? 0;
   if (!scrub.dragging) {
-    element.scrub.max = String(duration);
-    element.scrub.value = String(scrub.position);
+    setProperty(element.scrub, 'max', String(duration));
+    setProperty(element.scrub, 'value', String(scrub.position));
   }
-  element.elapsed.textContent = formatTime(scrub.position);
-  element.duration.textContent = latestStatus
+  setText(element.elapsed, formatTime(scrub.position));
+  setText(element.duration, latestStatus
     ? (showRemaining ? `−${formatTime(Math.max(0, duration - scrub.position))}` : formatTime(duration))
-    : '—';
-  element.scrub.setAttribute('aria-valuetext', `${formatTime(scrub.position)} of ${formatTime(duration)}`);
+    : '—');
+  setAttribute(element.scrub, 'aria-valuetext', `${formatTime(scrub.position)} of ${formatTime(duration)}`);
 }
 
 function updateControls() {
   const view = latestStatus ? popupState(latestStatus) : null;
   for (const item of transportControls) {
-    item.button.disabled = busy || !view?.actions.includes(item.action);
+    setProperty(item.button, 'disabled', busy || !view?.actions.includes(item.action));
   }
   const toggleLabel = view?.toggleLabel ?? 'Play';
-  element['play-icon'].toggleAttribute('hidden', toggleLabel === 'Pause');
-  element['pause-icon'].toggleAttribute('hidden', toggleLabel !== 'Pause');
-  element.toggle.title = toggleLabel;
-  element.toggle.setAttribute('aria-label', toggleLabel);
-  if (!scrub.dragging) element.scrub.disabled = busy || !view?.scrubEnabled;
-  for (const { button, enabled } of settingControls) button.disabled = busy || !view?.[enabled];
-  if (latestStatus?.audioDelay === 0) element['reset-delay'].disabled = true;
-  if (latestStatus?.speed === 1) element['speed-reset'].disabled = true;
-  element['audio-delay-value'].textContent = view?.audioDelayLabel ?? '—';
-  element['volume-value'].textContent = view?.volumeLabel ?? '—';
-  element['speed-value'].textContent = view?.speedLabel ?? '—';
-  element.mute.textContent = view?.muted ? 'Unmute' : 'Mute';
-  element.mute.title = view?.muted ? 'Unmute Van TV' : 'Mute Van TV';
-  element.mute.setAttribute('aria-pressed', String(Boolean(view?.muted)));
-  element.subtitles.disabled = busy || !view?.subtitlesEnabled;
-  element.subtitles.setAttribute('aria-pressed', String(Boolean(view?.subtitlesOn)));
-  element.subtitles.title = view?.subtitlesOn ? 'Turn subtitles off' : 'Turn subtitles on';
-  element['subtitle-status'].textContent = view?.subtitlesLabel ?? 'Subtitles unavailable';
+  setBooleanAttribute(element['play-icon'], 'hidden', toggleLabel === 'Pause');
+  setBooleanAttribute(element['pause-icon'], 'hidden', toggleLabel !== 'Pause');
+  setProperty(element.toggle, 'title', toggleLabel);
+  setAttribute(element.toggle, 'aria-label', toggleLabel);
+  if (!scrub.dragging) setProperty(element.scrub, 'disabled', busy || !view?.scrubEnabled);
+  for (const { button, enabled } of settingControls) {
+    const reset = button === element['reset-delay'] && latestStatus?.audioDelay === 0
+      || button === element['speed-reset'] && latestStatus?.speed === 1;
+    setProperty(button, 'disabled', busy || !view?.[enabled] || reset);
+  }
+  setText(element['audio-delay-value'], view?.audioDelayLabel ?? '—');
+  setText(element['volume-value'], view?.volumeLabel ?? '—');
+  setText(element['speed-value'], view?.speedLabel ?? '—');
+  setText(element.mute, view?.muted ? 'Unmute' : 'Mute');
+  setProperty(element.mute, 'title', view?.muted ? 'Unmute Van TV' : 'Mute Van TV');
+  setAttribute(element.mute, 'aria-pressed', Boolean(view?.muted));
+  setProperty(element.subtitles, 'disabled', busy || !view?.subtitlesEnabled);
+  setAttribute(element.subtitles, 'aria-pressed', Boolean(view?.subtitlesOn));
+  const subtitleStatus = view?.subtitlesLabel ?? 'Subtitles unavailable';
+  setProperty(element.subtitles, 'title', subtitleStatus);
+  setText(element['subtitle-status'], subtitleStatus);
   qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);
   queueList.setBusy(busy);
-  element['queue-clear'].disabled = busy || !view?.queueList.upcomingCount;
-  element['cast-tab'].disabled = busy || !tabAvailable;
-  element['queue-tab'].disabled = busy || !tabAvailable || !view?.queueEnabled;
-  element.duration.disabled = !view?.scrubEnabled;
+  setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.upcomingCount);
+  setProperty(element['cast-tab'], 'disabled', busy || !tabAvailable);
+  setProperty(element['queue-tab'], 'disabled', busy || !tabAvailable || !view?.queueEnabled);
+  setProperty(element.duration, 'disabled', !view?.scrubEnabled);
 }
 
 function renderChannel(channel) {
@@ -161,16 +166,17 @@ async function loadDetails(videoId) {
 }
 
 function renderVideo(title, video) {
-  element.video.textContent = title;
-  if (video) element.video.href = watchUrl(video.id);
-  else element.video.removeAttribute('href');
+  setText(element.video, title);
+  setProperty(element.video, 'title', title);
+  if (video) setProperty(element.video, 'href', watchUrl(video.id));
+  else if (element.video.hasAttribute('href')) element.video.removeAttribute('href');
   const videoId = video?.id ?? null;
   if (videoId !== detailsVideoId) void loadDetails(videoId);
 }
 
 function renderStatus() {
   renderActivity();
-  element['history-notice'].textContent = watchHistoryNotice(latestStatus);
+  setText(element['history-notice'], watchHistoryNotice(latestStatus));
   if (latestStatus) {
     const view = popupState(latestStatus);
     renderVideo(view.title, latestStatus.video);
@@ -223,7 +229,7 @@ async function perform(type, fields, success, unchanged = 'No playback change') 
   element.notice.textContent = '';
   updateControls();
   try {
-    const data = await send(type, fields);
+    const data = await send(type, fields, true);
     element.notice.textContent = data.done === false ? unchanged : success;
   } catch (error) { element.notice.textContent = error.message; }
   finally {
