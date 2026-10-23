@@ -36,6 +36,8 @@ a clean checkout.
   `playback/subtitle-playback.mjs` owns live subtitle loading and status;
   `playback/quality.mjs` owns quality choices, validation and format policy,
   `playback/quality-playback.mjs` owns saved-selection changes and reload status,
+  `playback/diagnostics.mjs` owns the playback diagnostics contract and cautious
+  cause classification; `playback/mpv/diagnostics.mjs` samples mpv without overlapping polls,
   `playback/queue-prefetch.mjs` resolves the next queued video during
   playback, and `playback/load-timing.mjs` logs per-phase load times.
   `history/watch-history.mjs` marks videos watched on the signed-in account
@@ -73,11 +75,14 @@ a clean checkout.
   `youtube/video-url.mjs` owns URL parsing for background and popup.
   `content/player-button.js` and `content/player-button.css` own the
   player button; `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css`
-  own the toolbar remote. `popup/queue-list.mjs` owns its combined queue/history
+  own the toolbar-opened sidebar remote. `popup/queue-list.mjs` owns its combined queue/history
   list, anchoring and drag interactions; `popup/state.mjs` owns pure popup
   state, list models and reorder math; `popup/quality-selector.mjs` and its
   colocated CSS own the capability-driven quality menu. `popup/dom-state.mjs`
   applies only changed DOM values so background polls leave the rendered UI stable.
+  `playback/diagnostics.mjs` validates telemetry entering the extension;
+  `popup/playback-messages.mjs` and its CSS own the collapsible Info section,
+  including buffering explanations and active warning symbols.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.

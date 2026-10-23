@@ -1,7 +1,7 @@
 # Van TV Firefox extension
 
 Cast YouTube videos and their playback position to the [receiver](../receiver/README.md),
-or control playback from the toolbar popup. Requires a reachable receiver with
+or control playback from the toolbar-opened sidebar. Requires a reachable receiver with
 `/api/status`, `/api/cast` and `/api/control`; no YouTube pairing or account is used.
 
 ## Configure and build
@@ -70,24 +70,30 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - The YouTube player's **Van TV** button casts the current playhead. Local
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
-- Right-click a YouTube video link or watch-page background → **Van TV: Queue
-  Cast** (the only menu item) opens the toolbar popup, queues it next from the beginning and leaves the tab
-  playing; when the receiver is idle or stopped, it starts at once, even with
-  older entries waiting.
-  Nothing in the menu replaces what's playing; to cast now, use the player
-  button, the shortcut or the popup. The queue and played history are kept on
-  the receiver across Stop and restarts; they never start by themselves.
-- When the receiver's optional watch history stops working (expired account
-  cookies or a rejected cookie file), the popup says so and how to fix it.
-- The popup's title opens the video on YouTube; under it, the channel's avatar,
+- Right-click a YouTube video link or watch-page background for **Van TV: Cast Now**
+  or **Van TV: Add to Queue**. Cast Now replaces playback, preserving a link's
+  timestamp or the page's playhead; page playback pauses after acceptance.
+  Add to Queue inserts next from the beginning and leaves the tab playing;
+  it starts immediately when the receiver is idle or stopped. Both open the sidebar.
+  These are sibling menu actions; Firefox can automatically group multiple
+  extension entries under its own submenu. The queue and played history persist
+  across Stop and restarts; they never start by themselves.
+- **Info** expands playback diagnostics, action messages and watch-history issues.
+  A warning symbol remains visible when collapsed. Buffering is confirmed from
+  mpv; bandwidth is described as a suspicion only after repeated low-rate samples.
+  Rendering/decoding drops and unknown buffering causes have separate messages.
+  Measurements show buffered seconds, incoming rate and estimated demand. Older
+  receivers get an explicit update message instead of invented diagnostics.
+- The sidebar's title opens the video on YouTube; under it, the channel's avatar,
   name, verified badge and subscriber count link to the channel.
-  The panel keeps a stable 340×600 layout; the queue uses the remaining height
+  The toolbar button toggles the full-height browser sidebar; the queue uses the remaining height
   and scrolls only when its entries do not fit. Routine polling updates changed
   values without flashing the activity indicator or rebuilding unchanged rows.
-- The toolbar popup shows state, title and a scrubber. Drag or use arrow keys
+- The sidebar shows state, title and a scrubber. Drag or use arrow keys
   to seek; click total time to toggle remaining time. Controls include previous/next,
   play/pause, ±20 seconds and stop. Previous restarts the video when nothing
-  came before it.
+  came before it. Previous, Next and Stop remain usable during loading; a newer
+  navigation cancels unfinished loading. The playhead stops advancing during buffering.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
 - **CC** toggles the receiver's saved subtitles live, including while idle.
@@ -113,9 +119,9 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   × removes an upcoming video. **Jump to end** scrolls to the last queued video;
   **Clear** removes upcoming videos only.
   **Queue this tab** adds the active tab's video.
-- Each row's external-link button opens YouTube and closes the popup. **⌘/Ctrl-click**
+- Each row's external-link button opens YouTube while keeping the sidebar. **⌘/Ctrl-click**
   or **middle-click** a played/upcoming title to open YouTube in a background tab
-  without closing the popup or changing receiver playback.
+  without changing receiver playback.
 - Drag an upcoming row's grip to reorder it; the list scrolls near its edges and
   **Escape** cancels. With an upcoming row or one of its controls focused,
   **Alt+ArrowUp/Down** moves it one place instead.
@@ -124,11 +130,11 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   played history still show the current video and their upcoming queue.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
   Reassign it in `about:addons` → gear menu → **Manage Extension Shortcuts**.
-  Shortcut/menu failures put `!` on the toolbar; open the popup for details.
+  Shortcut/menu failures put `!` on the toolbar; its tooltip gives the error.
 
 ## Permissions and network behavior
 
-- `contextMenus`: the video-link and watch-page queue item.
+- `contextMenus`: the video-link and watch-page cast/queue actions.
 - `tabs`: active-tab URL for casting and URL-only fallback; no saved history.
 - `https://www.youtube.com/*`: the background page reads the playing video's
   channel (oEmbed for name and link, the channel page once per channel for
@@ -158,11 +164,13 @@ YouTube channel lookups, `background/tab-casting.mjs` handles playhead handoff a
 tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
 `youtube/video-url.mjs` parses URLs for the background and popup contexts.
 `content/player-button.js` and `content/player-button.css` own the player button;
-`popup/popup.html`, `popup/popup.mjs` and `popup/popup.css` own the toolbar popup.
+`popup/popup.html`, `popup/popup.mjs` and `popup/popup.css` own the sidebar remote.
 `popup/queue-list.mjs` owns queue/history rendering, anchoring and drag interactions;
 `popup/state.mjs` owns pure view state and reorder math.
 `popup/quality-selector.mjs` and its CSS own the quality menu. Shared colors and sizes
-live in `theme/tokens.css`. `popup/dom-state.mjs` avoids redundant text, attribute
+live in `theme/tokens.css`. `playback/diagnostics.mjs` validates receiver measurements;
+`popup/playback-messages.mjs` and its CSS own the collapsible messages and warnings.
+`popup/dom-state.mjs` avoids redundant text, attribute
 and property writes during polling. `tests/` mirrors these feature folders; the receiver
 fixture lives beside its background tests.
 `build.zsh` keeps the same feature folders in both packaged outputs.

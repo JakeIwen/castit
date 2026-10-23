@@ -51,6 +51,8 @@ test('XPI and unpacked extension match the example config without a private loca
   template.permissions.push(...new Set(hosts));
   assert.deepEqual(manifest, template);
   assert.equal(manifest.manifest_version, 2);
+  assert.equal(manifest.browser_action.default_popup, undefined);
+  assert.equal(manifest.sidebar_action.open_at_install, false);
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.deepEqual(manifest.content_scripts[0].matches, config.youtube.contentMatches);
   assert.deepEqual(Object.keys(manifest.commands), [config.command]);
@@ -58,7 +60,7 @@ test('XPI and unpacked extension match the example config without a private loca
   const background = await generated(dir, manifest.background.page);
   const scripts = [...background.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(scripts, ['../local-config.js', 'main.mjs']);
-  const required = [manifest.background.page, ...scripts.map(path => join(dirname(manifest.background.page), path)), manifest.browser_action.default_popup,
+  const required = [manifest.background.page, ...scripts.map(path => join(dirname(manifest.background.page), path)), manifest.sidebar_action.default_panel,
     manifest.browser_action.default_icon, ...manifest.content_scripts.flatMap(item => [...item.js, ...item.css])];
   for (const path of required) assert.ok(files.includes(path), `Packaged ${path}`);
   for (const file of files) {
@@ -74,6 +76,7 @@ test('XPI and unpacked extension match the example config without a private loca
   assert.ok(files.includes('background/receiver-client.mjs'));
   assert.ok(files.includes('popup/queue-list.mjs'));
   assert.ok(files.includes('youtube/video-url.mjs'));
+  assert.ok(files.includes('playback/diagnostics.mjs'));
   assert.ok(files.every(path => !path.startsWith('tests/') && !path.endsWith('.test.mjs')));
   for (const excluded of ['build.zsh', 'build/generate-config.mjs', 'manifest.template.json', 'README.md', 'local.json']) {
     assert.equal(files.includes(excluded), false);

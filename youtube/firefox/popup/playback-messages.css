@@ -1,0 +1,8 @@
+.playback-messages { margin-top: 6px; font-size: 12px; }
+.playback-messages > summary { cursor: pointer; padding: 4px 0; color: var(--van-tv-muted); }
+.playback-messages > summary > span { margin-right: 5px; }
+.playback-messages.has-warning > summary { color: var(--van-tv-text); font-weight: 650; }
+.playback-messages > summary:focus-visible { outline: 2px solid var(--van-tv-focus); }
+.playback-messages-content { max-height: 150px; overflow-y: auto; padding: 4px 0; }
+.playback-messages-content p + p { margin-top: 6px; }
+.playback-measurements { color: var(--van-tv-muted); font-variant-numeric: tabular-nums; }

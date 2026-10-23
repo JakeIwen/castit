@@ -79,6 +79,7 @@ test('Next plays whatever comes next; with nothing queued it leaves the video pl
   assert.equal(player.status, PlayerStatus.PLAYING);
   player.castQueue.add(SECOND.id);
   assert.equal(await controls.next(), true);
+  await settleUntil(() => instances[1]?.loaded);
   assert.deepEqual(instances[1].loaded, { id: SECOND.id, position: 0 });
 });
 
@@ -86,6 +87,27 @@ test('Previous without a queue restarts the video', async () => {
   const player = fakePlayer({ status: PlayerStatus.PLAYING, queue: { hasPrevious: false } });
   await createPlayerControls(player).previous();
   assert.deepEqual(player.calls, [['seek', 0]]);
+});
+
+test('Previous during a direct load cancels it and restarts the selected video at zero', async t => {
+  let resolveCount = 0;
+  let aborted = false;
+  const { player, instances } = playerFixture({ resolver: { resolve: (_id, { signal }) => {
+    if (++resolveCount > 1) return Promise.resolve(null);
+    return new Promise((resolve, reject) => signal.addEventListener('abort', () => {
+      aborted = true;
+      reject(signal.reason);
+    }, { once: true }));
+  } } });
+  t.after(() => player.endSession());
+  const original = player.play(VIDEO, 42);
+  await settleUntil(() => resolveCount === 1);
+  assert.equal(player.status, PlayerStatus.LOADING);
+  assert.equal(createPlayerControls(player).previous(), true);
+  assert.equal(aborted, true);
+  assert.equal(await original, false);
+  await settleUntil(() => player.status === PlayerStatus.PLAYING);
+  assert.deepEqual(instances.at(-1).loaded, { id: VIDEO.id, position: 0 });
 });
 
 test('Stop resets the phone queue and keeps the cast queue', async () => {

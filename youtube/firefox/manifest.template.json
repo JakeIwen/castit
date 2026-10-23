@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Van TV",
-  "version": "1.13.2",
+  "version": "1.14.0",
   "description": "Cast YouTube videos to a Van TV receiver on your local network.",
   "browser_specific_settings": {
     "gecko": { "strict_min_version": "102.0" }
@@ -9,7 +9,11 @@
   "permissions": ["contextMenus", "tabs", "https://www.youtube.com/*"],
   "background": { "page": "background/page.html" },
   "browser_action": {
-    "default_title": "Van TV", "default_popup": "popup/popup.html", "default_icon": "icon.svg"
+    "default_title": "Van TV", "default_icon": "icon.svg"
+  },
+  "sidebar_action": {
+    "default_title": "Van TV", "default_panel": "popup/popup.html",
+    "default_icon": "icon.svg", "open_at_install": false
   },
   "icons": { "48": "icon.svg", "96": "icon.svg" },
   "content_scripts": [{

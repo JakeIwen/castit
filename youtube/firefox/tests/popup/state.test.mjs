@@ -21,7 +21,7 @@ test('elapsed time supports hours and handles unavailable or invalid values', ()
 test('popup enables meaningful controls for every receiver state', () => {
   const states = [
     [player.idle, []],
-    [player.loading, [control.stop]],
+    [player.loading, [control.previous, control.next, control.stop]],
     [player.playing, playbackActions],
     [player.paused, playbackActions],
     [player.stopped, []],

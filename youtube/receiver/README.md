@@ -169,6 +169,14 @@ its resolver children. Starting another player later does not stop this one.
   first, excluding the currently loaded video. Repeated video ids move to the
   end; titles follow mpv, falling back to the queued video's oEmbed title. Entry
   keys are unique across both lists.
+  `diagnostics` reports `available`, `buffering`, a suspected `reason`
+  (`bandwidth`, `rendering`, `unknown`, or null), `bufferSeconds`,
+  `inputBytesPerSecond`, `requiredBytesPerSecond`, `frameDrops` and `decoderDrops`.
+  Missing measurements are null. Drops are increases within the recent 10-second
+  window. mpv sampling waits two seconds after each completed round and never overlaps.
+  Bandwidth suspicion needs at least three low-rate samples spanning four seconds
+  while the current buffer is low; these measurements do not prove an ISP or CPU fault.
+  Pause, seeks, new loads and disconnects clear stale warnings or baselines.
 - `POST /api/cast`: JSON with exactly one of `videoId` or `url`, for example
   `{"videoId":"dQw4w9WgXcQ","position":12.5}` or
   `{"url":"https://youtu.be/dQw4w9WgXcQ?t=1m30s"}`. An optional non-negative
@@ -179,6 +187,8 @@ its resolver children. Starting another player later does not stop this one.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
   `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the first cast-queue entry,
   then the phone's next video (or its autoplay pick); with neither it does nothing.
+  Next/Previous acknowledge accepted navigation before extraction completes;
+  poll status for the outcome. A new navigation can cancel an unfinished load.
   `seek` requires exactly one of absolute `position` (>= 0) or relative
   `offset`, in seconds, clamped to the video.
 - `POST /api/control` with `{"action":"audio_delay","delay":-0.12}` sets the

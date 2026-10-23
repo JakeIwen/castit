@@ -12,6 +12,7 @@ import { savedSubtitles, subtitleArguments } from './subtitles.mjs';
 import { QualityPlayback } from './quality-playback.mjs';
 import { savedQuality, qualityFormat } from './quality.mjs';
 import { QueuePrefetch } from './queue-prefetch.mjs';
+import { MpvDiagnostics } from './mpv/diagnostics.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
 
@@ -39,6 +40,7 @@ export class MpvPlayer extends Player {
     Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver });
     this.qualityPlayback = new QualityPlayback(this);
     this.subtitlePlayback = new SubtitlePlayback(resolver, log);
+    this.playbackDiagnostics = new MpvDiagnostics();
     this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
@@ -146,6 +148,7 @@ export class MpvPlayer extends Player {
       if (stream?.title) this.video.title = stream.title;
       await timing.measure('load', () => mpv.load(video.id, position, signal, stream));
       signal.throwIfAborted();
+      this.playbackDiagnostics.start(mpv, signal);
       this.subtitlePlayback.loaded(mpv, video.id, signal, stream, quality);
       this.prefetch.start(signal);
       outcome = 'loaded';
@@ -161,6 +164,7 @@ export class MpvPlayer extends Player {
   }
 
   async release() {
+    this.playbackDiagnostics.stop();
     this.subtitlePlayback.reset();
     this.abort?.abort();
     this.room.cancelPending();
@@ -239,6 +243,7 @@ export class MpvPlayer extends Player {
   }
 
   get quality() { return this.qualityPlayback.snapshot(); }
+  get diagnostics() { return this.playbackDiagnostics.snapshot(); }
   get qualityReloading() { return Boolean(this.qualityPlayback.target); }
   setQuality(value) { return this.qualityPlayback.set(value); }
 

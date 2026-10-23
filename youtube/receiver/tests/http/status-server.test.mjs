@@ -5,6 +5,7 @@ import { get } from 'node:http';
 import { createStatusServer } from '../../src/http/status-server.mjs';
 import { config } from '../../src/config/receiver-config.mjs';
 import { createPlayerControls, createQueueControls } from '../../src/controls/player-controls.mjs';
+import { PlayerStatus } from '../../src/playback/player.mjs';
 import { playerFixture, VIDEO, SECOND, settleUntil, quiet } from '../playback/player-fixture.mjs';
 
 test('Status trusts configured hostnames as well as loopback and the LAN address', async t => {
@@ -137,6 +138,40 @@ test('Control route runs only known actions from the same origin', async t => {
     assert.equal((await post(bad)).status, 400, bad);
   }
   assert.deepEqual(actions, [['pause', {}], ['seek', { offset: -20 }], ['seek', { position: 95.5 }]]);
+});
+
+test('Next responds during unresolved loads and repeated navigation keeps only the latest video', { timeout: 3000 }, async t => {
+  const pending = new Map();
+  const third = { id: 'zzzzzzzzzzz', client: VIDEO.client };
+  const { player, instances } = playerFixture({ resolver: { resolve: (id, { signal, prefetch }) => {
+    if (prefetch || id === third.id) return Promise.resolve(null);
+    pending.set(id, signal);
+    return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } } });
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) }, control: (action, fields) => controls[action](fields),
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const next = () => fetch(`http://127.0.0.1:${server.address().port}/api/control`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"action":"next"}',
+  }).then(response => response.json());
+  const original = player.play(VIDEO);
+  await settleUntil(() => pending.has(VIDEO.id));
+  player.castQueue.add(SECOND.id);
+  player.castQueue.add(third.id);
+  assert.deepEqual(await next(), { action: 'next', done: true });
+  assert.equal(await original, false);
+  await settleUntil(() => pending.has(SECOND.id));
+  assert.equal(player.status, PlayerStatus.LOADING);
+  assert.deepEqual(await next(), { action: 'next', done: true });
+  await settleUntil(() => player.status === PlayerStatus.PLAYING);
+  assert.equal(player.video.id, third.id);
+  assert.ok([...pending.values()].every(signal => signal.aborted));
+  assert.deepEqual(instances.filter(instance => instance.loaded).map(instance => instance.loaded.id), [third.id]);
 });
 
 test('Audio delay HTTP controls validate finite seconds and expose the current setting in status', async t => {

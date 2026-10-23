@@ -3,10 +3,9 @@ import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
 import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
-const menu = Object.freeze({ queueLink: 'queue-link', queuePage: 'queue-page' });
-// One menu entry: queueing never replaces what's playing (it starts at once
-// only when nothing is playing or queued). Casting stays on the player button.
-const menuTitle = 'Van TV: Queue Cast';
+const menu = Object.freeze({ castLink: 'cast-link', castPage: 'cast-page',
+  queueLink: 'queue-link', queuePage: 'queue-page' });
+const menuTitles = Object.freeze({ cast: 'Van TV: Cast Now', queue: 'Van TV: Add to Queue' });
 
 function controlFields(message) {
   const fields = {};
@@ -54,16 +53,23 @@ export async function showCastResult(browserApi, operation, success = 'Van TV �
 export async function installContextMenus(browserApi, receiver) {
   const patterns = youtubeMenuPatterns();
   await browserApi.contextMenus.removeAll();
-  browserApi.contextMenus.create({ id: menu.queueLink, title: menuTitle,
-    contexts: ['link'], targetUrlPatterns: patterns.link });
-  browserApi.contextMenus.create({ id: menu.queuePage, title: menuTitle,
-    contexts: ['page'], documentUrlPatterns: patterns.page });
+  for (const [kind, title] of Object.entries(menuTitles)) {
+    browserApi.contextMenus.create({ id: menu[`${kind}Link`], title,
+      contexts: ['link'], targetUrlPatterns: patterns.link });
+    browserApi.contextMenus.create({ id: menu[`${kind}Page`], title,
+      contexts: ['page'], documentUrlPatterns: patterns.page });
+  }
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);
     if (!video) throw new Error('This link is not a YouTube video');
     return video;
   };
   const actions = {
+    [menu.castLink]: async info => {
+      const video = linkVideo(info);
+      await receiver.cast(video.videoId, video.position);
+    },
+    [menu.castPage]: async (_info, tab) => castTab(browserApi, receiver, tab),
     [menu.queueLink]: async info => {
       const result = await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId });
       if (!result.done) throw new Error('The Van TV queue is full');
@@ -76,12 +82,22 @@ export async function installContextMenus(browserApi, receiver) {
   browserApi.contextMenus.onClicked.addListener((info, tab) => {
     const action = actions[info.menuItemId];
     if (!action) return;
-    // Open directly from the menu gesture, before the receiver request yields.
-    // A popup failure must not prevent the video from being queued.
-    void browserApi.browserAction.openPopup().catch(error => {
-      console.warn('Van TV popup could not open', error);
+    // Opening a sidebar requires the menu gesture, before the request yields.
+    // A sidebar failure must not prevent the cast or queue operation.
+    void browserApi.sidebarAction.open().catch(error => {
+      console.warn('Van TV sidebar could not open', error);
     });
-    void showCastResult(browserApi, () => action(info, tab), 'Van TV — added to the queue');
+    const queued = info.menuItemId === menu.queueLink || info.menuItemId === menu.queuePage;
+    void showCastResult(browserApi, () => action(info, tab),
+      queued ? 'Van TV — added to the queue' : 'Van TV — cast accepted');
+  });
+}
+
+export function installRemoteAction(browserApi) {
+  browserApi.browserAction.onClicked.addListener(() => {
+    void browserApi.sidebarAction.toggle().catch(error => {
+      console.warn('Van TV sidebar could not toggle', error);
+    });
   });
 }
 

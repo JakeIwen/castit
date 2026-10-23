@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { MpvIpc } from '../../../src/playback/mpv/ipc.mjs';
+import { readMpvDiagnostics } from '../../../src/playback/mpv/diagnostics.mjs';
 
 async function fixture(t, handler, timeoutMs = 200) {
   const directory = await mkdtemp(join(tmpdir(), 'yt-ipc-'));
@@ -59,6 +60,25 @@ test('IPC rejects mpv command errors', async t => {
     request_id: request.request_id, error: 'property unavailable',
   })}\n`));
   await assert.rejects(client.command(['get_property', 'missing']), /property unavailable/);
+});
+
+test('Diagnostics read real IPC properties and tolerate unavailable metrics', async t => {
+  const values = { 'paused-for-cache': true, pause: false, 'time-pos': 12,
+    'demuxer-cache-state': { 'cache-duration': 0.2, 'raw-input-rate': 48_000 },
+    'video-bitrate': 1_800_000, speed: 1, 'frame-drop-count': 22, 'decoder-frame-drop-count': 0 };
+  const client = await fixture(t, (socket, request) => {
+    const property = request.command[1];
+    socket.write(`${JSON.stringify({ request_id: request.request_id,
+      error: Object.hasOwn(values, property) ? 'success' : 'property unavailable', data: values[property] })}\n`);
+  });
+  const sample = await readMpvDiagnostics(client);
+  assert.equal(sample.buffering, true);
+  assert.equal(sample.paused, false);
+  assert.equal(sample.position, 12);
+  assert.equal(sample.cache['raw-input-rate'], 48_000);
+  assert.equal(sample.videoBitrate, 1_800_000);
+  assert.equal(sample.audioBitrate, null);
+  assert.equal(sample.totalFrameDrops, 22);
 });
 
 test('IPC has bounded timeouts and rejects requests on socket loss', async t => {

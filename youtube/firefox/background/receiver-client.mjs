@@ -1,5 +1,6 @@
 import '../config.js';
 import { isPosition, isVideoId } from '../youtube/video-url.mjs';
+import { decodeDiagnostics } from '../playback/diagnostics.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const states = Object.values(config.player);
@@ -10,6 +11,7 @@ const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(val
 /** @typedef {{key: number, id: string, title: string|null}} QueueEntry */
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
  * position: number, duration: number, audioDelay: number|null, speed: number|null,
+ * diagnostics: import('../../receiver/src/playback/diagnostics.mjs').PlaybackDiagnostics|null,
  * quality: {selected: string, options: {value: string, label: string}[], loading: boolean, error: boolean}|null,
  * subtitles: {enabled: boolean, language: string, available: boolean|null, loading: boolean, error: boolean}|null,
  * volume: {level: number, muted: boolean}|null, queue: QueueEntry[]|null,
@@ -83,6 +85,7 @@ export function decodeStatus(value) {
   const audioDelay = isFiniteNumber(value.audioDelay) ? value.audioDelay : null;
   const speed = isFiniteNumber(value.speed) ? value.speed : null;
   return { ok, player, video, position, duration, audioDelay, speed,
+    diagnostics: decodeDiagnostics(value.diagnostics),
     quality: decodeQuality(value.quality), subtitles: decodeSubtitles(value.subtitles),
     volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),
     watchHistory: decodeWatchHistory(value.watchHistory) };

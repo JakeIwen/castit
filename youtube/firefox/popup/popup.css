@@ -3,9 +3,10 @@
 html { overflow-x: hidden; }
 body {
   color-scheme: light dark;
-  width: 340px;
-  /* Firefox sizes the panel from this box; viewport units create a sizing cycle. */
-  height: 600px;
+  width: 100%;
+  /* The sidebar has a browser-owned viewport, so its queue can fill the height. */
+  height: 100vh;
+  height: 100dvh;
   max-width: 100%;
   display: flex;
   flex-direction: column;

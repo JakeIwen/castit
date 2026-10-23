@@ -51,7 +51,13 @@ export function queueArguments({ action, videoId, url, key, index }) {
   return {};
 }
 
-export function createPlayerControls(player) {
+export function createPlayerControls(player, { log = console } = {}) {
+  // Navigation acknowledges the request before extraction finishes, so another
+  // Next/Previous can cancel that load through the player's existing play queue.
+  const start = operation => {
+    void operation.catch(() => log.warn('Navigation playback failed to start'));
+    return true;
+  };
   return {
     pause: () => player.pause(),
     resume: () => player.resume(),
@@ -67,8 +73,13 @@ export function createPlayerControls(player) {
     // The library stops playback when there's nothing to move to; a stray
     // Next (a direct cast has no queue) should leave the video playing, and
     // Previous restarts the video like a TV remote.
-    next: () => player.playNext(),
-    previous: () => (player.queue.hasPrevious ? player.previous() : player.seek(0)),
+    next: () => Boolean(player.castQueue.length || player.phoneHasNext) && start(player.playNext()),
+    previous: () => {
+      if (player.queue.hasPrevious) return start(player.previous());
+      if (player.status !== PlayerStatus.LOADING) return player.seek(0);
+      const target = player.qualityTarget();
+      return Boolean(target) && start(player.play(target.video, 0, undefined, target.queuedEntry));
+    },
     seek: ({ position, offset }) => {
       if (!player.video) return false;
       const end = player.duration > 0 ? player.duration : Infinity;

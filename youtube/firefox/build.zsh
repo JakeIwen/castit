@@ -7,10 +7,10 @@ staging=$(/usr/bin/mktemp -d "$PWD/dist/.build.XXXXXX")
 trap '/bin/rm -rf "$staging"' EXIT
 node build/generate-config.mjs "${CASTIT_LOCAL_CONFIG:-../local.json}" "$staging"
 /bin/cp config.js icon.svg "$staging/"
-/bin/cp -R background popup content youtube theme "$staging/"
+/bin/cp -R background popup content youtube theme playback "$staging/"
 (
   cd "$staging"
-  /usr/bin/zip -X -q -r -D van-tv.xpi manifest.json background popup content youtube theme *.js icon.svg
+  /usr/bin/zip -X -q -r -D van-tv.xpi manifest.json background popup content youtube theme playback *.js icon.svg
 )
 # Publish only after validation and packaging succeed; these outputs contain local config.
 mkdir -p dist/extension

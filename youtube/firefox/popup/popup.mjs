@@ -1,9 +1,10 @@
 import '../config.js';
 import {
-  createScrubState, formatTime, isWorking, popupState, queueListModel, subtitleLabel, transitionScrub, watchHistoryNotice,
+  createScrubState, formatTime, isWorking, loadingActions, popupState, queueListModel, subtitleLabel, transitionScrub, watchHistoryNotice,
 } from './state.mjs';
 import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
+import { PlaybackMessages } from './playback-messages.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
@@ -17,6 +18,8 @@ const ids = [
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+const messages = new PlaybackMessages({ before: element['queue-section'],
+  notice: element.notice, historyNotice: element['history-notice'] });
 const transportControls = [
   { button: element.previous, action: config.control.previous },
   { button: element['back-twenty'], action: config.control.seek,
@@ -46,6 +49,8 @@ const settingControls = [
 let latestStatus;
 let scrub = createScrubState();
 let busy = false;
+let pendingOperations = 0;
+let latestOperation = 0;
 let polling = false;
 let tabAvailable = false;
 let pollTimer;
@@ -83,7 +88,8 @@ function renderActivity() {
   const working = isWorking(latestStatus, requestsInFlight);
   const state = latestStatus ? (latestStatus.ok ? latestStatus.player : 'Receiver not running')
     : (latestStatus === undefined ? 'Connecting…' : 'Van TV unreachable');
-  const label = state === latestStatus?.player ? state[0] + state.slice(1).toLowerCase() : state;
+  const label = latestStatus?.diagnostics?.buffering ? 'Buffering'
+    : state === latestStatus?.player ? state[0] + state.slice(1).toLowerCase() : state;
   setText(element.state, working ? 'Working' : label);
   setClass(element.state, 'working', working);
   setAttribute(element.state, 'aria-label', working ? 'Working…' : label);
@@ -93,8 +99,7 @@ function renderActivity() {
 async function openYouTube(url, background = false) {
   try {
     await withRequest(() => browser.tabs.create(background ? { url, active: false } : { url }));
-    if (!background) window.close();
-  } catch (error) { element.notice.textContent = error.message; }
+  } catch (error) { messages.setNotice(error.message, true); }
 }
 
 function renderPlayback() {
@@ -113,7 +118,8 @@ function renderPlayback() {
 function updateControls() {
   const view = latestStatus ? popupState(latestStatus) : null;
   for (const item of transportControls) {
-    setProperty(item.button, 'disabled', busy || !view?.actions.includes(item.action));
+    setProperty(item.button, 'disabled', busy && !loadingActions.includes(item.action)
+      || !view?.actions.includes(item.action));
   }
   const toggleLabel = view?.toggleLabel ?? 'Play';
   setBooleanAttribute(element['play-icon'], 'hidden', toggleLabel === 'Pause');
@@ -177,6 +183,7 @@ function renderVideo(title, video) {
 function renderStatus() {
   renderActivity();
   setText(element['history-notice'], watchHistoryNotice(latestStatus));
+  messages.render(latestStatus);
   if (latestStatus) {
     const view = popupState(latestStatus);
     renderVideo(view.title, latestStatus.video);
@@ -224,17 +231,23 @@ async function poll() {
 }
 
 async function perform(type, fields, success, unchanged = 'No playback change') {
-  if (busy) return;
+  const interruptsLoad = type === config.message.control && loadingActions.includes(fields.action);
+  if (busy && !interruptsLoad) return;
+  const operation = ++latestOperation;
+  pendingOperations += 1;
   busy = true;
-  element.notice.textContent = '';
+  messages.setNotice('');
   updateControls();
   try {
     const data = await send(type, fields, true);
-    element.notice.textContent = data.done === false ? unchanged : success;
-  } catch (error) { element.notice.textContent = error.message; }
+    if (operation === latestOperation) messages.setNotice(data.done === false ? unchanged : success, data.done === false);
+  } catch (error) {
+    if (operation === latestOperation) messages.setNotice(error.message, true);
+  }
   finally {
     await refreshStatus();
-    busy = false;
+    pendingOperations -= 1;
+    busy = pendingOperations > 0;
     updateControls();
   }
 }
@@ -243,7 +256,7 @@ function updateProgress() {
   const now = performance.now();
   const seconds = (now - progressTime) / 1000;
   progressTime = now;
-  if (!latestStatus?.ok || latestStatus.player !== config.player.playing) return;
+  if (!latestStatus?.ok || latestStatus.player !== config.player.playing || latestStatus.diagnostics?.buffering) return;
   scrub = transitionScrub(scrub, {
     type: 'advance', seconds, duration: latestStatus.duration,
   }).state;
@@ -283,7 +296,7 @@ element.scrub.addEventListener('change', event => {
   void perform(config.message.control, { action: config.control.seek, ...result.seek }, '');
 });
 
-// Popup links open in a normal tab, and the popup closes like a menu would.
+// Links open in normal tabs while the sidebar remains available as a remote.
 for (const link of [element.video, element.channel]) {
   link.addEventListener('click', event => {
     event.preventDefault();
