@@ -23,6 +23,26 @@ local video player to stop first); see the receiver README. `senders` holds the
 receiver URLs the extension, CLI and iOS Shortcut use, primary first, and the extension ID.
 `local.json` is ignored by Git; the deploy script copies it to the Pi.
 
+## Build and deploy
+
+From `youtube/` or `youtube/receiver/`:
+
+```sh
+npm run depf
+npm run depr
+```
+
+`depf` builds the Firefox extension and opens its install prompt in Firefox
+Developer Edition. Accept the Firefox confirmation, then reload YouTube tabs.
+The confirmation has no supported CLI.
+
+`depr` deploys the receiver through `receiver/deploy.sh install` using
+`local.json`: it stages a release on the Pi, installs dependencies there,
+restarts the service and waits for health. The receiver runs JavaScript directly,
+so it has no separate compilation step.
+
+`npm test` from `youtube/` runs the whole repository suite.
+
 ## `vantv`
 
 ```sh

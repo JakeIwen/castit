@@ -1,0 +1,9 @@
+{
+  "name": "castit",
+  "private": true,
+  "scripts": {
+    "test": "zsh ../run_tests.sh",
+    "depf": "zsh firefox/build.zsh && open -a 'Firefox Developer Edition' firefox/dist/van-tv.xpi",
+    "depr": "bash receiver/deploy.sh install"
+  }
+}
