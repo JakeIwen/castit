@@ -276,8 +276,8 @@ older pending attempt, without interrupting the active one.
 On the Mac, sign in to YouTube in Firefox, then run from this directory:
 
 ```sh
-zsh ./push-youtube-cookies.zsh
-zsh ./push-youtube-cookies.zsh --remove
+zsh ../firefox/push-youtube-cookies.zsh
+zsh ../firefox/push-youtube-cookies.zsh --remove
 ```
 
 The first command exports Google/YouTube cookies from the default Firefox

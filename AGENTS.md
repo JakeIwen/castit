@@ -60,7 +60,8 @@ a clean checkout.
   Receiver tests mirror the feature folders; playback fixtures live beside
   playback tests. `deploy.sh` (Mac) stages a release and `controller.sh`
   (Pi) installs it.
-- `youtube/firefox/`: `build/generate-config.mjs` exports `readLocalConfig`
+- `youtube/firefox/`: `push-youtube-cookies.zsh` runs on the Mac to install
+  receiver watch-history cookies. `build/generate-config.mjs` exports `readLocalConfig`
   and `senderConfig`, the extension's sender reader/validator; its CLI generates the manifest (from `manifest.template.json`) and root
   `local-config.js`; `build.zsh` writes folder-preserving `dist/van-tv.xpi`
   and unpacked `dist/extension/`. Root `config.js` owns extension-wide

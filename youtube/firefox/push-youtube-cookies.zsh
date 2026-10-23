@@ -45,10 +45,10 @@ load_remote_config() {
   target=$(node --input-type=module -e '
     const {loadLocalConfig}=await import(process.argv[1]);
     console.log(loadLocalConfig(process.argv[2]).sshTarget);
-  ' "$here/src/config/local-config.mjs" "$local_config")
+  ' "$here/../receiver/src/config/local-config.mjs" "$local_config")
   state_dir=$(CASTIT_LOCAL_CONFIG="$local_config" node --input-type=module -e '
     const {config}=await import(process.argv[1]); console.log(config.stateDirectory);
-  ' "$here/src/config/receiver-config.mjs")
+  ' "$here/../receiver/src/config/receiver-config.mjs")
 }
 
 if (( remove )); then

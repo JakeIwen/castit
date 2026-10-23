@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const script = fileURLToPath(new URL('../../push-youtube-cookies.zsh', import.meta.url));
+const script = fileURLToPath(new URL('../../../firefox/push-youtube-cookies.zsh', import.meta.url));
 const schema = `CREATE TABLE moz_cookies (
   id INTEGER PRIMARY KEY, originAttributes TEXT NOT NULL DEFAULT '', name TEXT,
   value TEXT, host TEXT, path TEXT, expiry INTEGER, lastAccessed INTEGER,
