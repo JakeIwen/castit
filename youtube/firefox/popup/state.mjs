@@ -130,7 +130,7 @@ export function watchHistoryNotice(status) {
 }
 
 export function subtitleLabel(subtitles) {
-  if (!subtitles) return '';
+  if (!subtitles) return 'Subtitles unavailable';
   let language = subtitles.language;
   try { language = new Intl.DisplayNames(['en'], { type: 'language' }).of(language); }
   catch { /* YouTube language codes can be more specific than Intl supports. */ }

@@ -1,6 +1,6 @@
 import '../config.js';
 import {
-  createScrubState, formatTime, isWorking, popupState, queueListModel, transitionScrub, watchHistoryNotice,
+  createScrubState, formatTime, isWorking, popupState, queueListModel, subtitleLabel, transitionScrub, watchHistoryNotice,
 } from './state.mjs';
 import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
@@ -134,7 +134,7 @@ function updateControls() {
   setAttribute(element.mute, 'aria-pressed', Boolean(view?.muted));
   setProperty(element.subtitles, 'disabled', busy || !view?.subtitlesEnabled);
   setAttribute(element.subtitles, 'aria-pressed', Boolean(view?.subtitlesOn));
-  const subtitleStatus = view?.subtitlesLabel ?? '';
+  const subtitleStatus = view?.subtitlesLabel ?? subtitleLabel();
   setProperty(element.subtitles, 'title', subtitleStatus);
   setText(element['subtitle-status'], subtitleStatus);
   qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);

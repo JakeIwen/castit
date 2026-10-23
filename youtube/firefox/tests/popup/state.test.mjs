@@ -194,10 +194,11 @@ test('CC remains available while idle, reports missing English tracks and handle
   const status = { ...defaultStatus, player: 'IDLE', video: null, subtitles };
   assert.equal(popupState(status).subtitlesEnabled, true);
   assert.equal(popupState(status).subtitlesLabel, 'No English subtitles');
+  assert.equal(popupState({ ...status, subtitles: { ...subtitles, available: true } }).subtitlesLabel, 'English subtitles on');
   assert.equal(popupState({ ...status, subtitles: { ...subtitles, enabled: false } }).subtitlesLabel, 'Subtitles off (English)');
   assert.match(popupState({ ...status, subtitles: { ...subtitles, loading: true } }).subtitlesLabel, /Loading English/);
   assert.match(popupState({ ...status, subtitles: { ...subtitles, error: true } }).subtitlesLabel, /failed to load/);
   assert.equal(popupState(defaultStatus).subtitlesEnabled, false);
-  assert.equal(popupState(defaultStatus).subtitlesLabel, '');
+  assert.equal(popupState(defaultStatus).subtitlesLabel, 'Subtitles unavailable');
   assert.equal(popupState({ ...status, ok: false }).subtitlesEnabled, false);
 });
