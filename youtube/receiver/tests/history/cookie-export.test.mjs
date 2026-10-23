@@ -30,12 +30,13 @@ async function fixture(t) {
   const profile = join(root, 'fixture-profile');
   await Promise.all([home, temp, profile].map(path => mkdir(path, { recursive: true, mode: 0o700 })));
   const output = join(root, 'output.txt');
+  const config = join(root, 'local.json');
   const run = (...args) => spawnSync('zsh', [script, ...args, '--output', output], {
     encoding: 'utf8', env: { ...process.env, HOME: home, TMPDIR: temp,
-      CASTIT_LOCAL_CONFIG: join(root, 'must-not-read-local-config.json') },
+      CASTIT_LOCAL_CONFIG: config },
   });
   const database = join(profile, 'cookies.sqlite');
-  return { root, home, temp, profile, output, run, database };
+  return { root, home, temp, profile, output, run, database, config };
 }
 
 const session = insert('.google.com', '__Secure-3PSID', 'fixture-google-session')
@@ -122,4 +123,34 @@ test('SQLite private snapshot includes committed cookies still in an open Firefo
   assert.equal(result.status, 0, result.stderr);
   assert.match(await readFile(f.output, 'utf8'), /fixture-youtube-login/);
   assert.deepEqual(await readdir(f.temp), []);
+});
+
+test('configured Firefox profile works without profiles.ini and --profile overrides it', async t => {
+  const f = await fixture(t);
+  sql(f.database, schema + session);
+  await writeFile(f.config, JSON.stringify({ senders: { ffProfile: f.profile } }));
+  const configured = f.run();
+  assert.equal(configured.status, 0, configured.stderr);
+  assert.match(await readFile(f.output, 'utf8'), /fixture-youtube-login/);
+
+  await writeFile(f.config, JSON.stringify({ senders: { ffProfile: join(f.root, 'missing') } }));
+  const missing = f.run();
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /Could not privately snapshot/);
+  const explicit = f.run('--profile', f.profile);
+  assert.equal(explicit.status, 0, explicit.stderr);
+});
+
+test('cookie exporter rejects invalid configured profile paths and malformed JSON', async t => {
+  const f = await fixture(t);
+  for (const ffProfile of [42, {}, '', 'bad\npath']) {
+    await writeFile(f.config, JSON.stringify({ senders: { ffProfile } }));
+    const result = f.run();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /senders.ffProfile must be/);
+  }
+  await writeFile(f.config, '{broken');
+  const result = f.run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Invalid JSON/);
 });

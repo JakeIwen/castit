@@ -280,12 +280,16 @@ zsh ../firefox/push-youtube-cookies.zsh
 zsh ../firefox/push-youtube-cookies.zsh --remove
 ```
 
-The first command exports Google/YouTube cookies from the default Firefox
+The first command exports Google/YouTube cookies from the selected Firefox
 profile's default container and atomically installs a mode-600
 `youtube-cookies.txt` in the receiver's private state directory, using
 `../local.json`'s SSH target. The second deletes it to disable history. No
 restart is needed. `--profile <dir>` selects another profile; `--output <file>`
-exports locally instead of contacting the receiver. Keep that file outside this
+exports locally instead of contacting the receiver. Without `--profile`, the script
+uses `senders.ffProfile` in `youtube/local.json` (or `CASTIT_LOCAL_CONFIG`). Set
+it to the Root Directory shown in Developer Edition’s `about:profiles`. When
+that setting is absent or null, it discovers profiles from `profiles.ini`.
+Keep that file outside this
 public repository; never commit or share account cookies.
 
 Without the file, history is off. Non-regular files, symlinks, another owner's

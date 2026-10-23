@@ -4,6 +4,7 @@ set -eu -o pipefail
 unsetopt xtrace
 umask 077
 here=${0:A:h}
+local_config=${CASTIT_LOCAL_CONFIG:-"$here/../local.json"}
 profile=''
 output=''
 remove=0
@@ -41,7 +42,6 @@ trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
 load_remote_config() {
-  local local_config="$here/../local.json"
   target=$(node --input-type=module -e '
     const {loadLocalConfig}=await import(process.argv[1]);
     console.log(loadLocalConfig(process.argv[2]).sshTarget);
@@ -61,6 +61,22 @@ rm -f -- "$1/youtube-cookies.txt"
 REMOTE
   print 'Watch history disabled (cookie file removed).'
   exit 0
+fi
+
+if [[ -z $profile && -f $local_config ]]; then
+  profile=$(node --input-type=module - "$here/build/generate-config.mjs" "$local_config" <<'NODE'
+try {
+  const { readLocalConfig } = await import(process.argv[2]);
+  const local = await readLocalConfig(process.argv[3]);
+  const profile = local?.senders?.ffProfile;
+  if (profile != null && (typeof profile !== 'string' || !profile.trim()
+      || /[\r\n\0]/.test(profile))) {
+    throw new Error('senders.ffProfile must be a non-empty profile directory path.');
+  }
+  console.log(profile ?? '');
+} catch (error) { console.error(error.message); process.exit(1); }
+NODE
+  )
 fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/castit-cookies.XXXXXXXX")
