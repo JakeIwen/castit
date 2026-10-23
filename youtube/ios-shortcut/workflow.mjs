@@ -53,23 +53,31 @@ function requestActions(baseUrl, url, command) {
   return [request, ...responseActions(request, command)];
 }
 
+// Links live in a named variable: an If block's "If Result" output didn't
+// resolve on the phone, so shared links reached URL detection empty.
+const links = attachment({ Type: 'Variable', VariableName: 'Links' });
+
+function setLinks(urls) {
+  return action('setvariable', { WFVariableName: 'Links', WFInput: output(urls, 'URLs') });
+}
+
+// Share-sheet links first; asking (prefilled from the clipboard) only when
+// nothing usable was shared, e.g. when run directly.
 function inputActions() {
-  const input = attachment({ Type: 'ExtensionInput' });
+  const shared = action('detect.link', { WFInput: attachment({ Type: 'ExtensionInput' }) });
   const clipboard = action('getclipboard');
   const ask = action('ask', {
     WFAskActionPrompt: messages.prompt, WFInputType: 'Text', WFAllowsMultilineText: true,
     WFAskActionDefaultAnswer: text(output(clipboard, 'Clipboard')),
   });
-  return conditional(input, condition.hasValue,
-    [action('getvariable', { WFVariable: input })], [clipboard, ask]);
+  const typed = action('detect.link', { WFInput: output(ask, 'Provided Input') });
+  return [shared, setLinks(shared),
+    ...conditional(links, condition.isEmpty, [clipboard, ask, typed, setLinks(typed)])];
 }
 
 export function createWorkflow(baseUrl) {
   const inputs = inputActions();
-  const urls = action('detect.link', { WFInput: output(inputs.at(-1), 'If Result') });
-  const first = action('getitemfromlist', {
-    WFInput: output(urls, 'URLs'), WFItemSpecifier: 'First Item',
-  });
+  const first = action('getitemfromlist', { WFInput: links, WFItemSpecifier: 'First Item' });
   return {
     WFWorkflowName: name,
     WFWorkflowClientVersion: '4711',
@@ -85,8 +93,7 @@ export function createWorkflow(baseUrl) {
     WFWorkflowActions: [
       action('comment', { WFCommentActionText: messages.networkHelp }),
       ...inputs,
-      urls,
-      ...conditional(output(urls, 'URLs'), condition.isEmpty, [
+      ...conditional(links, condition.isEmpty, [
         action('alert', {
           WFAlertActionTitle: name, WFAlertActionMessage: messages.noUrl, WFAlertActionCancelButtonShown: false,
         }),

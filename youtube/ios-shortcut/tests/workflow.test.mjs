@@ -42,7 +42,7 @@ function plist(path) {
   return JSON.parse(execFileSync('/usr/bin/plutil', ['-convert', 'json', '-o', '-', path], { encoding: 'utf8' }));
 }
 
-test('share input and direct clipboard/prompt converge before URL extraction and menu', () => {
+test('shared links are used directly; asking happens only when none were shared', () => {
   const workflow = createWorkflow('https://receiver.example');
   assert.equal(workflow.WFWorkflowName, 'Van TV');
   assert.deepEqual(workflow.WFWorkflowTypes, ['ActionExtension']);
@@ -51,21 +51,27 @@ test('share input and direct clipboard/prompt converge before URL extraction and
   }
   assert.equal(workflow.WFWorkflowHasShortcutInputVariables, true);
   const list = workflow.WFWorkflowActions;
-  assert.deepEqual(list.slice(0, 14).map(id), [
-    'comment', 'conditional', 'getvariable', 'conditional', 'getclipboard', 'ask', 'conditional',
-    'detect.link', 'conditional', 'alert', 'exit', 'conditional', 'getitemfromlist', 'choosefrommenu',
+  assert.deepEqual(list.slice(0, 15).map(id), [
+    'comment', 'detect.link', 'setvariable', 'conditional', 'getclipboard', 'ask', 'detect.link',
+    'setvariable', 'conditional', 'conditional', 'alert', 'exit', 'conditional', 'getitemfromlist',
+    'choosefrommenu',
   ]);
-  assert.equal(params(list[1]).WFCondition, 100);
-  assert.equal(params(list[1]).WFInput.Variable.Value.Type, 'ExtensionInput');
-  assert.equal(params(list[2]).WFVariable.Value.Type, 'ExtensionInput');
+  const isLinks = value => value.Value.Type === 'Variable' && value.Value.VariableName === 'Links';
+  assert.equal(params(list[1]).WFInput.Value.Type, 'ExtensionInput');
+  for (const [set, detect] of [[list[2], list[1]], [list[7], list[6]]]) {
+    assert.equal(params(set).WFVariableName, 'Links');
+    assert.equal(params(set).WFInput.Value.OutputUUID, ref(detect));
+  }
+  assert.equal(params(list[3]).WFCondition, 101);
+  assert.ok(isLinks(params(list[3]).WFInput.Variable));
   assert.equal(inlineOutput(params(list[5]).WFAskActionDefaultAnswer), ref(list[4]));
-  assert.equal(params(list[7]).WFInput.Value.OutputUUID, ref(list[6]));
-  assert.equal(params(list[8]).WFCondition, 101);
-  assert.equal(params(list[8]).WFInput.Variable.Value.OutputUUID, ref(list[7]));
-  assert.match(params(list[9]).WFAlertActionMessage, /No URL found/);
-  assert.equal(params(list[12]).WFItemSpecifier, 'First Item');
-  assert.equal(params(list[12]).WFInput.Value.OutputUUID, ref(list[7]));
-  assert.deepEqual(params(list[13]).WFMenuItems.map(item => item.WFValue.Value.string), ['Cast', 'Add to Queue']);
+  assert.equal(params(list[6]).WFInput.Value.OutputUUID, ref(list[5]));
+  assert.equal(params(list[9]).WFCondition, 101);
+  assert.ok(isLinks(params(list[9]).WFInput.Variable));
+  assert.match(params(list[10]).WFAlertActionMessage, /No URL found/);
+  assert.equal(params(list[13]).WFItemSpecifier, 'First Item');
+  assert.ok(isLinks(params(list[13]).WFInput));
+  assert.deepEqual(params(list[14]).WFMenuItems.map(item => item.WFValue.Value.string), ['Cast', 'Add to Queue']);
 });
 
 test('each menu branch POSTs the first URL as JSON, without Origin or unrelated config', () => {
