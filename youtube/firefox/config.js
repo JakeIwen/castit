@@ -32,7 +32,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   }),
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
-    next: 'next', seek: 'seek', audioDelay: 'audio_delay',
+    next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
     speed: 'speed', volume: 'volume', mute: 'mute',
   }),
   queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear', move: 'move' }),

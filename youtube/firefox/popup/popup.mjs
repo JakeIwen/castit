@@ -8,7 +8,7 @@ import { watchUrl } from '../youtube/video-url.mjs';
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [
   'state', 'video', 'elapsed', 'duration', 'scrub', 'notice', 'cast-tab',
-  'back-twenty', 'toggle', 'forward-twenty', 'next', 'stop', 'restart', 'play-icon', 'pause-icon',
+  'previous', 'back-twenty', 'toggle', 'forward-twenty', 'next', 'stop', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
@@ -16,6 +16,7 @@ const ids = [
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const transportControls = [
+  { button: element.previous, action: config.control.previous },
   { button: element['back-twenty'], action: config.control.seek,
     fields: { offset: config.skipOffsets.backwardTwentySeconds } },
   { button: element.toggle, action: config.control.toggle },
@@ -23,7 +24,6 @@ const transportControls = [
     fields: { offset: config.skipOffsets.forwardTwentySeconds } },
   { button: element.next, action: config.control.next },
   { button: element.stop, action: config.control.stop },
-  { button: element.restart, action: config.control.seek, fields: { position: 0 } },
 ];
 const audioDelayControls = [
   { button: element['sound-earlier'], fields: { offset: -config.audioDelayStep } },
