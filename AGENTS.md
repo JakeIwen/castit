@@ -31,7 +31,9 @@ a clean checkout.
   and derived commands. `playback/player.mjs` owns the MpvPlayer,
   `playback/mpv/ipc.mjs` and `playback/mpv/process.mjs` its IPC/process,
   and `playback/sponsor-block.mjs` SponsorBlock. `playback/stream-resolver.mjs`
-  runs yt-dlp ahead of mpv and caches direct stream URLs until they expire,
+  runs yt-dlp ahead of mpv and caches direct stream and subtitle URLs by video/language until they expire,
+  `playback/subtitles.mjs` owns subtitle settings, validation and track selection;
+  `playback/subtitle-playback.mjs` owns live subtitle loading and status,
   `playback/queue-prefetch.mjs` resolves the next queued video during
   playback, and `playback/load-timing.mjs` logs per-phase load times.
   `history/watch-history.mjs` marks videos watched on the signed-in account

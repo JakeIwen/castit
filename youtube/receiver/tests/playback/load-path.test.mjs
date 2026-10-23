@@ -66,7 +66,7 @@ test('Resolution and screen wake overlap handoff; mpv never starts before handof
   assert.equal(loaded, stream);
   assert.equal(player.video.title, stream.title);
   assert.equal(logs.length, 1);
-  assert.match(logs[0], /^Video load timing handoff=\d+ms wake=\d+ms mpv_start=\d+ms resolve=\d+ms load=\d+ms total=\d+ms outcome=loaded$/);
+  assert.match(logs[0], /^Video load timing handoff=\d+ms wake=\d+ms mpv_start=\d+ms resolve=\d+ms load=\d+ms total=\d+ms outcome=loaded path=direct$/);
   assert.ok(!logs[0].includes(VIDEO.id));
   assert.ok(!logs[0].includes('Private'));
 });

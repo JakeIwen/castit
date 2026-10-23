@@ -7,6 +7,8 @@ import { isVideoId } from '../youtube/video-id.mjs';
 import { CastQueue } from '../queue/cast-queue.mjs';
 import { LoadTiming } from './load-timing.mjs';
 import { StreamResolver } from './stream-resolver.mjs';
+import { SubtitlePlayback } from './subtitle-playback.mjs';
+import { savedSubtitles, subtitleArguments } from './subtitles.mjs';
 import { QueuePrefetch } from './queue-prefetch.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
@@ -33,7 +35,8 @@ export class MpvPlayer extends Player {
     castQueue = new CastQueue(), resolver = new StreamResolver() } = {}) {
     super();
     Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver });
-    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot());
+    this.subtitlePlayback = new SubtitlePlayback(resolver, log);
+    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
     this.speed = 1;
@@ -48,6 +51,7 @@ export class MpvPlayer extends Player {
     const settings = await this.store?.get('settings');
     this.audioDelay = normalizeAudioDelay(settings?.audioDelay);
     this.speed = normalizeSpeed(settings?.speed);
+    this.subtitlePlayback.configure(savedSubtitles(settings?.subtitles));
     if (Number.isFinite(settings?.volume?.level) && typeof settings.volume.muted === 'boolean') {
       this.volume = { level: Math.min(100, Math.max(0, settings.volume.level)), muted: settings.volume.muted };
     }
@@ -96,7 +100,7 @@ export class MpvPlayer extends Player {
     }).catch(() => {});
     let outcome = 'failed';
     try {
-      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal }))
+      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage }))
         .catch(() => { signal.throwIfAborted(); return null; });
       const wake = timing.measure('wake', () => this.room.beforeVideo(signal));
       const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
@@ -124,9 +128,11 @@ export class MpvPlayer extends Player {
       this.pendingPreparation = Promise.allSettled(preparing);
       const [stream] = await Promise.all(preparing);
       signal.throwIfAborted();
+      timing.path = stream ? 'direct' : 'hook';
       if (stream?.title) this.video.title = stream.title;
       await timing.measure('load', () => mpv.load(video.id, position, signal, stream));
       signal.throwIfAborted();
+      this.subtitlePlayback.loaded(mpv, video.id, signal, stream);
       this.prefetch.start(signal);
       outcome = 'loaded';
       return true;
@@ -141,6 +147,7 @@ export class MpvPlayer extends Player {
   }
 
   async release() {
+    this.subtitlePlayback.reset();
     this.abort?.abort();
     this.room.cancelPending();
     const mpv = this.mpv;
@@ -196,7 +203,8 @@ export class MpvPlayer extends Player {
   }
 
   async saveSettings() {
-    await this.store?.set('settings', { volume: this.volume, audioDelay: this.audioDelay, speed: this.speed });
+    await this.store?.set('settings', { volume: this.volume, audioDelay: this.audioDelay,
+      speed: this.speed, subtitles: this.subtitlePlayback.setting });
   }
 
   async updateSetting(name, value) {
@@ -214,6 +222,18 @@ export class MpvPlayer extends Player {
 
   setSpeed(speed) {
     return Number.isFinite(speed) ? this.updateSetting('speed', normalizeSpeed(speed)) : Promise.resolve(false);
+  }
+
+  get subtitles() { return this.subtitlePlayback.snapshot(); }
+  get subtitleLanguage() { return this.subtitles.enabled ? this.subtitles.language : null; }
+
+  async setSubtitles(fields) {
+    const parsed = subtitleArguments(fields);
+    if (!parsed) return false;
+    this.subtitlePlayback.configure({ ...this.subtitlePlayback.setting, ...parsed });
+    this.prefetch.tick();
+    try { await this.saveSettings(); return true; }
+    catch { this.log.warn('Subtitle setting update failed'); return false; }
   }
 
   // The phone's queue, or its autoplay pick, goes before the cast queue.

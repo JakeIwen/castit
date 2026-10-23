@@ -16,6 +16,6 @@ export class LoadTiming {
 
   report(log, outcome) {
     const phases = PHASES.map(name => `${name}=${Math.round(this.durations[name])}ms`);
-    log.info?.(`Video load timing ${phases.join(' ')} total=${Math.round(this.now() - this.started)}ms outcome=${outcome}`);
+    log.info?.(`Video load timing ${phases.join(' ')} total=${Math.round(this.now() - this.started)}ms outcome=${outcome}${this.path ? ` path=${this.path}` : ''}`);
   }
 }

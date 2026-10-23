@@ -86,6 +86,11 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   came before it.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
+- **CC** toggles the receiver's saved subtitles live, including while idle.
+  English is the default language; uploaded captions take priority over automatic
+  captions. The label reports loading, missing tracks and failures. Change language
+  on the receiver's status page or with `vantv subs <lang>`; turning CC off keeps it.
+  Older receivers without subtitle support leave CC disabled.
 - **Volume** steps by 5 and mutes; **Speed** steps by 0.25× and resets to 1×.
 - **A/V offset** nudges the receiver's saved offset by 50 ms or resets it.
   Use minus when voices come after lips move. Volume, speed and offset are saved

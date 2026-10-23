@@ -51,17 +51,17 @@ export class MpvIpc extends EventEmitter {
     }
   }
 
-  command(command) {
+  command(command, { timeoutMs = this.timeoutMs, asynchronous = false } = {}) {
     if (!this.socket || this.socket.destroyed) return Promise.reject(new Error('mpv is not connected'));
     return new Promise((resolve, reject) => {
       const id = ++this.sequence;
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error('mpv command timeout'));
-      }, this.timeoutMs);
+      }, timeoutMs);
       const finish = callback => value => { clearTimeout(timer); callback(value); };
       this.pending.set(id, { resolve: finish(resolve), reject: finish(reject) });
-      this.socket.write(`${JSON.stringify({ command, request_id: id })}\n`, error => {
+      this.socket.write(`${JSON.stringify({ command, request_id: id, ...(asynchronous ? { async: true } : {}) })}\n`, error => {
         if (!error) return;
         this.pending.delete(id);
         clearTimeout(timer);

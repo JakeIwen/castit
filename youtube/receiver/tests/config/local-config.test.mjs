@@ -88,6 +88,8 @@ test('Release config requires its own local file and preserves configured playba
   for (const module of ['local-config.mjs', 'receiver-config.mjs']) {
     await copyFile(new URL(`../../src/config/${module}`, import.meta.url), join(release, 'src/config', module));
   }
+  await mkdir(join(release, 'src/playback'), { recursive: true });
+  await copyFile(new URL('../../src/playback/subtitles.mjs', import.meta.url), join(release, 'src/playback/subtitles.mjs'));
   // A parent file must not hide a missing release-local configuration.
   await writeFile(file, JSON.stringify(document));
   const module = join(release, 'src/config/receiver-config.mjs');
@@ -111,7 +113,9 @@ test('Release config requires its own local file and preserves configured playba
   assert.ok(args.includes(`--audio-device=${document.receiver.audioDevice}`));
   assert.equal(args.filter(argument => argument.startsWith('--audio-device=')).length, 1);
   assert.ok(args.includes('--input-ipc-server=/run/test/socket'));
-  for (const option of ['--hwdec=v4l2m2m-copy', '--vo=gpu', '--gpu-context=x11egl', '--opengl-es=yes']) {
+  assert.ok(args.some(argument => argument.endsWith(',no-write-subs=,no-write-auto-subs=')));
+  for (const option of ['--hwdec=v4l2m2m-copy', '--vo=gpu', '--gpu-context=x11egl', '--opengl-es=yes', '--sid=no', '--sub-auto=no',
+    '--sub-font-size=42', '--sub-border-size=2.5', '--sub-shadow-offset=1', '--sub-pos=94']) {
     assert.ok(args.includes(option), option);
   }
   assert.deepEqual(args.filter(argument => argument.startsWith('--vo=')), ['--vo=gpu']);

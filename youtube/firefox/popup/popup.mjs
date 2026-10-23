@@ -7,7 +7,7 @@ import { watchUrl } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const ids = [
-  'state', 'video', 'elapsed', 'duration', 'scrub', 'notice', 'cast-tab',
+  'subtitles', 'subtitle-status', 'state', 'video', 'elapsed', 'duration', 'scrub', 'notice', 'cast-tab',
   'previous', 'back-twenty', 'toggle', 'forward-twenty', 'next', 'stop', 'play-icon', 'pause-icon',
   'sound-earlier', 'sound-later', 'reset-delay', 'audio-delay-value',
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
@@ -125,6 +125,10 @@ function updateControls() {
   element.mute.textContent = view?.muted ? 'Unmute' : 'Mute';
   element.mute.title = view?.muted ? 'Unmute Van TV' : 'Mute Van TV';
   element.mute.setAttribute('aria-pressed', String(Boolean(view?.muted)));
+  element.subtitles.disabled = busy || !view?.subtitlesEnabled;
+  element.subtitles.setAttribute('aria-pressed', String(Boolean(view?.subtitlesOn)));
+  element.subtitles.title = view?.subtitlesOn ? 'Turn subtitles off' : 'Turn subtitles on';
+  element['subtitle-status'].textContent = view?.subtitlesLabel ?? 'Subtitles unavailable';
   queueList.setBusy(busy);
   element['queue-clear'].disabled = busy || !view?.queueList.upcomingCount;
   element['cast-tab'].disabled = busy || !tabAvailable;
@@ -245,6 +249,9 @@ for (const item of settingControls) {
   item.button.addEventListener('click', () => void perform(config.message.control,
     { action: item.action, ...item.fields }, ''));
 }
+
+element.subtitles.addEventListener('click', () => void perform(config.message.control,
+  { action: config.control.subtitles, enabled: !latestStatus?.subtitles?.enabled }, ''));
 
 element.scrub.addEventListener('input', event => {
   scrub = transitionScrub(scrub, {

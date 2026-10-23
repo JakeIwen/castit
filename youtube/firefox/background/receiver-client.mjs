@@ -10,6 +10,7 @@ const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(val
 /** @typedef {{key: number, id: string, title: string|null}} QueueEntry */
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
  * position: number, duration: number, audioDelay: number|null, speed: number|null,
+ * subtitles: {enabled: boolean, language: string, available: boolean|null, loading: boolean, error: boolean}|null,
  * volume: {level: number, muted: boolean}|null, queue: QueueEntry[]|null,
  * played: QueueEntry[]|null, watchHistory: {enabled: boolean, reason: string|null}|null}} ReceiverStatus */
 
@@ -37,6 +38,26 @@ function decodeVolume(volume) {
     ? { level: volume.level, muted: volume.muted } : null;
 }
 
+function validSubtitleLanguage(value) {
+  return typeof value === 'string' && value.toLowerCase() !== 'all' && config.subtitleLanguagePattern.test(value);
+}
+
+function decodeSubtitles(value) {
+  if (!value || typeof value.enabled !== 'boolean' || !validSubtitleLanguage(value.language)
+      || (value.available !== null && typeof value.available !== 'boolean')
+      || typeof value.loading !== 'boolean' || typeof value.error !== 'boolean') return null;
+  const { enabled, language, available, loading, error } = value;
+  return { enabled, language, available, loading, error };
+}
+
+function subtitleFields(fields) {
+  const { enabled, language } = fields ?? {};
+  if ((enabled === undefined && language === undefined)
+      || (enabled !== undefined && typeof enabled !== 'boolean')
+      || (language !== undefined && !validSubtitleLanguage(language))) throw new Error('Invalid subtitle fields');
+  return { enabled: enabled ?? true, ...(language === undefined ? {} : { language }) };
+}
+
 export function decodeStatus(value) {
   if (!value || typeof value.ok !== 'boolean' || !states.includes(value.player)
       || !isPosition(value.position) || !isPosition(value.duration)
@@ -49,6 +70,7 @@ export function decodeStatus(value) {
   const audioDelay = isFiniteNumber(value.audioDelay) ? value.audioDelay : null;
   const speed = isFiniteNumber(value.speed) ? value.speed : null;
   return { ok, player, video, position, duration, audioDelay, speed,
+    subtitles: decodeSubtitles(value.subtitles),
     volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),
     watchHistory: decodeWatchHistory(value.watchHistory) };
 }
@@ -63,6 +85,7 @@ const actionFields = Object.freeze({
 
 function controlBody(action, fields) {
   if (!actions.includes(action)) throw new Error('Unknown playback action');
+  if (action === config.control.subtitles) return { action, ...subtitleFields(fields) };
   // Mute toggles unless told which way.
   if (action === config.control.mute) {
     if (fields?.muted === undefined) return { action };

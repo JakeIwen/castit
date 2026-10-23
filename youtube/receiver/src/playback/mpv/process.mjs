@@ -49,7 +49,7 @@ export class MpvProcess extends EventEmitter {
     throw new Error('mpv IPC startup timeout');
   }
 
-  command(argv) { return this.ipc.command(argv); }
+  command(argv, options) { return this.ipc.command(argv, options); }
 
   async load(videoId, position, signal, stream = null) {
     signal?.throwIfAborted();

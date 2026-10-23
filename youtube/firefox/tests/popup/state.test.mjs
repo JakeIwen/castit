@@ -188,3 +188,15 @@ test('watch-history notice shows only lasting problems', () => {
   assert.equal(notice(null), '');
   assert.equal(watchHistoryNotice(null), '');
 });
+
+test('CC remains available while idle, reports missing English tracks and handles older receivers', () => {
+  const subtitles = { enabled: true, language: 'en', available: false, loading: false, error: false };
+  const status = { ...defaultStatus, player: 'IDLE', video: null, subtitles };
+  assert.equal(popupState(status).subtitlesEnabled, true);
+  assert.equal(popupState(status).subtitlesLabel, 'No English subtitles');
+  assert.equal(popupState({ ...status, subtitles: { ...subtitles, enabled: false } }).subtitlesLabel, 'Subtitles off (English)');
+  assert.match(popupState({ ...status, subtitles: { ...subtitles, loading: true } }).subtitlesLabel, /Loading English/);
+  assert.match(popupState({ ...status, subtitles: { ...subtitles, error: true } }).subtitlesLabel, /failed to load/);
+  assert.equal(popupState(defaultStatus).subtitlesEnabled, false);
+  assert.equal(popupState({ ...status, ok: false }).subtitlesEnabled, false);
+});

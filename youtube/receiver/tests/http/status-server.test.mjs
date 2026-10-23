@@ -347,3 +347,22 @@ test('Control route parses speed, volume and mute fields', async t => {
   }
   assert.deepEqual(calls, [['speed', { speed: 1.5 }], ['volume', { offset: -5 }], ['mute', {}], ['mute', { muted: true }]]);
 });
+
+test('Subtitle HTTP controls validate fields, preserve language when disabled and expose status', async t => {
+  const { player } = playerFixture();
+  const controls = createPlayerControls(player);
+  const server = await createStatusServer({ snapshot: () => ({ ok: true, subtitles: player.subtitles }),
+    pairing: { snapshot: () => ({}) }, control: (action, fields) => controls[action](fields) });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await player.endSession(); server.closeAllConnections(); await new Promise(r => server.close(r)); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = fields => fetch(`${base}/api/control`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'subtitles', ...fields }) });
+  for (const fields of [{}, { enabled: 1 }, { enabled: null }, { language: 'all' }, { language: 'ALL' },
+    { language: 'en,es' }, { language: 'en.*' }, { language: {} }]) assert.equal((await post(fields)).status, 400);
+  assert.deepEqual(await (await post({ language: 'PT-BR' })).json(), { action: 'subtitles', done: true });
+  assert.equal((await post({ enabled: false })).status, 200);
+  const state = await (await fetch(`${base}/api/status`)).json();
+  assert.deepEqual(state.subtitles, { enabled: false, language: 'pt-br', available: null, loading: false, error: false });
+});

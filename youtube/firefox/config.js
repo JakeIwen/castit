@@ -33,9 +33,10 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
     next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
-    speed: 'speed', volume: 'volume', mute: 'mute',
+    speed: 'speed', volume: 'volume', mute: 'mute', subtitles: 'subtitles',
   }),
   queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear', move: 'move' }),
+  subtitleLanguagePattern: /^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}$/i,
   // Seconds per lip-sync nudge; positive plays sound later.
   audioDelayStep: 0.05,
   speedStep: 0.25,

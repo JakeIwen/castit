@@ -68,3 +68,17 @@ test('IPC has bounded timeouts and rejects requests on socket loss', async t => 
   await assert.rejects(client.command(['hang']), /timeout/);
   await assert.rejects(client.command(['disconnect']), /disconnected/);
 });
+
+test('Async subtitle commands permit responsive controls and a longer bounded reply', async t => {
+  const client = await fixture(t, (socket, request) => {
+    const reply = () => socket.write(`${JSON.stringify({ request_id: request.request_id, error: 'success' })}\n`);
+    if (request.command[0] === 'sub-add') {
+      assert.equal(request.async, true);
+      setTimeout(reply, 80);
+    } else reply();
+  }, 40);
+  const adding = client.command(['sub-add', 'https://captions.invalid/en.vtt', 'auto'],
+    { asynchronous: true, timeoutMs: 1000 });
+  await client.command(['set_property', 'sid', 'no']);
+  await adding;
+});

@@ -10,6 +10,13 @@
 <dl><dt>Receiver</dt><dd id="receiver">Connecting…</dd>
 <dt>Player</dt><dd id="player">—</dd><dt>Video</dt><dd id="video">None</dd>
 <dt>Position</dt><dd id="position">—</dd><dt>Connected senders</dt><dd id="senders">0</dd></dl>
+<form id="subtitle-form" class="setting-row" aria-label="Subtitles">
+<span>Subtitles: <output id="subtitle-status" aria-live="polite">—</output></span>
+<button id="subtitles" type="button" aria-label="Subtitles" aria-pressed="false" disabled>CC</button>
+<label for="subtitle-language">Language</label>
+<input id="subtitle-language" type="text" value="en" maxlength="30" size="8" required
+  pattern="[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}" title="Language code, for example en, es or pt-BR">
+<button type="submit">Apply</button></form>
 <div class="setting-row" role="group" aria-label="Volume">
 <span>Volume: <output id="volume">—</output></span>
 <button type="button" data-action="volume" data-offset="-5" title="Volume down 5">Quieter</button>

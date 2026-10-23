@@ -29,9 +29,10 @@ test('Resolver runs the existing selector and hook options through bounded, nice
   assert.equal(argv[argv.indexOf('--format') + 1], playback.format);
   assert.deepEqual(argv.slice(-2), ['--', watchUrl(ID)]);
   assert.ok(argv.includes('--flat-playlist'));
-  assert.ok(argv.includes('--all-subs'));
+  assert.ok(argv.includes('--no-write-subs'));
+  assert.ok(argv.includes('--no-write-auto-subs'));
+  assert.ok(!argv.includes('--all-subs'));
   assert.ok(argv.includes('--no-playlist'));
-  assert.ok(argv.includes('ass/srt/best'));
   const runtime = argv[argv.indexOf('--js-runtimes') + 1];
   assert.ok(playback.ytdlpOptions.includes(`js-runtimes=${runtime}`));
   assert.equal(options.timeoutMs, playback.resolveTimeoutMs);
@@ -67,7 +68,6 @@ test('Resolution failures and unsupported hook-dependent formats select fallback
     { ...metadata(), id: '0123456789a' },
     { ...metadata(), _type: 'playlist' },
     { ...metadata(), is_live: true },
-    { ...metadata(), requested_subtitles: { en: { url: 'https://media.invalid/subtitles' } } },
     { ...metadata(), requested_formats: [track('video'), { ...track('audio'), fragments: [{ url: '/part' }] }] },
     { ...metadata(), requested_formats: [track('video'), { ...track('audio'), protocol: 'm3u8_native' }] },
     { ...metadata(), requested_formats: [{ ...track('video'), url: 'file:///etc/passwd' }, track('audio')] },
@@ -120,4 +120,74 @@ test('Resolved URL cache is bounded', async () => {
   }
   await resolver.resolve(ID);
   assert.equal(calls, playback.resolveCacheEntries + 2);
+});
+
+const caption = (name, expiry = NOW / 1000 + 3600) => ({ ext: 'vtt',
+  url: `https://www.youtube.com/api/timedtext?name=${name}&expire=${expiry}`, name: 'English', impersonate: true });
+
+test('Uploaded English beats auto captions, only its language is requested, and subtitles retain the direct path', async () => {
+  const uploaded = caption('uploaded');
+  const automatic = caption('auto');
+  const data = { ...metadata(), subtitles: { en: [uploaded], es: [caption('spanish')] },
+    automatic_captions: { en: [automatic] }, requested_subtitles: { en: uploaded } };
+  const calls = [];
+  const resolver = new StreamResolver({ now: () => NOW, run: async argv => { calls.push(argv); return result(data); } });
+  const stream = await resolver.resolve(ID, { language: 'en' });
+  assert.equal(stream.videoUrl, url('video'));
+  assert.deepEqual(stream.subtitle, { url: uploaded.url, language: 'en', automatic: false });
+  assert.equal(calls[0][calls[0].indexOf('--sub-langs') + 1], 'en');
+  assert.equal(calls[0].includes('--all-subs'), false);
+  assert.ok(calls[0].includes('--write-auto-subs'));
+  assert.ok(calls[0].includes('--write-subs'));
+  assert.equal(await resolver.resolveSubtitle(ID, { language: 'en' }), stream.subtitle);
+  assert.equal(calls.length, 1);
+  const spanish = await resolver.resolve(ID, { language: 'es' });
+  assert.equal(spanish.subtitle.language, 'es');
+  assert.equal(calls.length, 2);
+  const off = await resolver.resolve(ID);
+  assert.equal(off.subtitle, undefined);
+  assert.equal(off.videoUrl, stream.videoUrl);
+});
+
+test('Auto-only captions choose a playable format over HLS/json and expire before their signed URL', async () => {
+  let now = NOW;
+  let calls = 0;
+  const automatic = caption('auto', NOW / 1000 + 90);
+  const data = { ...metadata(), subtitles: {}, automatic_captions: { en: [
+    { ...automatic, protocol: 'm3u8_native' }, { ...automatic, ext: 'json3' }, automatic,
+  ] }, requested_subtitles: { en: automatic } };
+  const resolver = new StreamResolver({ now: () => now, run: async () => { calls++; return result(data); } });
+  const first = await resolver.resolve(ID, { language: 'en', prefetch: true });
+  assert.equal(first.subtitle.automatic, true);
+  assert.equal(first.subtitle.url, automatic.url);
+  now += 29999;
+  assert.equal(await resolver.resolve(ID, { language: 'en' }), first);
+  assert.equal(calls, 1);
+  now++;
+  await resolver.resolve(ID, { language: 'en' });
+  assert.equal(calls, 2);
+  assert.equal((await resolver.resolve(ID, { language: 'fr' })).subtitle, null);
+});
+
+test('Missing or unsafe subtitles never demote playable streams; failed extraction is not absence', async () => {
+  const data = { ...metadata(), subtitles: { en: [null, { ext: 'vtt', url: 'file:///etc/passwd' }] } };
+  const resolver = new StreamResolver({ now: () => NOW, run: async () => result(data) });
+  assert.equal((await resolver.resolve(ID, { language: 'en' })).subtitle, null);
+  assert.equal(await resolver.resolveSubtitle(ID, { language: 'en' }), null);
+  const failed = new StreamResolver({ run: async () => ({ code: 1 }) });
+  assert.equal(await failed.resolveSubtitle(ID, { language: 'en' }), undefined);
+  const invalid = new StreamResolver({ run: () => assert.fail('invalid language must not spawn') });
+  assert.equal(await invalid.resolve(ID, { language: 'en.*' }), null);
+});
+
+test('Hook-only video formats still cache a usable subtitle for live selection', async () => {
+  let calls = 0;
+  const uploaded = caption('live');
+  const resolver = new StreamResolver({ now: () => NOW, run: async () => {
+    calls++;
+    return result({ ...metadata(), is_live: true, subtitles: { en: [uploaded] } });
+  } });
+  assert.equal(await resolver.resolve(ID, { language: 'en' }), null);
+  assert.equal((await resolver.resolveSubtitle(ID, { language: 'en' })).url, uploaded.url);
+  assert.equal(calls, 1);
 });

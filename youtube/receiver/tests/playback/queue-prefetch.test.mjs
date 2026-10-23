@@ -54,3 +54,17 @@ test('Aborting a playback cancels the only prefetch and clears its timer', async
   assert.equal(cancelled, true);
   assert.equal(calls, 1);
 });
+
+test('Prefetch follows live language changes even when the queue head stays the same', async () => {
+  let language = null;
+  const calls = [];
+  const prefetch = new QueuePrefetch({ resolve: async (_id, options) => calls.push(options.language) },
+    () => [{ id: 'abcdefghijk' }], () => language);
+  prefetch.start(new AbortController().signal);
+  await flush();
+  language = 'en'; prefetch.tick(); await flush();
+  language = 'es'; prefetch.tick(); await flush();
+  language = null; prefetch.tick(); await flush();
+  await prefetch.stop();
+  assert.deepEqual(calls, [null, 'en', 'es', null]);
+});

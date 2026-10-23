@@ -5,7 +5,7 @@ import { parseYouTubeVideo } from '../youtube/video-url.mjs';
 // Every action senders without a lounge session can send (the vantv command,
 // the Firefox popup, the Pi's vlcmd/pp shell functions behind the BTT buttons).
 export const CONTROL_ACTIONS = Object.freeze(['pause', 'resume', 'toggle', 'stop', 'next', 'previous',
-  'seek', 'audio_delay', 'speed', 'volume', 'mute']);
+  'seek', 'audio_delay', 'speed', 'volume', 'mute', 'subtitles']);
 export const QUEUE_ACTIONS = Object.freeze(['add', 'remove', 'play', 'move', 'clear']);
 
 // Returns `seek` arguments from a request body, or null when they are invalid:
@@ -76,6 +76,7 @@ export function createPlayerControls(player) {
       return player.seek(Math.max(0, Math.min(end, target)));
     },
     audio_delay: ({ delay, offset }) => player.setAudioDelay(delay ?? player.audioDelay + offset),
+    subtitles: fields => player.setSubtitles(fields),
     speed: ({ speed, offset }) => player.setSpeed(speed ?? player.speed + offset),
     // Changing the level unmutes, like a TV remote.
     volume: ({ level, offset }) => player.setVolume({

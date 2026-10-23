@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { subtitleArguments } from '../playback/subtitles.mjs';
 import { config } from '../config/receiver-config.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 import { parseYouTubeVideo } from '../youtube/video-url.mjs';
@@ -12,6 +13,7 @@ const MAX_POST_BODY = 4096;
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
 const POST_ROUTES = ['/api/pairing', '/api/control', '/api/cast', '/api/queue'];
 const controlArguments = {
+  subtitles: { parse: subtitleArguments, error: 'Subtitles need a boolean enabled and/or a language code' },
   seek: { parse: seekArguments, error: 'Seek needs one of position (>= 0) or offset' },
   audio_delay: { parse: audioDelayArguments, error: 'Audio delay needs exactly one of delay or offset (finite seconds)' },
   speed: { parse: speedArguments, error: 'Speed needs exactly one of speed or offset (finite numbers)' },

@@ -110,7 +110,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .setting svg { width: 16px; height: 16px; }
 .setting output { min-width: 58px; text-align: center; color: var(--van-tv-text); font-variant-numeric: tabular-nums; }
 .setting-reset { width: 58px; height: 32px; margin-left: 4px; font-size: 12px; }
-#mute[aria-pressed="true"] { background: var(--van-tv-control); color: var(--van-tv-text); }
+:is(#mute, #subtitles)[aria-pressed="true"] { background: var(--van-tv-control); color: var(--van-tv-text); }
 #queue-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--van-tv-border); }
 .queue-header { display: flex; align-items: center; justify-content: space-between; }
 h2 { margin: 0; font-size: 12px; font-weight: 650; color: var(--van-tv-muted); }
@@ -173,3 +173,6 @@ footer svg { width: 18px; height: 18px; }
   #state.working::after { animation: none; }
 }
 @media (hover: none) { .queue-open { opacity: 1; } }
+
+.subtitle-controls { display: flex; align-items: center; gap: 8px; color: var(--van-tv-muted); font-size: 12px; }
+#subtitles { font-weight: 700; flex-shrink: 0; }

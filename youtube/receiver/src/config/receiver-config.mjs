@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { SUBTITLE_FORMATS } from '../playback/subtitles.mjs';
 import { loadLocalConfig } from './local-config.mjs';
 
 const local = loadLocalConfig();
@@ -45,6 +46,13 @@ const ytdlpRawOptions = [
   ['js-runtimes', `deno:${join(config.installDirectory, 'venv/bin/deno')}`],
 ];
 
+// Sizes are scaled from mpv's 720p reference height; borders keep text legible on video.
+export const subtitleStyle = Object.freeze({
+  'sub-font': 'sans-serif', 'sub-font-size': 42, 'sub-color': '#FFFFFFFF',
+  'sub-border-color': '#FF000000', 'sub-border-size': 2.5,
+  'sub-shadow-offset': 1, 'sub-pos': 94, 'sub-ass-override': 'force',
+});
+
 // PLAYER TUNING BLOCK: OpenGL ES avoids xv's video backlog and A/V drift on
 // the Pi 4's rotated X screen; bounded H.264 formats reduce dropped frames.
 // Re-measure for other hardware; the audio device is installation-specific.
@@ -57,6 +65,7 @@ export const playback = Object.freeze({
   resolveNice: 10,
   prefetchNice: 19,
   resolveTimeoutMs: 20_000,
+  subtitleLoadTimeoutMs: 20_000,
   resolveMaxBytes: 8 * 1024 * 1024,
   resolveExpiryMarginMs: 60_000,
   resolveCacheEntries: 16,
@@ -76,17 +85,21 @@ export const playback = Object.freeze({
 
 export const watchUrl = videoId => `https://www.youtube.com/watch?v=${videoId}`;
 
-export function resolverArguments(videoId, { prefetch = false } = {}) {
+export function resolverArguments(videoId, { prefetch = false, language = null } = {}) {
   return [playback.nice, '-n', String(prefetch ? playback.prefetchNice : playback.resolveNice),
-    playback.ytdlp, '--no-warnings', '-J', '--flat-playlist', '--sub-format', 'ass/srt/best',
+    playback.ytdlp, '--no-warnings', '-J', '--flat-playlist',
     '--format', playback.format,
     ...ytdlpRawOptions.flatMap(([name, value]) => value ? [`--${name}`, value] : [`--${name}`]),
-    '--all-subs', '--', watchUrl(videoId)];
+    ...(language ? ['--write-subs', '--write-auto-subs', '--sub-langs', language,
+      '--sub-format', SUBTITLE_FORMATS.join('/')] : ['--no-write-subs', '--no-write-auto-subs']),
+    '--', watchUrl(videoId)];
 }
 
 export function mpvArguments(socketPath) {
-  return [...playback.args, `--input-ipc-server=${socketPath}`,
+  return [...playback.args, '--sid=no', '--sub-auto=no',
+    ...Object.entries(subtitleStyle).map(([name, value]) => `--${name}=${value}`),
+    `--input-ipc-server=${socketPath}`,
     `--ytdl-format=${playback.format}`,
     `--script-opts=ytdl_hook-ytdl_path=${playback.ytdlp}`,
-    `--ytdl-raw-options=${playback.ytdlpOptions}`];
+    `--ytdl-raw-options=${playback.ytdlpOptions},no-write-subs=,no-write-auto-subs=`];
 }

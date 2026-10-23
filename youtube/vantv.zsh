@@ -24,6 +24,7 @@ fi
 usage() {
   print -u2 'usage: vantv [youtube-url]   cast a link (default: front Chrome/Safari YouTube tab, then clipboard)'
   print -u2 '       vantv pause|resume|stop|status'
+  print -u2 '       vantv subs [on|off|<lang>]   show or set saved subtitles (default language: en)'
   print -u2 '       vantv delay [+ms|-ms|ms]   show, nudge or set the audio offset (+ plays sound later)'
   print -u2 '       vantv vol [+n|-n|n|mute|unmute]   show, nudge or set the volume (0-100, saved)'
   print -u2 '       vantv speed [+x|-x|x]   show, nudge or set the playback speed (0.25-3, saved)'
@@ -87,6 +88,35 @@ set_speed() {
   fi
 }
 
+show_subtitles() {
+  local state enabled language available loading failed
+  state=$(curl -fsS -m 10 "$VAN_TV/api/status")
+  enabled=$(status_field subtitles.enabled <<< "$state") || { print -u2 'Van TV did not report subtitles.'; exit 1 }
+  language=$(status_field subtitles.language <<< "$state")
+  if [[ $enabled != true ]]; then print -r -- "Subtitles: off ($language)"; return; fi
+  available=$(status_field subtitles.available <<< "$state") || available=unknown
+  loading=$(status_field subtitles.loading <<< "$state") || loading=false
+  failed=$(status_field subtitles.error <<< "$state") || failed=false
+  if [[ $loading == true ]]; then print -r -- "Subtitles: on ($language), loading"
+  elif [[ $failed == true ]]; then print -r -- "Subtitles: on ($language), failed to load; toggle off/on to retry"
+  elif [[ $available == false ]]; then print -r -- "Subtitles: on ($language), no matching track"
+  else print -r -- "Subtitles: on ($language)"
+  fi
+}
+
+set_subtitles() {
+  local body reply
+  case $1 in
+    on) body='{"action":"subtitles","enabled":true}' ;;
+    off) body='{"action":"subtitles","enabled":false}' ;;
+    *)
+      [[ $1 != [aA][lL][lL] && $1 =~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$' ]] || usage
+      body="{\"action\":\"subtitles\",\"language\":\"$1\"}" ;;
+  esac
+  reply=$(post control "$body")
+  [[ $(status_field done <<< "$reply") == true ]] || { print -u2 'Van TV could not save subtitles.'; exit 1 }
+}
+
 list_queue() {
   local state count i title
   state=$(curl -fsS -m 10 "$VAN_TV/api/status")
@@ -142,6 +172,7 @@ case ${1:-} in
   -h|--help) usage ;;
   pause|resume|stop) post control "{\"action\":\"$1\"}"; exit ;;
   status) curl -fsS -m 10 "$VAN_TV/api/status"; print; exit ;;
+  subs) (( $# <= 2 )) || usage; [[ -n ${2:-} ]] && set_subtitles "$2"; show_subtitles; exit ;;
   delay) [[ -n ${2:-} ]] && set_delay $2; show_delay; exit ;;
   vol|volume) [[ -n ${2:-} ]] && set_volume $2; show_volume; exit ;;
   speed) [[ -n ${2:-} ]] && set_speed $2; show_speed; exit ;;

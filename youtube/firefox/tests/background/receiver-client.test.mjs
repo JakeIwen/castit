@@ -232,3 +232,28 @@ test('status keeps only the watch-history state the popup explains', () => {
   assert.equal(decodeStatus(defaultStatus).watchHistory, null);
   assert.equal(decodeStatus({ ...defaultStatus, watchHistory: { enabled: true, reason: 'other' } }).watchHistory, null);
 });
+
+test('Subtitle controls send explicit booleans/languages and reject malformed values before HTTP', async t => {
+  const fixture = await startReceiver(t);
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  await receiver.control('subtitles', { enabled: true });
+  await receiver.control('subtitles', { enabled: false });
+  await receiver.control('subtitles', { language: 'es' });
+  for (const fields of [{}, { enabled: 'yes' }, { language: 'all' }, { language: 'en.*' }, { language: null }]) {
+    await assert.rejects(receiver.control('subtitles', fields), /Invalid subtitle fields/);
+  }
+  assert.deepEqual(fixture.requests.filter(r => r.method === 'POST').map(r => r.body), [
+    { action: 'subtitles', enabled: true }, { action: 'subtitles', enabled: false },
+    { action: 'subtitles', enabled: true, language: 'es' },
+  ]);
+});
+
+test('Subtitle status validates availability and gracefully disables CC for older receivers', () => {
+  const subtitles = { enabled: true, language: 'en', available: false, loading: false, error: false };
+  assert.deepEqual(decodeStatus({ ...defaultStatus, subtitles }).subtitles, subtitles);
+  assert.equal(decodeStatus(defaultStatus).subtitles, null);
+  for (const malformed of [{ ...subtitles, enabled: 'yes' }, { ...subtitles, language: '../' },
+    { ...subtitles, available: 'yes' }, { ...subtitles, loading: 1 }]) {
+    assert.equal(decodeStatus({ ...defaultStatus, subtitles: malformed }).subtitles, null);
+  }
+});

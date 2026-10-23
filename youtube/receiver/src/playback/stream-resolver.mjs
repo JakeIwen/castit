@@ -1,11 +1,14 @@
 import { playback, resolverArguments } from '../config/receiver-config.mjs';
 import { runCommandOutput } from '../host/process-command.mjs';
+import { isSubtitleLanguage, selectSubtitle } from './subtitles.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 
 /**
  * @typedef {object} ResolvedStream
  * @property {string} videoUrl
  * @property {string|null} audioUrl
+ * @property {import('./subtitles.mjs').SubtitleTrack|null} [subtitle]
+ * @property {string} [subtitleLanguage]
  * @property {string} title
  * @property {Readonly<Record<string, string>>} httpOptions mpv file-local HTTP options
  */
@@ -31,7 +34,7 @@ function httpOptions(headers = {}) {
 
 function selectStream(data, videoId) {
   if (!data || data.id !== videoId || (data._type && data._type !== 'video') || data.is_live
-    || data.has_drm || Object.keys(data.requested_subtitles || {}).length) return null;
+    || data.has_drm) return null;
   const tracks = data.requested_formats || [data];
   if (!Array.isArray(tracks) || !tracks.length || tracks.length > 2) return null;
   const video = tracks.find(track => track.vcodec && track.vcodec !== 'none');
@@ -48,14 +51,13 @@ function selectStream(data, videoId) {
     httpOptions: Object.freeze(options) });
 }
 
-function cacheDeadline(stream) {
-  const deadlines = [stream.videoUrl, stream.audioUrl].filter(Boolean).map(value => {
-    const url = new URL(value);
-    if (!url.hostname.endsWith('.googlevideo.com')) return 0;
-    const expiry = Number(url.searchParams.get('expire'));
+function cacheDeadline(stream, subtitle) {
+  const urls = [stream?.videoUrl, stream?.audioUrl, subtitle?.url].filter(Boolean);
+  if (!urls.length) return 0;
+  return Math.min(...urls.map(value => {
+    const expiry = Number(new URL(value).searchParams.get('expire'));
     return Number.isFinite(expiry) ? expiry * 1000 - playback.resolveExpiryMarginMs : 0;
-  });
-  return Math.min(...deadlines);
+  }));
 }
 
 export class StreamResolver {
@@ -65,26 +67,42 @@ export class StreamResolver {
   }
 
   /** @returns {Promise<ResolvedStream|null>} null selects mpv's original ytdl hook. */
-  async resolve(videoId, { signal, prefetch = false } = {}) {
+  async resolve(videoId, options = {}) {
+    return (await this.extract(videoId, options))?.stream ?? null;
+  }
+
+  // undefined means extraction failed; null means the language has no usable track.
+  async resolveSubtitle(videoId, options) {
+    return (await this.extract(videoId, options))?.subtitle;
+  }
+
+  async extract(videoId, { signal, prefetch = false, language = null } = {}) {
     signal?.throwIfAborted();
-    if (!isVideoId(videoId)) return null;
-    const cached = this.cache.get(videoId);
-    if (cached && cached.until > this.now()) return cached.stream;
-    this.cache.delete(videoId);
+    if (!isVideoId(videoId) || (language !== null && !isSubtitleLanguage(language))) return null;
+    language = language?.toLowerCase() ?? null;
+    const key = `${videoId}:${language || ''}`;
+    const cached = this.cache.get(key);
+    if (cached && cached.until > this.now()) return cached.result;
+    this.cache.delete(key);
     try {
-      const result = await this.run(resolverArguments(videoId, { prefetch }), {
+      const result = await this.run(resolverArguments(videoId, { prefetch, language }), {
         timeoutMs: playback.resolveTimeoutMs, signal, maxBytes: playback.resolveMaxBytes,
       });
       signal?.throwIfAborted();
       if (result.code !== 0) return null;
-      const stream = selectStream(JSON.parse(result.stdout), videoId);
-      if (!stream) return null;
-      const until = cacheDeadline(stream);
+      const data = JSON.parse(result.stdout);
+      if (!data || data.id !== videoId || (data._type && data._type !== 'video')) return null;
+      const subtitle = language ? selectSubtitle(data, language) : null;
+      const direct = selectStream(data, videoId);
+      const stream = direct && language
+        ? Object.freeze({ ...direct, subtitle, subtitleLanguage: language }) : direct;
+      const selected = { stream, subtitle };
+      const until = cacheDeadline(stream, subtitle);
       if (until > this.now()) {
-        this.cache.set(videoId, { until, stream });
+        this.cache.set(key, { until, result: selected });
         while (this.cache.size > playback.resolveCacheEntries) this.cache.delete(this.cache.keys().next().value);
       }
-      return stream;
+      return selected;
     } catch {
       signal?.throwIfAborted();
       // Upstream text includes signed media URLs; failures deliberately carry no payload.

@@ -129,6 +129,18 @@ export function watchHistoryNotice(status) {
   return historyNotices[status?.watchHistory?.reason] ?? '';
 }
 
+export function subtitleLabel(subtitles) {
+  if (!subtitles) return 'Subtitles unavailable';
+  let language = subtitles.language;
+  try { language = new Intl.DisplayNames(['en'], { type: 'language' }).of(language); }
+  catch { /* YouTube language codes can be more specific than Intl supports. */ }
+  if (!subtitles.enabled) return `Subtitles off (${language})`;
+  if (subtitles.loading) return `Loading ${language} subtitles…`;
+  if (subtitles.error) return 'Subtitles failed to load; toggle CC to retry';
+  if (subtitles.available === false) return `No ${language} subtitles`;
+  return `${language} subtitles on`;
+}
+
 export function popupState(status) {
   const actions = status.ok ? (availableActions[status.player] ?? []) : [];
   const elapsed = formatTime(status.position);
@@ -148,6 +160,9 @@ export function popupState(status) {
     audioDelayLabel: formatAudioDelay(status.audioDelay),
     speedEnabled: Boolean(status.ok && Number.isFinite(status.speed)),
     speedLabel: formatSpeed(status.speed),
+    subtitlesEnabled: Boolean(status.ok && status.subtitles),
+    subtitlesLabel: subtitleLabel(status.subtitles),
+    subtitlesOn: Boolean(status.subtitles?.enabled),
     volumeEnabled: Boolean(status.ok && status.volume),
     volumeLabel: formatVolume(status.volume),
     muted: Boolean(status.volume?.muted),

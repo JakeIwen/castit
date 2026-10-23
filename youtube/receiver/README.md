@@ -75,10 +75,11 @@ not reused.
 `src/playback/stream-resolver.mjs` runs bounded subprocess groups at nice 10.
 Simple selected HTTP(S) video/audio tracks load directly using mpv 0.35's
 per-file option map, with external audio and ytdl disabled only for that file.
-Extraction errors and hook-dependent results (live/fragmented streams, subtitles,
+Extraction errors and hook-dependent results (live/fragmented streams
 or incompatible per-track headers) use the original watch-URL/ytdl-hook path.
 The in-memory cache holds at most 16 results, expiring one minute before the
-earliest googlevideo URL expiration. The first upcoming cast-queue entry is
+earliest stream or subtitle URL expiration, keyed by video and subtitle language.
+Subtitles never force a hook fallback; disabled subtitles are ignored. The first upcoming cast-queue entry is
 prefetched at nice 19 while playing; polling notices additions every two seconds,
 never runs two prefetches at once, and never consumes or reorders the queue.
 The phone's queue is not prefetched. No client/format-selection experiments are
@@ -86,7 +87,8 @@ applied, and no account cookies are added to playback extraction.
 
 Each attempted load writes one `Video load timing` line with `handoff`, `wake`,
 `mpv_start` (including property setup), `resolve`, `load` and `total` milliseconds,
-plus a loaded/failed/cancelled outcome. `wake` measures only screen wake; the
+plus a loaded/failed/cancelled outcome and `path=direct` or `path=hook` once
+stream resolution finishes. `wake` measures only screen wake; the
 post-start room check is outside the load timing. Total covers `doPlay`, not sender/network
 latency or a prior base-player stop. Phases overlap, so their sum exceeds total;
 `load` includes extraction on fallback. Logs contain no URLs, IDs or titles.
@@ -151,7 +153,7 @@ additional isolation is needed.
 Private state lives in `/home/pi/.local/state/youtube-cast/` (directory mode 700,
 files 600); yt-dlp's cache uses its `cache/` subfolder, surviving service restarts.
 mpv sockets and temporary files use `/run/youtube-cast/`. Keep state across updates
-and restarts to preserve pairing, volume, speed and A/V offset. Corrupt identity files
+and restarts to preserve pairing, volume, speed, subtitles and A/V offset. Corrupt identity files
 fail closed. Stopping or the last sender's explicit disconnect closes mpv and
 its resolver children. Starting another player later does not stop this one.
 
@@ -160,6 +162,7 @@ its resolver children. Starting another player later does not stop this one.
 - `GET /health`: supervisor health without pairing codes or identity.
 - `GET /api/status`: receiver/player state, video, position, duration, pairing
   status, `audioDelay` in seconds, `speed`, `volume` (`{level, muted}`) and
+  `subtitles` (`{enabled, language, available, loading, error}`), and
   `queue` (`[{key, id, title}]`, title null until YouTube supplies it). `played`
   has the same entry shape: up to 20 videos that started on this receiver, oldest
   first, excluding the currently loaded video. Repeated video ids move to the
@@ -188,7 +191,26 @@ its resolver children. Starting another player later does not stop this one.
 - `volume` takes exactly one of absolute `level` (0–100) or relative `offset`,
   and unmutes. `mute` takes an optional boolean `muted`; without it, it toggles.
   This is mpv's software volume, shared with the phone's volume control.
-- Speed, volume and A/V offset apply live, can be set while idle, and are saved
+- `subtitles` takes a boolean `enabled` and/or a `language` code (such as `en`,
+  `es`, `pt-BR`). A language alone enables subtitles; on/off keeps the saved
+  language. Examples: `{"action":"subtitles","enabled":true}` and
+  `{"action":"subtitles","language":"es"}`. Default: off, English (`en`).
+  Uploaded captions are preferred, then YouTube automatic captions in that exact
+  language. The receiver requests one language and chooses VTT, srv3, ASS or SRT.
+  CC on the status page and Firefox popup toggles live; the page also accepts a
+  language. From the Mac use `vantv subs`, `vantv subs on`, `vantv subs off`, or
+  `vantv subs es`. Large white text, a black border/shadow and bottom placement
+  are defined by `subtitleStyle` in receiver-config, scaled to the display.
+  The HTTP response acknowledges the saved setting; loading a track continues
+  asynchronously without restarting or seeking the video. Status `available`
+  is true/false after checking the current language, or null while unknown,
+  idle or disabled; `loading` and `error` distinguish pending/failed loads from
+  a video with no matching track. A caption failure leaves video playback alone;
+  toggle CC off/on to retry. Prefetch follows the setting too.
+- The installed `yt-cast-receiver` 2.1.0 library exposes no subtitle/caption
+  event or control, so the YouTube phone app's own CC button cannot change this
+  setting. Use the receiver page, Firefox popup or CLI, including for phone casts.
+- Speed, volume, subtitles and A/V offset apply live, can be set while idle, and are saved
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`

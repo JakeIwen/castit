@@ -5,6 +5,8 @@ const linkInput = element('youtube-link');
 let linkMessage = '';
 let renderedQueue = '';
 let renderedPlayed = '';
+let subtitles;
+let subtitleBusy = false;
 
 async function post(path, body) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -110,18 +112,52 @@ async function update() {
     element('volume').textContent = data.volume.muted ? `${data.volume.level} (muted)` : String(data.volume.level);
     element('mute').textContent = data.volume.muted ? 'Unmute' : 'Mute';
     element('speed').textContent = `${data.speed}×`;
+    renderSubtitles(data.subtitles);
     renderQueue(data.queue);
     renderPlayed(data.played);
     element('code').textContent = data.pairing.code || (data.pairing.error ? 'Unavailable' : 'Requesting code…');
     element('message').textContent = data.pairing.error || linkMessage;
     refresh.disabled = data.pairing.requesting;
   } catch {
+    renderSubtitles(null);
     element('receiver').textContent = 'Offline';
     element('code').textContent = 'Unavailable';
     element('message').textContent = 'Cannot reach Van TV. Retrying…';
     refresh.disabled = false;
   }
 }
+
+function renderSubtitles(value) {
+  subtitles = value;
+  const button = element('subtitles');
+  button.disabled = subtitleBusy || !value;
+  button.setAttribute('aria-pressed', String(Boolean(value?.enabled)));
+  button.title = value?.enabled ? 'Turn subtitles off' : 'Turn subtitles on';
+  const input = element('subtitle-language');
+  if (value && document.activeElement !== input) input.value = value.language;
+  element('subtitle-status').textContent = !value ? 'Unavailable'
+    : !value.enabled ? `Off (${value.language})`
+      : value.loading ? `Loading ${value.language}…`
+        : value.error ? 'Failed to load; toggle CC to retry'
+          : value.available === false ? `No ${value.language} subtitles` : `On (${value.language})`;
+}
+
+async function setSubtitles(fields) {
+  subtitleBusy = true;
+  renderSubtitles(subtitles);
+  try {
+    const result = await post('/api/control', { action: 'subtitles', ...fields });
+    if (!result.done) throw new Error('Cannot save subtitles');
+    await update();
+  } catch (error) { element('message').textContent = error.message; }
+  finally { subtitleBusy = false; renderSubtitles(subtitles); }
+}
+
+element('subtitles').addEventListener('click', () => void setSubtitles({ enabled: !subtitles?.enabled }));
+element('subtitle-form').addEventListener('submit', event => {
+  event.preventDefault();
+  void setSubtitles({ language: element('subtitle-language').value.trim() });
+});
 
 refresh.addEventListener('click', async () => {
   refresh.disabled = true;
