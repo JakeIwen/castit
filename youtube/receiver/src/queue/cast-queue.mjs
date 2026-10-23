@@ -28,7 +28,7 @@ export async function fetchTitle(id, { fetcher = globalThis.fetch } = {}) {
 }
 
 // Videos queued by senders without a lounge session (the extension, vantv).
-// The phone keeps its own queue in the library; these play once that runs out.
+// The phone keeps its own queue in the library; explicit additions play first.
 // Entries carry a key so a remove or play-now names the entry the sender saw,
 // even after the list has moved on. With a store, both lists survive Stop,
 // disconnects and restarts; restoring them never starts playback.

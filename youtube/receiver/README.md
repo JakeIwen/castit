@@ -176,8 +176,8 @@ its resolver children. Starting another player later does not stop this one.
   while loading; poll status for the result. Invalid links return 400 with
   `{"error":"Not a YouTube video link"}`; both or neither id/link also return 400.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
-  `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the phone's next
-  video (or its autoplay pick), then the cast queue; with neither it does nothing.
+  `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the first cast-queue entry,
+  then the phone's next video (or its autoplay pick); with neither it does nothing.
   `seek` requires exactly one of absolute `position` (>= 0) or relative
   `offset`, in seconds, clamped to the video.
 - `POST /api/control` with `{"action":"audio_delay","delay":-0.12}` sets the
@@ -214,16 +214,17 @@ its resolver children. Starting another player later does not stop this one.
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`
-  appends (up to 50), with exactly one of `videoId` or `url`. Queued videos always
-  start at zero, ignoring link timestamps. An addition starts at once only
-  when nothing is playing and the queue was empty, so a kept queue never jumps
-  ahead or starts on its own. `play` and `remove` take an entry `key` from status.
+  inserts next to play (up to 50), with exactly one of `videoId` or `url`. Queued
+  videos always start at zero, ignoring link timestamps. An addition starts at
+  once when the player is idle or stopped, even with older entries waiting.
+  Playing or paused videos stay in place until they finish or Next is pressed.
+  `play` and `remove` take an entry `key` from status.
   `play` also accepts a `played` key to replay from the start; it stays in history
   until playback starts again, when it gets a new key at the end. `move` takes
   `key` and a non-negative safe integer `index`: the upcoming entry's final
   zero-based position, clamped to the queue's last position. `play`, `remove`
   and `move` return `done:false` for missing keys; played entries cannot be moved
-  or removed. `clear` empties the upcoming queue. Queued videos play after the
+  or removed. `clear` empties the upcoming queue. Queued videos play before the
   phone's own queue, at the end of each video or on Next. Both lists are saved
   in `queue.json` in the private state directory and survive Stop, the last
   sender's disconnect and restarts; restoring them never starts playback. Queue titles come from YouTube's
@@ -240,7 +241,7 @@ accepted. Extra parameters such as `si`, `feature` and `list` are ignored.
 Timestamps use `t`, then `start`, then `#t=`, in seconds (including decimals) or
 forms such as `1h2m3s`; invalid timestamps start at zero. `url` must be a string
 of at most 2048 characters; JSON bodies over 4096 bytes return 413. The status
-page's YouTube link box casts on Enter or **Cast**, or appends with **Add to Queue**.
+page's YouTube link box casts on Enter or **Cast**, or queues next with **Add to Queue**.
 
 POSTs require `Content-Type: application/json` and an absent, `null`, extension
 or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin

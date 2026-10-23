@@ -96,20 +96,26 @@ test('Stop resets the phone queue and keeps the cast queue', async () => {
   assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), [SECOND.id]);
 });
 
-test('Adding to a kept queue while idle waits; adding to an empty one starts it', async t => {
-  const { player, instances } = playerFixture();
-  t.after(() => player.endSession());
-  const queue = createQueueControls(player, { log: quiet });
-  player.castQueue.add(SECOND.id);
-  assert.equal(queue.add({ videoId: VIDEO.id }), true);
-  await new Promise(resolve => setTimeout(resolve, 20));
-  assert.equal(instances.length, 0);
-  assert.equal(player.castQueue.length, 2);
-  queue.clear();
-  assert.equal(queue.add({ videoId: VIDEO.id }), true);
-  await settleUntil(() => instances[0]?.loaded);
-  assert.equal(instances[0].loaded.id, VIDEO.id);
-});
+for (const stopped of [false, true]) {
+  for (const keptQueue of [false, true]) {
+    test(`Queue add starts when ${stopped ? 'stopped' : 'idle'} with ${keptQueue ? 'a kept' : 'an empty'} queue`, async t => {
+      const { player, instances } = playerFixture();
+      t.after(() => player.endSession());
+      if (stopped) {
+        await player.play({ id: 'zzzzzzzzzzz', client: VIDEO.client });
+        await player.stop();
+        assert.equal(player.status, PlayerStatus.STOPPED);
+      }
+      if (keptQueue) player.castQueue.add(SECOND.id);
+      const queue = createQueueControls(player, { log: quiet });
+      const count = instances.length;
+      assert.equal(queue.add({ videoId: VIDEO.id }), true);
+      await settleUntil(() => player.status === PlayerStatus.PLAYING && instances[count]?.loaded);
+      assert.equal(instances[count].loaded.id, VIDEO.id);
+      assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), keptQueue ? [SECOND.id] : []);
+    });
+  }
+}
 
 test('Setting arguments take exactly one finite absolute value or offset', () => {
   assert.deepEqual(speedArguments({ speed: 1.5 }), { speed: 1.5 });
@@ -153,8 +159,8 @@ test('Queue add starts at once when idle and waits behind a playing video', asyn
   assert.equal(instances[0].loaded.id, VIDEO.id);
   assert.equal(queue.add({ videoId: SECOND.id }), true);
   assert.equal(queue.add({ videoId: 'zzzzzzzzzzz' }), true);
-  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), [SECOND.id, 'zzzzzzzzzzz']);
-  const [second, third] = player.castQueue.snapshot();
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), ['zzzzzzzzzzz', SECOND.id]);
+  const [third, second] = player.castQueue.snapshot();
   assert.equal(queue.play({ key: third.key }), true);
   await settleUntil(() => instances[1]?.loaded);
   assert.equal(instances[1].loaded.id, 'zzzzzzzzzzz');
@@ -165,6 +171,40 @@ test('Queue add starts at once when idle and waits behind a playing video', asyn
   assert.equal(queue.clear(), true);
   assert.equal(player.castQueue.length, 0);
 });
+
+for (const paused of [false, true]) {
+  test(`Queue add plays next ahead of older entries and the phone queue while ${paused ? 'paused' : 'playing'}`, async t => {
+    const { player, instances } = playerFixture();
+    t.after(() => player.endSession());
+    await player.queue.updateByMessage({ name: 'setPlaylist', payload: {
+      listId: 'queue', videoIds: `${VIDEO.id},${SECOND.id}`, videoId: VIDEO.id, currentIndex: '0',
+    } }, VIDEO.client);
+    await player.play(VIDEO);
+    await settleUntil(() => !player.queue.isUpdating);
+    assert.equal(player.phoneHasNext, true);
+    if (paused) await player.pause();
+    const status = player.status;
+    const queue = createQueueControls(player, { log: quiet });
+    assert.equal(queue.add({ videoId: 'aaaaaaaaaaa' }), true);
+    assert.equal(queue.add({ videoId: 'bbbbbbbbbbb' }), true);
+    await player.castQueue.save();
+    assert.equal(player.status, status);
+    assert.equal(instances.length, 1);
+    assert.equal(player.video.id, VIDEO.id);
+    assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), ['bbbbbbbbbbb', 'aaaaaaaaaaa']);
+    if (paused) {
+      assert.equal(await createPlayerControls(player).next(), true);
+    } else {
+      instances[0].emit('event', { event: 'end-file', reason: 'eof' });
+    }
+    await settleUntil(() => player.status === PlayerStatus.PLAYING && instances[1]?.loaded);
+    assert.equal(instances[1].loaded.id, 'bbbbbbbbbbb');
+    assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), ['aaaaaaaaaaa']);
+    instances[1].emit('event', { event: 'end-file', reason: 'eof' });
+    await settleUntil(() => instances[2]?.loaded);
+    assert.equal(instances[2].loaded.id, 'aaaaaaaaaaa');
+  });
+}
 
 test('Queue controls move upcoming entries, replay played keys and preserve history on Stop or clear', async t => {
   const { player, instances } = playerFixture();

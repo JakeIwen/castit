@@ -236,14 +236,17 @@ export class MpvPlayer extends Player {
     catch { this.log.warn('Subtitle setting update failed'); return false; }
   }
 
-  // The phone's queue, or its autoplay pick, goes before the cast queue.
+  // Used once the explicitly queued videos have finished.
   get phoneHasNext() {
     return this.queue.hasNext
       || (this.autoplayMode === Constants.AUTOPLAY_MODES.ENABLED && Boolean(this.queue.autoplay));
   }
 
   // Resolves false, leaving playback alone, when there is nothing to play.
-  playNext() { return this.phoneHasNext ? this.next() : this.playQueued(); }
+  playNext() {
+    if (this.castQueue.length) return this.playQueued();
+    return this.phoneHasNext ? this.next() : Promise.resolve(false);
+  }
 
   // Plays the first cast-queue entry, or an upcoming/played entry with `key`.
   playQueued(key) {

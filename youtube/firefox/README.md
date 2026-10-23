@@ -71,8 +71,9 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
 - Right-click a YouTube video link or watch-page background → **Van TV: Queue
-  Cast** (the only menu item) opens the toolbar popup, queues it from the beginning and leaves the tab
-  playing; with nothing playing and nothing else queued, it starts at once.
+  Cast** (the only menu item) opens the toolbar popup, queues it next from the beginning and leaves the tab
+  playing; when the receiver is idle or stopped, it starts at once, even with
+  older entries waiting.
   Nothing in the menu replaces what's playing; to cast now, use the player
   button, the shortcut or the popup. The queue and played history are kept on
   the receiver across Stop and restarts; they never start by themselves.

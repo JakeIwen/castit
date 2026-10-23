@@ -97,13 +97,13 @@ export function createQueueControls(player, { log = console } = {}) {
     return true;
   };
   return {
-    // With nothing playing and nothing else waiting, a queued video starts at
-    // once; a kept queue waits for an explicit play instead of jumping ahead.
+    // Each addition is next to play; an idle receiver starts that entry even
+    // when older entries were kept after Stop or a restart.
     add: ({ videoId }) => {
-      const wasEmpty = player.castQueue.length === 0;
       const entry = player.castQueue.add(videoId);
       if (!entry) return false;
-      return isIdle(player) && wasEmpty ? start(entry.key) : true;
+      player.castQueue.move(entry.key, 0);
+      return isIdle(player) ? start(entry.key) : true;
     },
     remove: ({ key }) => player.castQueue.take(key) !== null,
     play: ({ key }) => (player.castQueue.snapshot().some(entry => entry.key === key)
