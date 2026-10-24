@@ -27,13 +27,35 @@ test('popup enables meaningful controls for every receiver state', () => {
     [player.stopped, []],
   ];
   for (const [state, actions] of states) {
-    const view = popupState({ ...defaultStatus, player: state });
+    const view = popupState({ ...defaultStatus, player: state, canPlayNext: true });
     assert.deepEqual(view.actions, actions);
     assert.equal(view.state, state);
     assert.equal(view.title, defaultStatus.video.title);
     assert.equal(view.time, '0:45 / 3:00');
     assert.equal(view.scrubEnabled, [player.playing, player.paused].includes(state));
     assert.equal(view.toggleLabel, state === player.playing ? 'Pause' : 'Play');
+  }
+});
+
+test('Next requires an upcoming video and respects receiver phone queue availability', () => {
+  const queued = [{ key: 1, id: 'aaaaaaaaaaa', title: 'Next video' }];
+  const states = [player.loading, player.playing, player.paused];
+  for (const state of states) {
+    const nextEnabled = patch => popupState({ ...defaultStatus, player: state, ...patch })
+      .actions.includes(control.next);
+    assert.equal(nextEnabled({ canPlayNext: false, queue: [] }), false);
+    assert.equal(nextEnabled({ canPlayNext: true, queue: [] }), true);
+    assert.equal(nextEnabled({ canPlayNext: false, queue: queued }), false);
+    assert.equal(nextEnabled({ canPlayNext: true, queue: queued }), true);
+    assert.equal(nextEnabled({ queue: queued }), true);
+    assert.equal(nextEnabled({ queue: [] }), false);
+    assert.equal(nextEnabled({}), false);
+    assert.equal(nextEnabled({ canPlayNext: true, ok: false }), false);
+    assert.equal(nextEnabled({ played: queued }), false);
+  }
+  for (const state of [player.idle, player.stopped]) {
+    assert.equal(popupState({ ...defaultStatus, player: state, canPlayNext: true })
+      .actions.includes(control.next), false);
   }
 });
 

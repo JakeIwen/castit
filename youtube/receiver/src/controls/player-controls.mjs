@@ -71,10 +71,14 @@ export function createPlayerControls(player, { log = console } = {}) {
     // The cast queue is kept for the next session.
     stop: async () => { await player.reset(); return true; },
     // The library stops playback when there's nothing to move to; a stray
-    // Next (a direct cast has no queue) should leave the video playing, and
-    // Previous restarts the video like a TV remote.
-    next: () => Boolean(player.castQueue.length || player.phoneHasNext) && start(player.playNext()),
+    // Next (a direct cast has no queue) should leave the video playing.
+    // Previous follows local history first, and otherwise restarts the video.
+    next: () => player.canPlayNext && start(player.playNext()),
     previous: () => {
+      if (player.castQueue.previousPlayed(player.qualityTarget?.()?.video ?? player.video)) {
+        if (player.castQueue.length >= player.castQueue.limit) return false;
+        return start(player.playPrevious());
+      }
       if (player.queue.hasPrevious) return start(player.previous());
       if (player.status !== PlayerStatus.LOADING) return player.seek(0);
       const target = player.qualityTarget();

@@ -112,6 +112,25 @@ export class CastQueue {
     return this.playedSnapshot(currentVideo).find(entry => entry.key === key) ?? null;
   }
 
+  previousPlayed(video) {
+    const index = this.played.findIndex(entry => entry.id === video?.id);
+    return (index < 0 ? this.played : this.played.slice(0, index)).at(-1) ?? null;
+  }
+
+  returnNext(video) {
+    if (!isVideoId(video?.id) || this.length >= this.limit) return null;
+    const entry = { key: ++this.lastKey, id: video.id,
+      title: storedTitle(video.title === video.id ? null : video.title) };
+    this.entries.unshift(entry);
+    void this.save();
+    return entry;
+  }
+
+  forgetPlayed(ids) {
+    this.played = this.played.filter(entry => !ids.includes(entry.id));
+    void this.save();
+  }
+
   clear() { this.entries = []; void this.save(); }
 
   snapshot() { return this.entries.map(({ key, id, title }) => ({ key, id, title })); }

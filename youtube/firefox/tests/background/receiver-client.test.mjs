@@ -48,6 +48,15 @@ test('status keeps a reported A/V offset and marks an older receiver as lacking 
   assert.equal(decodeStatus({ ...defaultStatus, audioDelay: 'loud' }).audioDelay, null);
 });
 
+test('status preserves explicit Next availability and treats missing or malformed values as unknown', () => {
+  for (const canPlayNext of [true, false]) {
+    assert.equal(decodeStatus({ ...defaultStatus, canPlayNext }).canPlayNext, canPlayNext);
+  }
+  for (const canPlayNext of [undefined, null, 'true', 1, [], {}]) {
+    assert.equal(decodeStatus({ ...defaultStatus, canPlayNext }).canPlayNext, null);
+  }
+});
+
 test('speed, volume and mute controls send one absolute value or offset; mute may toggle', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: [fixture.url] });

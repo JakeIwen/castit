@@ -55,7 +55,9 @@ a clean checkout.
   parses shared YouTube links and timestamps for casting and queueing.
   `controls/player-controls.mjs` owns `/api/control` and `/api/queue` actions;
   `queue/cast-queue.mjs` owns the queue for senders without a phone session
-  and its title lookup; `http/status-server.mjs` owns HTTP.
+  and its title lookup and backward/forward history entries. `MpvPlayer.playPrevious`
+  coordinates history navigation and rollback; `MpvPlayer.canPlayNext` supplies
+  the status/API navigation availability. `http/status-server.mjs` owns HTTP.
   `lifecycle/receiver-lifecycle.mjs` coordinates receiver lifetime;
   `lifecycle/unhandled-message-log.mjs` keeps the one library log line
   (unhandled sender message names).

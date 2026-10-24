@@ -15,7 +15,8 @@ const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(val
  * quality: {selected: string, options: {value: string, label: string}[], loading: boolean, error: boolean}|null,
  * subtitles: {enabled: boolean, language: string, available: boolean|null, loading: boolean, error: boolean}|null,
  * volume: {level: number, muted: boolean}|null, queue: QueueEntry[]|null,
- * played: QueueEntry[]|null, watchHistory: {enabled: boolean, reason: string|null}|null}} ReceiverStatus */
+ * played: QueueEntry[]|null, canPlayNext: boolean|null,
+ * watchHistory: {enabled: boolean, reason: string|null}|null}} ReceiverStatus */
 
 function isQueueEntry(entry) {
   return Boolean(entry) && Number.isSafeInteger(entry.key) && isVideoId(entry.id)
@@ -85,6 +86,7 @@ export function decodeStatus(value) {
   const audioDelay = isFiniteNumber(value.audioDelay) ? value.audioDelay : null;
   const speed = isFiniteNumber(value.speed) ? value.speed : null;
   return { ok, player, video, position, duration, audioDelay, speed,
+    canPlayNext: typeof value.canPlayNext === 'boolean' ? value.canPlayNext : null,
     diagnostics: decodeDiagnostics(value.diagnostics),
     quality: decodeQuality(value.quality), subtitles: decodeSubtitles(value.subtitles),
     volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),

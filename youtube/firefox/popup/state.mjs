@@ -142,7 +142,10 @@ export function subtitleLabel(subtitles) {
 }
 
 export function popupState(status) {
-  const actions = status.ok ? (availableActions[status.player] ?? []) : [];
+  const canPlayNext = typeof status.canPlayNext === 'boolean'
+    ? status.canPlayNext : Boolean(status.queue?.length);
+  const actions = status.ok ? (availableActions[status.player] ?? [])
+    .filter(action => action !== control.next || canPlayNext) : [];
   const elapsed = formatTime(status.position);
   const total = formatTime(status.duration);
   return {

@@ -169,6 +169,8 @@ its resolver children. Starting another player later does not stop this one.
   first, excluding the currently loaded video. Repeated video ids move to the
   end; titles follow mpv, falling back to the queued video's oEmbed title. Entry
   keys are unique across both lists.
+  `canPlayNext` is true when the cast queue, phone queue or enabled phone
+  autoplay has another video; senders can disable Next when it is false.
   `diagnostics` reports `available`, `buffering`, a suspected `reason`
   (`bandwidth`, `rendering`, `unknown`, or null), `bufferSeconds`,
   `inputBytesPerSecond`, `requiredBytesPerSecond`, `frameDrops` and `decoderDrops`.
@@ -187,6 +189,11 @@ its resolver children. Starting another player later does not stop this one.
 - `POST /api/control`: JSON with `action`: `pause`, `resume`, `toggle`, `stop`,
   `next` or `previous`. Stop resets the phone's queue; the cast queue stays. Next plays the first cast-queue entry,
   then the phone's next video (or its autoplay pick); with neither it does nothing.
+  Previous walks backward through local played history, putting the departed video
+  first in upcoming so Next returns to it. With no local predecessor, it uses the
+  phone's Previous or restarts the current video. A full upcoming queue rejects
+  local backward navigation without changing playback or dropping entries.
+  Failed or cancelled backward loads keep history and remove temporary forward entries.
   Next/Previous acknowledge accepted navigation before extraction completes;
   poll status for the outcome. A new navigation can cancel an unfinished load.
   `seek` requires exactly one of absolute `position` (>= 0) or relative

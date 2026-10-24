@@ -22,6 +22,7 @@ export async function runReceiver({ receiver, player, store, log = console,
     diagnostics: player.diagnostics,
     quality: player.quality, subtitles: player.subtitles, speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
     played: player.castQueue.playedSnapshot(player.video),
+    canPlayNext: player.canPlayNext,
     senders: receiver.getConnectedSenders().length,
     watchHistory: watchHistory.snapshot(),
   });

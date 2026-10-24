@@ -5,6 +5,7 @@ import { createPlayerControls, createQueueControls, audioDelayArguments, speedAr
 import { CastQueue } from '../../src/queue/cast-queue.mjs';
 import { playerFixture, settleUntil, quiet, VIDEO, SECOND } from '../playback/player-fixture.mjs';
 import { PlayerStatus } from '../../src/playback/player.mjs';
+import { Constants } from 'yt-cast-receiver';
 
 function fakePlayer(state) {
   const calls = [];
@@ -87,6 +88,137 @@ test('Previous without a queue restarts the video', async () => {
   const player = fakePlayer({ status: PlayerStatus.PLAYING, queue: { hasPrevious: false } });
   await createPlayerControls(player).previous();
   assert.deepEqual(player.calls, [['seek', 0]]);
+});
+
+test('Previous traverses local history and Next returns through the departed videos', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  const third = { id: 'zzzzzzzzzzz', title: 'Third title', client: VIDEO.client };
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  await player.play(third);
+  const upcoming = player.castQueue.add('aaaaaaaaaaa');
+  for (const id of [SECOND.id, VIDEO.id]) {
+    assert.equal(controls.previous(), true);
+    await player.playTail;
+    assert.equal(player.video.id, id);
+    assert.equal(player.position, 0);
+  }
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), [SECOND.id, third.id, upcoming.id]);
+  assert.equal(player.castQueue.snapshot()[1].title, 'Third title');
+  assert.deepEqual(player.castQueue.playedSnapshot(player.video), []);
+  for (const id of [SECOND.id, third.id, upcoming.id]) {
+    assert.equal(controls.next(), true);
+    await player.playTail;
+    assert.equal(player.video.id, id);
+  }
+  assert.equal(player.canPlayNext, false);
+  assert.equal(await controls.next(), false);
+  assert.equal(instances.at(-1).loaded.id, upcoming.id);
+});
+
+test('Previous with a full upcoming queue leaves playback and history untouched', async t => {
+  const { player, instances } = playerFixture();
+  t.after(() => player.endSession());
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  player.castQueue.limit = 1;
+  player.castQueue.add('zzzzzzzzzzz');
+  const history = player.castQueue.playedSnapshot(player.video);
+  const upcoming = player.castQueue.snapshot();
+  assert.equal(createPlayerControls(player).previous(), false);
+  assert.equal(instances.length, 2);
+  assert.equal(player.video.id, SECOND.id);
+  assert.deepEqual(player.castQueue.snapshot(), upcoming);
+  assert.deepEqual(player.castQueue.playedSnapshot(player.video), history);
+});
+
+test('A failed Previous load preserves history and restores the upcoming queue', async t => {
+  let fail = false;
+  const { player } = playerFixture({ resolver: { resolve: async () => null }, handoff: async () => {
+    if (fail) throw new Error('handoff failed');
+  } });
+  t.after(() => player.endSession());
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  const upcoming = player.castQueue.add('zzzzzzzzzzz');
+  const history = player.castQueue.playedSnapshot();
+  fail = true;
+  assert.equal(await player.playPrevious(), false);
+  assert.deepEqual(player.castQueue.playedSnapshot(), history);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.key), [upcoming.key]);
+});
+
+test('Next during a Previous load cancels it and returns to the departed video', async t => {
+  let block = false;
+  let resolving = false;
+  const { player, instances } = playerFixture({ resolver: { resolve: (id, { signal }) => {
+    if (!block || id !== VIDEO.id) return Promise.resolve(null);
+    resolving = true;
+    return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } } });
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  block = true;
+  assert.equal(controls.previous(), true);
+  await settleUntil(() => resolving);
+  assert.equal(controls.next(), true);
+  await player.playTail;
+  assert.equal(player.status, PlayerStatus.PLAYING);
+  assert.equal(player.video.id, SECOND.id);
+  assert.equal(instances.at(-1).loaded.id, SECOND.id);
+  assert.deepEqual(player.castQueue.snapshot(), []);
+  assert.deepEqual(player.castQueue.playedSnapshot(player.video).map(entry => entry.id), [VIDEO.id]);
+});
+
+test('Consecutive Previous requests cancel a pending load and keep the complete forward order', async t => {
+  let block = false;
+  let resolving = false;
+  const { player } = playerFixture({ resolver: { resolve: (id, { signal }) => {
+    if (!block || id !== SECOND.id) return Promise.resolve(null);
+    resolving = true;
+    return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } } });
+  t.after(() => player.endSession());
+  const controls = createPlayerControls(player);
+  await player.play(VIDEO);
+  await player.play(SECOND);
+  await player.play({ id: 'zzzzzzzzzzz', client: VIDEO.client });
+  block = true;
+  assert.equal(controls.previous(), true);
+  await settleUntil(() => resolving);
+  assert.equal(controls.previous(), true);
+  await player.playTail;
+  assert.equal(player.video.id, VIDEO.id);
+  assert.deepEqual(player.castQueue.playedSnapshot(player.video), []);
+  assert.deepEqual(player.castQueue.snapshot().map(entry => entry.id), [SECOND.id, 'zzzzzzzzzzz']);
+});
+
+test('Next availability follows upcoming, phone playlist, and enabled autoplay entries', async t => {
+  const { player } = playerFixture();
+  t.after(() => player.endSession());
+  assert.equal(player.canPlayNext, false);
+  const upcoming = player.castQueue.add(VIDEO.id);
+  assert.equal(player.canPlayNext, true);
+  player.castQueue.take(upcoming.key);
+  assert.equal(player.canPlayNext, false);
+  await player.queue.updateByMessage({ name: 'setPlaylist', payload: {
+    listId: 'queue', videoIds: `${VIDEO.id},${SECOND.id}`, videoId: VIDEO.id, currentIndex: '0',
+  } }, VIDEO.client);
+  assert.equal(player.canPlayNext, true);
+  await player.queue.updateByMessage({ name: 'setPlaylist', payload: {
+    listId: 'queue', videoIds: VIDEO.id, videoId: VIDEO.id, currentIndex: '0',
+  } }, VIDEO.client);
+  assert.equal(player.canPlayNext, false);
+  await player.queue.setAutoplayMode(Constants.AUTOPLAY_MODES.ENABLED);
+  assert.equal(player.queue.hasNext, false);
+  assert.equal(player.queue.autoplay.id, SECOND.id);
+  assert.equal(player.canPlayNext, true);
+  await player.queue.setAutoplayMode(Constants.AUTOPLAY_MODES.DISABLED);
+  assert.equal(player.canPlayNext, false);
 });
 
 test('Previous during a direct load cancels it and restarts the selected video at zero', async t => {

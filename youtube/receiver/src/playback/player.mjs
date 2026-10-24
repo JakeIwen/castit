@@ -295,10 +295,39 @@ export class MpvPlayer extends Player {
       || (this.autoplayMode === Constants.AUTOPLAY_MODES.ENABLED && Boolean(this.queue.autoplay));
   }
 
+  get canPlayNext() { return Boolean(this.castQueue.length || this.phoneHasNext); }
+
   // Resolves false, leaving playback alone, when there is nothing to play.
   playNext() {
     if (this.castQueue.length) return this.playQueued();
     return this.phoneHasNext ? this.next() : Promise.resolve(false);
+  }
+
+  playPrevious() {
+    const target = this.qualityTarget();
+    const previous = this.castQueue.previousPlayed(target?.video);
+    if (!target || !previous) return Promise.resolve(false);
+    const current = this.video?.id === target.video.id ? this.video : target.video;
+    const returned = this.castQueue.returnNext(current);
+    if (!returned) return Promise.resolve(false);
+    const pending = this.backNavigation?.request === this.request ? this.backNavigation : null;
+    const departures = [...(pending?.departures ?? []), returned];
+    const operation = this.play({ id: previous.id, title: previous.title, client: Constants.CLIENTS.YT },
+      0, undefined, previous);
+    const navigation = this.backNavigation = { request: this.request, departures };
+    const finish = started => {
+      // Consecutive Previous requests share their pending forward entries; only
+      // the newest request commits them or rolls them back after extraction.
+      if (this.backNavigation !== navigation) return started;
+      this.backNavigation = null;
+      if (started && this.request === navigation.request) {
+        this.castQueue.forgetPlayed(departures.map(entry => entry.id));
+      } else {
+        for (const entry of departures) this.castQueue.take(entry.key);
+      }
+      return started;
+    };
+    return operation.then(finish, error => { finish(false); throw error; });
   }
 
   // Plays the first cast-queue entry, or an upcoming/played entry with `key`.

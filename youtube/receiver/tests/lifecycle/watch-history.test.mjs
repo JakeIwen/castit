@@ -37,7 +37,7 @@ test('Lifecycle status adds the sanitized watchHistory contract and observes pub
   const player = Object.assign(new EventEmitter(), {
     initialize: async () => {}, status: Constants.PLAYER_STATUSES.IDLE,
     video: null, position: 0, duration: 0, audioDelay: 0, speed: 1,
-    volume: { level: 70, muted: false },
+    volume: { level: 70, muted: false }, canPlayNext: false,
     castQueue: { snapshot: () => [], playedSnapshot: () => [] },
   });
   await runReceiver({ receiver, player, watchHistory: history,
@@ -45,6 +45,9 @@ test('Lifecycle status adds the sanitized watchHistory contract and observes pub
     statusListener: async options => { snapshot = options.snapshot; return async () => {}; },
   });
   await history.refresh();
+  assert.equal(snapshot().canPlayNext, false);
+  player.canPlayNext = true;
+  assert.equal(snapshot().canPlayNext, true);
   assert.deepEqual(snapshot().watchHistory,
     { enabled: true, state: 'ok', reason: null, lastMarkedAt: null });
   player.video = { id: 'dQw4w9WgXcQ', title: 'Fixture title not included in watch history' };

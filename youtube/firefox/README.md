@@ -91,8 +91,12 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   values without flashing the activity indicator or rebuilding unchanged rows.
 - The sidebar shows state, title and a scrubber. Drag or use arrow keys
   to seek; click total time to toggle remaining time. Controls include previous/next,
-  play/pause, ±20 seconds and stop. Previous restarts the video when nothing
-  came before it. Previous, Next and Stop remain usable during loading; a newer
+  play/pause, ±20 seconds and stop. Previous walks backward through played videos,
+  putting each departed video next in the queue so Next returns to it. It restarts
+  the video when nothing came before it. A full upcoming queue prevents moving
+  backward until an entry is removed. Next is disabled when there is no next video in the cast or
+  phone queue (including enabled phone autoplay). Older receivers fall back to
+  the cast queue. Previous, available Next and Stop remain usable during loading; a newer
   navigation cancels unfinished loading. The playhead stops advancing during buffering.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
