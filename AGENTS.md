@@ -13,6 +13,18 @@ IDs and personal integrations belong in the ignored `youtube/local.json`
 Tests use `local.example.json` through `CASTIT_LOCAL_CONFIG`, so they pass in
 a clean checkout.
 
+## Visual guide
+
+The user guide for Van TV is `static/guides/castit-youtube.html` in
+`~/dev/visual-guides` (public repo `JakeIwen/visual-guides`; follow its
+AGENTS.md). Any change here that a user would notice (controls, menus, CLI
+commands, API, setup or deploy steps, defaults, Sonos/room behavior) updates
+that guide in the same piece of work: edit the affected section, its mock-up or
+diagram if they show it, and the `Updated` date on the page and in
+`static/index.html`. Then commit, push and `npm run deploy` there, as that repo
+directs. Internal refactors and test-only changes don't need a guide edit. The
+guides repo is public, so keep LAN addresses and private details out of it.
+
 ## Contracts
 
 | What | Caller |
