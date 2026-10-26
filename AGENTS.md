@@ -23,7 +23,8 @@ that guide in the same piece of work: edit the affected section, its mock-up or
 diagram if they show it, and the `Updated` date on the page and in
 `static/index.html`. Then commit, push and `npm run deploy` there, as that repo
 directs. Internal refactors and test-only changes don't need a guide edit. The
-guides repo is public, so keep LAN addresses and private details out of it.
+guides repo is public: `vanpi` host names are fine (other guides use them), but
+keep IP addresses, extension IDs, cookies and other private details out.
 
 ## Contracts
 
