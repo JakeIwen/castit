@@ -1,6 +1,7 @@
 import { isVideoId } from './video-id.mjs';
 
 const MAX_URL_LENGTH = 2048;
+const MAX_SHARED_TEXT_LENGTH = 4096;
 const VIDEO_HOSTS = ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'music.youtube.com'];
 const SHORT_HOSTS = ['youtu.be', 'www.youtu.be'];
 const VIDEO_PATHS = ['/shorts/', '/live/', '/embed/'];
@@ -42,4 +43,13 @@ export function parseYouTubeVideo(value) {
   const fragment = new URLSearchParams(url.hash.slice(1));
   const start = url.searchParams.get('t') ?? url.searchParams.get('start') ?? fragment.get('t');
   return { videoId, position: parseStartTime(start) };
+}
+
+export function findYouTubeVideo(text) {
+  if (typeof text !== 'string' || text.length > MAX_SHARED_TEXT_LENGTH) return null;
+  for (const candidate of text.split(/\s+/)) {
+    const video = parseYouTubeVideo(candidate.replace(/[.,;:!?)'"’”`]+$/u, ''));
+    if (video) return video;
+  }
+  return null;
 }

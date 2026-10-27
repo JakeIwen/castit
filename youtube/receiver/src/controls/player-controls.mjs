@@ -1,6 +1,6 @@
 import { PlayerStatus } from '../playback/player.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
-import { parseYouTubeVideo } from '../youtube/video-url.mjs';
+import { findYouTubeVideo } from '../youtube/video-url.mjs';
 
 // Every action senders without a lounge session can send (the vantv command,
 // the Firefox popup, the Pi's vlcmd/pp shell functions behind the BTT buttons).
@@ -41,7 +41,7 @@ export function muteArguments({ muted }) {
 export function queueArguments({ action, videoId, url, key, index, current }) {
   if (action === 'add') {
     if ((videoId !== undefined) === (url !== undefined)) return null;
-    const id = url === undefined ? videoId : parseYouTubeVideo(url)?.videoId;
+    const id = url === undefined ? videoId : findYouTubeVideo(url)?.videoId;
     return isVideoId(id) ? { videoId: id } : null;
   }
   if (action === 'move') {

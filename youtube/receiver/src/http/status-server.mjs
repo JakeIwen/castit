@@ -4,11 +4,12 @@ import { qualityArguments } from '../playback/quality.mjs';
 import { subtitleArguments } from '../playback/subtitles.mjs';
 import { config } from '../config/receiver-config.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
-import { parseYouTubeVideo } from '../youtube/video-url.mjs';
+import { findYouTubeVideo } from '../youtube/video-url.mjs';
 import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, speedArguments,
   volumeArguments, muteArguments, queueArguments } from '../controls/player-controls.mjs';
 
 const MAX_POST_BODY = 4096;
+const LINK_PREVIEW_LENGTH = 60;
 // Web pages can't forge these origins, and a JSON body already forces a CORS
 // preflight this server never answers; the status page itself is same-origin.
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
@@ -103,6 +104,14 @@ async function handleControl(request, { control }) {
   }
 }
 
+function invalidLinkError(value) {
+  const text = (typeof value === 'string' ? value : JSON.stringify(value) ?? '').trim();
+  const characters = Array.from(text);
+  const preview = characters.slice(0, LINK_PREVIEW_LENGTH).join('')
+    + (characters.length > LINK_PREVIEW_LENGTH ? '…' : '');
+  return `Not a YouTube video link: "${preview}"`;
+}
+
 async function handleQueue(request, { queue }) {
   try {
     const body = await readJsonBody(request);
@@ -111,7 +120,7 @@ async function handleQueue(request, { queue }) {
     const fields = queueArguments(body);
     if (!fields) {
       if (action === 'add' && body.url !== undefined && body.videoId === undefined) {
-        return [400, { error: 'Not a YouTube video link' }];
+        return [400, { error: invalidLinkError(body.url) }];
       }
       return [400, { error: 'Queue add needs exactly one of videoId or url; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
     }
@@ -131,8 +140,8 @@ async function handleCast(request, { cast }) {
   if ((body.videoId !== undefined) === (body.url !== undefined)) {
     return [400, { error: 'Cast needs exactly one of videoId or url' }];
   }
-  const selection = body.url === undefined ? null : parseYouTubeVideo(body.url);
-  if (body.url !== undefined && !selection) return [400, { error: 'Not a YouTube video link' }];
+  const selection = body.url === undefined ? null : findYouTubeVideo(body.url);
+  if (body.url !== undefined && !selection) return [400, { error: invalidLinkError(body.url) }];
   const videoId = selection?.videoId ?? body.videoId;
   const position = body.position === undefined ? selection?.position ?? 0 : Number(body.position);
   if (!isVideoId(videoId)) return [400, { error: 'Invalid videoId' }];
