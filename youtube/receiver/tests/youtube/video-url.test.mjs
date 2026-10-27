@@ -73,13 +73,22 @@ test('Shared text finds the first YouTube video and preserves its timestamp', ()
     [`https://example.com/video https://youtu.be/${id}?t=4.5`, 4.5],
     [`https://youtube.com/playlist?list=PLtest https://youtu.be/${id}?start=13`, 13],
     [`https://youtu.be/${id}?t=75 https://youtu.be/jNQXAC9IVRw?t=90`, 75],
+    [`Watch “https://youtu.be/${id}?t=90” then https://youtu.be/jNQXAC9IVRw`, 90],
+    [`(https://youtu.be/${id})`, 0],
+    [`<https://youtu.be/${id}>`, 0],
+    [`“https://youtu.be/${id}”`, 0],
+    [`[https://youtu.be/${id}].`, 0],
   ];
   for (const [text, position] of cases) {
     assert.deepEqual(findYouTubeVideo(text), { videoId: id, position }, text);
   }
-  for (const punctuation of ['.', ',', ';', ':', '!', '?', ')', "'", '"', '’', '”', '`', ').”']) {
+  for (const punctuation of ['.', ',', ';', ':', '!', '?', ')', ']', '}', '>', "'", '"', '’', '”', '»', '›', '`', ').”']) {
     const text = `Watch https://youtu.be/${id}?t=1m30s${punctuation}`;
     assert.deepEqual(findYouTubeVideo(text), { videoId: id, position: 90 }, text);
+  }
+  for (const opening of ['"', "'", '“', '‘', '„', '‹', '«', '(', '[', '{', '<']) {
+    const text = `${opening}https://youtu.be/${id}`;
+    assert.deepEqual(findYouTubeVideo(text), { videoId: id, position: 0 }, text);
   }
 });
 
@@ -96,7 +105,7 @@ test('Shared text keeps supported bare link parsing unchanged', () => {
 });
 
 test('Shared text rejects missing videos and bounds both text and individual links', () => {
-  for (const text of ['', ' \n\t ', 'Title with no link', 'https://example.com/video',
+  for (const text of ['', ' \n\t ', '“”', 'Title with no link', 'https://example.com/video',
     `https://youtu.be/${id}/extra`, `https://youtube.com.evil.test/watch?v=${id}`,
     `https://user:secret@youtube.com/watch?v=${id}`, null, undefined, 123, {}, []]) {
     assert.equal(findYouTubeVideo(text), null, String(text));

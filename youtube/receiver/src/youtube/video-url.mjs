@@ -48,7 +48,8 @@ export function parseYouTubeVideo(value) {
 export function findYouTubeVideo(text) {
   if (typeof text !== 'string' || text.length > MAX_SHARED_TEXT_LENGTH) return null;
   for (const candidate of text.split(/\s+/)) {
-    const video = parseYouTubeVideo(candidate.replace(/[.,;:!?)'"’”`]+$/u, ''));
+    const video = parseYouTubeVideo(candidate.replace(/^["'“‘„‹«(\[{<]+/u, '')
+      .replace(/[.,;:!?)\]}>"'’”»›`]+$/u, ''));
     if (video) return video;
   }
   return null;

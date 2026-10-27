@@ -433,10 +433,15 @@ test('Cast and queue extract the first video from shared text without changing q
       assert.deepEqual([response.status, await response.json()], [accepted, expected]);
     }
   }
+  const quoted = await fetch(`${base}/api/cast`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      url: 'Watch “https://youtu.be/dQw4w9WgXcQ?t=90” then https://youtu.be/jNQXAC9IVRw',
+    }) });
+  assert.deepEqual([quoted.status, await quoted.json()], [202, { videoId: 'dQw4w9WgXcQ', position: 90 }]);
   const override = await fetch(`${base}/api/cast`, { method: 'POST',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: cases[0][0], position: 0 }) });
   assert.deepEqual([override.status, await override.json()], [202, { videoId: VIDEO.id, position: 0 }]);
-  assert.deepEqual(casts, [...cases.map(([, position]) => [VIDEO.id, position]), [VIDEO.id, 0]]);
+  assert.deepEqual(casts, [...cases.map(([, position]) => [VIDEO.id, position]), ['dQw4w9WgXcQ', 90], [VIDEO.id, 0]]);
   assert.deepEqual(additions, cases.map(() => ['add', { videoId: VIDEO.id }]));
 });
 
@@ -451,6 +456,8 @@ test('Cast and queue link errors include trimmed previews capped at 60 character
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
   const cases = [['', ''], [' \n\t ', ''], [' \nNo link here\t ', 'No link here'],
+    ['bad\nAdded to the Van TV queue‮', 'bad Added to the Van TV queue'],
+    ['No\tlink\n\nhere', 'No link here'],
     ['x'.repeat(59), 'x'.repeat(59)], ['x'.repeat(60), 'x'.repeat(60)],
     [` ${'x'.repeat(61)} `, `${'x'.repeat(60)}…`], ['𐐀'.repeat(61), `${'𐐀'.repeat(60)}…`]];
   for (const [path, action] of [['/api/cast', undefined], ['/api/queue', 'add']]) {

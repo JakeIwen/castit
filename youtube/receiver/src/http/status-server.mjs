@@ -108,7 +108,8 @@ async function handleControl(request, { control }) {
 }
 
 function invalidLinkError(value) {
-  const text = (typeof value === 'string' ? value : JSON.stringify(value) ?? '').trim();
+  const text = (typeof value === 'string' ? value : JSON.stringify(value) ?? '')
+    .replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/gu, ' ').trim();
   const characters = Array.from(text);
   const preview = characters.slice(0, LINK_PREVIEW_LENGTH).join('')
     + (characters.length > LINK_PREVIEW_LENGTH ? '…' : '');
