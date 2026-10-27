@@ -3,13 +3,14 @@ import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
 import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
-const menu = Object.freeze({ castLink: 'cast-link', castPage: 'cast-page',
-  queueLink: 'queue-link', queuePage: 'queue-page' });
-const menuTitles = Object.freeze({ cast: 'Van TV: Cast Now', queue: 'Van TV: Add to Queue' });
+// Firefox nests an extension's items in a submenu once there is more than one
+// per context, so each context gets one item and Shift-click queues instead.
+const menu = Object.freeze({ link: 'cast-link', page: 'cast-page' });
+const menuTitle = 'Van TV: Cast Now (Shift: Add to Queue)';
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'index', 'quality', 'enabled', 'language']) {
+  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'current', 'index', 'quality', 'enabled', 'language']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;
@@ -53,43 +54,42 @@ export async function showCastResult(browserApi, operation, success = 'Van TV �
 export async function installContextMenus(browserApi, receiver) {
   const patterns = youtubeMenuPatterns();
   await browserApi.contextMenus.removeAll();
-  for (const [kind, title] of Object.entries(menuTitles)) {
-    browserApi.contextMenus.create({ id: menu[`${kind}Link`], title,
-      contexts: ['link'], targetUrlPatterns: patterns.link });
-    browserApi.contextMenus.create({ id: menu[`${kind}Page`], title,
-      contexts: ['page'], documentUrlPatterns: patterns.page });
-  }
+  browserApi.contextMenus.create({ id: menu.link, title: menuTitle,
+    contexts: ['link'], targetUrlPatterns: patterns.link });
+  browserApi.contextMenus.create({ id: menu.page, title: menuTitle,
+    contexts: ['page'], documentUrlPatterns: patterns.page });
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);
     if (!video) throw new Error('This link is not a YouTube video');
     return video;
   };
+  const queued = result => {
+    if (!result.done) throw new Error('The Van TV queue is full');
+  };
   const actions = {
-    [menu.castLink]: async info => {
-      const video = linkVideo(info);
-      await receiver.cast(video.videoId, video.position);
+    [menu.link]: {
+      cast: async info => {
+        const video = linkVideo(info);
+        await receiver.cast(video.videoId, video.position);
+      },
+      queue: async info => queued(await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId })),
     },
-    [menu.castPage]: async (_info, tab) => castTab(browserApi, receiver, tab),
-    [menu.queueLink]: async info => {
-      const result = await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId });
-      if (!result.done) throw new Error('The Van TV queue is full');
-    },
-    [menu.queuePage]: async (_info, tab) => {
-      const result = await queueTab(browserApi, receiver, tab);
-      if (!result.done) throw new Error('The Van TV queue is full');
+    [menu.page]: {
+      cast: async (_info, tab) => castTab(browserApi, receiver, tab),
+      queue: async (_info, tab) => queued(await queueTab(browserApi, receiver, tab)),
     },
   };
   browserApi.contextMenus.onClicked.addListener((info, tab) => {
-    const action = actions[info.menuItemId];
-    if (!action) return;
+    const item = actions[info.menuItemId];
+    if (!item) return;
     // Opening a sidebar requires the menu gesture, before the request yields.
     // A sidebar failure must not prevent the cast or queue operation.
     void browserApi.sidebarAction.open().catch(error => {
       console.warn('Van TV sidebar could not open', error);
     });
-    const queued = info.menuItemId === menu.queueLink || info.menuItemId === menu.queuePage;
-    void showCastResult(browserApi, () => action(info, tab),
-      queued ? 'Van TV — added to the queue' : 'Van TV — cast accepted');
+    const queue = info.modifiers?.includes('Shift');
+    void showCastResult(browserApi, () => (queue ? item.queue : item.cast)(info, tab),
+      queue ? 'Van TV — added to the queue' : 'Van TV — cast accepted');
   });
 }
 

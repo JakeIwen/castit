@@ -142,13 +142,13 @@ test('unknown messages and content-script receiver controls have no side effects
   });
 });
 
-test('queue menus add a link or the watch page from the start without touching the tab', async t => {
+test('Shift-clicking the menu queues a link or the watch page from the start without touching the tab', async t => {
   const fixture = await startReceiver(t);
   const queueMenus = async (contexts, info) => {
     const browser = browserFixture();
     await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-    const menu = browser.menus.find(item => item.contexts.includes(contexts) && item.title === 'Van TV: Add to Queue');
-    browser.click({ menuItemId: menu.id, ...info });
+    const menu = browser.menus.find(item => item.contexts.includes(contexts));
+    browser.click({ menuItemId: menu.id, modifiers: ['Shift'], ...info });
     assert.deepEqual(browser.sidebars, ['open']);
     await browser.completed;
     return browser;
@@ -169,7 +169,7 @@ test('a rejected sidebar still queues the video and reports the queue result', a
   const fixture = await startReceiver(t);
   const browser = browserFixture({ openSidebar: async () => { throw new Error('Sidebar unavailable'); } });
   await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  browser.click({ menuItemId: 'queue-link', linkUrl: `https://youtu.be/${videoId}` });
+  browser.click({ menuItemId: 'cast-link', modifiers: ['Shift'], linkUrl: `https://youtu.be/${videoId}` });
   await browser.completed;
   assert.deepEqual(fixture.requests.filter(request => request.method === 'POST')
     .map(request => request.body), [{ action: 'add', videoId }]);
@@ -185,8 +185,8 @@ test('a full queue shows as a toolbar error', async t => {
   } });
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-  const menu = browser.menus.find(item => item.contexts.includes('link') && item.title === 'Van TV: Add to Queue');
-  browser.click({ menuItemId: menu.id, linkUrl: `https://youtu.be/${videoId}` });
+  const menu = browser.menus.find(item => item.contexts.includes('link'));
+  browser.click({ menuItemId: menu.id, modifiers: ['Shift'], linkUrl: `https://youtu.be/${videoId}` });
   await browser.completed;
   assert.deepEqual([browser.badges, browser.titles], [['!'], ['The Van TV queue is full']]);
 });
@@ -209,12 +209,13 @@ test('toolbar clicks toggle the full-height sidebar directly from the user gestu
   assert.deepEqual(browser.sidebars, ['toggle', 'toggle']);
 });
 
-test('the context menu has exactly cast and queue siblings in each context', async () => {
+// Firefox wraps two or more items from one extension in a submenu.
+test('the context menu has one top-level item in each context', async () => {
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, {});
   for (const context of ['link', 'page']) {
     assert.deepEqual(browser.menus.filter(item => item.contexts.includes(context))
-      .map(item => item.title), ['Van TV: Cast Now', 'Van TV: Add to Queue']);
+      .map(item => item.title), ['Van TV: Cast Now (Shift: Add to Queue)']);
   }
   assert.ok(browser.menus.every(item => !Object.hasOwn(item, 'parentId')));
   assert.ok(browser.menus.find(item => item.contexts.includes('link')).targetUrlPatterns.includes('*://youtu.be/*'));

@@ -92,7 +92,7 @@ test('combined queue keeps played order, marks current, and preserves upcoming I
   const queue = [{ key: 3, id: 'ccccccccccc', title: '' }];
   const status = { ...defaultStatus, played, queue };
   const model = queueListModel(status);
-  assert.deepEqual(model, { currentId: defaultStatus.video.id, anchorIndex: 2, upcomingCount: 1, rows: [
+  assert.deepEqual(model, { currentId: defaultStatus.video.id, anchorIndex: 2, clearableCount: 3, rows: [
     { kind: queueRowKind.played, key: 1, id: 'aaaaaaaaaaa', title: 'Oldest' },
     { kind: queueRowKind.played, key: 2, id: 'bbbbbbbbbbb', title: 'bbbbbbbbbbb' },
     { kind: queueRowKind.current, key: null, ...defaultStatus.video },
@@ -100,13 +100,13 @@ test('combined queue keeps played order, marks current, and preserves upcoming I
   ] });
   assert.deepEqual(popupState(status).queueList, model);
   assert.deepEqual(queueListModel({ played, queue, video: null }), {
-    currentId: null, anchorIndex: 2, upcomingCount: 1, rows: model.rows.filter(row => row.kind !== queueRowKind.current),
+    currentId: null, anchorIndex: 2, clearableCount: 3, rows: model.rows.filter(row => row.kind !== queueRowKind.current),
   });
   assert.equal(played[1].title, null);
 });
 
 test('queue models support older receivers, current-only, played-only and entirely empty states', () => {
-  assert.deepEqual(queueListModel(null), { currentId: null, anchorIndex: -1, upcomingCount: 0, rows: [] });
+  assert.deepEqual(queueListModel(null), { currentId: null, anchorIndex: -1, clearableCount: 0, rows: [] });
   assert.deepEqual(queueListModel({ queue: null, played: null }), queueListModel(null));
   const current = queueListModel(defaultStatus);
   assert.equal(current.rows.length, 1);

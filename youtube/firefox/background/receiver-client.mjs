@@ -200,6 +200,10 @@ export function createReceiverClient({ fetcher = globalThis.fetch,
     if (action === config.queue.add) {
       if (!isVideoId(fields?.videoId)) throw new Error('Invalid YouTube video');
       body.videoId = fields.videoId;
+    } else if (action === config.queue.remove && fields?.current !== undefined) {
+      // The now-playing video has no queue key; the receiver matches its id.
+      if (!isVideoId(fields.current)) throw new Error('Invalid YouTube video');
+      body.current = fields.current;
     } else if (action !== config.queue.clear) {
       if (!Number.isSafeInteger(fields?.key)) throw new Error('Invalid queue entry');
       body.key = fields.key;

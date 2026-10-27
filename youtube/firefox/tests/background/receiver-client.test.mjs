@@ -74,19 +74,22 @@ test('speed, volume and mute controls send one absolute value or offset; mute ma
   ]);
 });
 
-test('queue requests carry a video id to add and an entry key to play or remove', async t => {
+test('queue requests carry a video id to add, an entry key to play or remove, or the current id to remove', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: [fixture.url] });
   assert.deepEqual(await receiver.queue('add', { videoId }), { action: 'add', done: true });
   await receiver.queue('play', { key: 3 });
   await receiver.queue('remove', { key: 4 });
+  await receiver.queue('remove', { current: videoId });
   await receiver.queue('clear');
   await assert.rejects(receiver.queue('add', { videoId: 'nope' }), /Invalid YouTube video/);
   await assert.rejects(receiver.queue('remove', {}), /Invalid queue entry/);
+  await assert.rejects(receiver.queue('remove', { current: 'nope' }), /Invalid YouTube video/);
   await assert.rejects(receiver.queue('shuffle'), /Unknown queue action/);
   assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => [request.path, request.body]), [
     ['/api/queue', { action: 'add', videoId }], ['/api/queue', { action: 'play', key: 3 }],
-    ['/api/queue', { action: 'remove', key: 4 }], ['/api/queue', { action: 'clear' }],
+    ['/api/queue', { action: 'remove', key: 4 }], ['/api/queue', { action: 'remove', current: videoId }],
+    ['/api/queue', { action: 'clear' }],
   ]);
 });
 

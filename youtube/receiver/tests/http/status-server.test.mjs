@@ -360,7 +360,7 @@ test('Queue HTTP actions reorder upcoming videos, expose played history and repl
   assert.equal(stopped.queue.length, 2);
   assert.deepEqual(stopped.played.map(entry => entry.id), [SECOND.id, VIDEO.id]);
   await post({ action: 'clear' });
-  assert.deepEqual((await status()).played, stopped.played);
+  assert.deepEqual((await status()).played, []);
 });
 
 test('Control route parses speed, volume and mute fields', async t => {

@@ -271,9 +271,6 @@ test('Played history records direct, phone-next and cast-queue starts and surviv
   assert.deepEqual(history.map(entry => entry.id), [VIDEO.id, SECOND.id, queued.id]);
   assert.equal(history[2].title, 'Last title');
   assert.equal(new Set([...history.map(entry => entry.key), queued.key]).size, 4);
-  player.castQueue.add(VIDEO.id);
-  player.castQueue.clear();
-  assert.deepEqual(played(), history);
   await player.endSession();
   assert.deepEqual(played(), history);
 });

@@ -194,14 +194,21 @@ export class QueueList {
     const open = iconButton('open', 'Open on YouTube');
     open.addEventListener('click', () => void this.onOpen(watchUrl(entry.id), false));
     row.append(open);
-    if (entry.kind === queueRowKind.upcoming) {
-      const remove = iconButton('remove', `Remove from queue: ${entry.title}`);
-      remove.addEventListener('click', () => {
-        if (!this.busy) void this.onAction({ action: queue.remove, key: entry.key });
-      });
-      row.append(remove);
-    }
+    row.append(this.createRemove(entry));
     return row;
+  }
+
+  // Removing the now-playing row moves on to the next queued video, or stops.
+  createRemove(entry) {
+    const current = entry.kind === queueRowKind.current;
+    const label = current ? `Remove and skip: ${entry.title}` : `Remove from list: ${entry.title}`;
+    const remove = iconButton('remove', label);
+    remove.addEventListener('click', () => {
+      if (this.busy) return;
+      void this.onAction(current ? { action: queue.remove, current: entry.id }
+        : { action: queue.remove, key: entry.key });
+    });
+    return remove;
   }
 
   createTitle(entry) {

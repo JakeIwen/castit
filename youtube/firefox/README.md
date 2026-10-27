@@ -70,14 +70,15 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - The YouTube player's **Van TV** button casts the current playhead. Local
   playback pauses only after the receiver accepts the request. Green feedback
   means accepted, not that receiver playback has started; errors appear on hover.
-- Right-click a YouTube video link or watch-page background for **Van TV: Cast Now**
-  or **Van TV: Add to Queue**. Cast Now replaces playback, preserving a link's
-  timestamp or the page's playhead; page playback pauses after acceptance.
-  Add to Queue inserts next from the beginning and leaves the tab playing;
-  it starts immediately when the receiver is idle or stopped. Both open the sidebar.
-  These are sibling menu actions; Firefox can automatically group multiple
-  extension entries under its own submenu. The queue and played history persist
-  across Stop and restarts; they never start by themselves.
+- Right-click a YouTube video link or watch-page background for
+  **Van TV: Cast Now (Shift: Add to Queue)**. A plain click casts now, replacing
+  playback and preserving a link's timestamp or the page's playhead; page
+  playback pauses after acceptance. **Shift-click** adds to the queue instead:
+  it inserts next from the beginning and leaves the tab playing, and starts
+  immediately when the receiver is idle or stopped. Both open the sidebar.
+  It is one item because Firefox puts two or more items from one extension in
+  a submenu. The queue and played history persist across Stop and restarts;
+  they never start by themselves.
 - **Info** expands playback diagnostics, action messages and watch-history issues.
   A warning symbol remains visible when collapsed. Buffering is confirmed from
   mpv; bandwidth is described as a suspicion only after repeated low-rate samples.
@@ -120,8 +121,10 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   video), with a little history peeking above. Scroll up for earlier videos;
   polling leaves your scroll position alone until the current video changes.
   Click a played title to replay from the start, or an upcoming title to play now.
-  × removes an upcoming video. **Jump to end** scrolls to the last queued video;
-  **Clear** removes upcoming videos only.
+  × removes any row: a played or upcoming video leaves the list, and the current
+  video stops and the next queued video starts (playback stops when none is
+  queued). **Jump to end** scrolls to the last queued video; **Clear** removes
+  every played and upcoming video, leaving the current one playing.
   **Queue this tab** adds the active tab's video.
 - Each row's external-link button opens YouTube while keeping the sidebar. **⌘/Ctrl-click**
   or **middle-click** a played/upcoming title to open YouTube in a background tab

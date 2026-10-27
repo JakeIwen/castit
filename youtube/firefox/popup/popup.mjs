@@ -145,7 +145,7 @@ function updateControls() {
   setText(element['subtitle-status'], subtitleStatus);
   qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);
   queueList.setBusy(busy);
-  setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.upcomingCount);
+  setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.clearableCount);
   setProperty(element['cast-tab'], 'disabled', busy || !tabAvailable);
   setProperty(element['queue-tab'], 'disabled', busy || !tabAvailable || !view?.queueEnabled);
   setProperty(element.duration, 'disabled', !view?.scrubEnabled);

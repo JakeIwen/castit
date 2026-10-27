@@ -126,12 +126,27 @@ export class CastQueue {
     return entry;
   }
 
+  // Removes an upcoming entry, or a played one other than the current video.
+  remove(key, currentVideo) {
+    if (this.take(key)) return true;
+    if (!this.findPlayed(key, currentVideo)) return false;
+    this.played = this.played.filter(entry => entry.key !== key);
+    void this.save();
+    return true;
+  }
+
   forgetPlayed(ids) {
     this.played = this.played.filter(entry => !ids.includes(entry.id));
     void this.save();
   }
 
-  clear() { this.entries = []; void this.save(); }
+  // Empties upcoming and history; the current video keeps its played entry so
+  // Previous still knows where playback is.
+  clear(currentVideo) {
+    this.entries = [];
+    this.played = this.played.filter(entry => entry.id === currentVideo?.id);
+    void this.save();
+  }
 
   snapshot() { return this.entries.map(({ key, id, title }) => ({ key, id, title })); }
 }

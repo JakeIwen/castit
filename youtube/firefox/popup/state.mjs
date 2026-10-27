@@ -79,7 +79,7 @@ export function formatVolume(volume) {
 export const queueRowKind = Object.freeze({ played: 'played', current: 'current', upcoming: 'upcoming' });
 
 /** @typedef {{kind: string, key: number|null, id: string, title: string}} QueueRow */
-/** @typedef {{rows: QueueRow[], currentId: string|null, anchorIndex: number, upcomingCount: number}} QueueListModel */
+/** @typedef {{rows: QueueRow[], currentId: string|null, anchorIndex: number, clearableCount: number}} QueueListModel */
 
 /** @returns {QueueListModel} */
 export function queueListModel(status) {
@@ -92,7 +92,8 @@ export function queueListModel(status) {
   rows.push(...entries(status?.queue, queueRowKind.upcoming));
   return { rows, currentId: status?.video?.id ?? null,
     anchorIndex: rows.findIndex(row => row.kind !== queueRowKind.played),
-    upcomingCount: status?.queue?.length ?? 0 };
+    // Clear removes every row but the current one.
+    clearableCount: rows.filter(row => row.kind !== queueRowKind.current).length };
 }
 
 export function isWorking(status, requestsInFlight = 0) {

@@ -45,7 +45,7 @@ test('Cast queue moves to the final index, clamps large indices and rejects miss
   assert.equal(queue.move(b.key, 0), false);
 });
 
-test('Played entries share queue keys, follow loaded and oEmbed titles, dedupe and survive clear', async () => {
+test('Played entries share queue keys, follow loaded and oEmbed titles, dedupe and clear with the queue', async () => {
   let supplyTitle;
   const queue = new CastQueue({ lookupTitle: () => new Promise(resolve => { supplyTitle = resolve; }) });
   const upcoming = queue.add('aaaaaaaaaaa');
@@ -64,8 +64,11 @@ test('Played entries share queue keys, follow loaded and oEmbed titles, dedupe a
   assert.deepEqual(queue.playedSnapshot().map(entry => entry.key), [second.key, replayed.key]);
   assert.equal(queue.findPlayed(first.key), null);
   assert.equal(queue.findPlayed(replayed.key, loaded), null);
-  queue.clear();
+  queue.clear(loaded);
   assert.deepEqual(queue.findPlayed(replayed.key), { key: replayed.key, id: loaded.id, title: 'mpv title' });
+  assert.equal(queue.findPlayed(second.key), null);
+  queue.clear();
+  assert.equal(queue.findPlayed(replayed.key), null);
   assert.ok(queue.add('ccccccccccc').key > replayed.key);
   assert.equal(queue.recordPlayed({ id: 'bad' }), null);
 });

@@ -250,13 +250,16 @@ its resolver children. Starting another player later does not stop this one.
   videos always start at zero, ignoring link timestamps. An addition starts at
   once when the player is idle or stopped, even with older entries waiting.
   Playing or paused videos stay in place until they finish or Next is pressed.
-  `play` and `remove` take an entry `key` from status.
+  `play` and `remove` take an entry `key` from status; `remove` takes a `played`
+  key too, or instead `current` with the loaded video's id, which forgets that
+  video and plays the next queued one (or stops when none is queued).
   `play` also accepts a `played` key to replay from the start; it stays in history
   until playback starts again, when it gets a new key at the end. `move` takes
   `key` and a non-negative safe integer `index`: the upcoming entry's final
   zero-based position, clamped to the queue's last position. `play`, `remove`
-  and `move` return `done:false` for missing keys; played entries cannot be moved
-  or removed. `clear` empties the upcoming queue. Queued videos play before the
+  and `move` return `done:false` for missing keys (and `remove` for a `current`
+  id that is no longer loaded); played entries cannot be moved. `clear` empties
+  the upcoming queue and played history, keeping only the loaded video's entry. Queued videos play before the
   phone's own queue, at the end of each video or on Next. Both lists are saved
   in `queue.json` in the private state directory and survive Stop, the last
   sender's disconnect and restarts; restoring them never starts playback. Queue titles come from YouTube's

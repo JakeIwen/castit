@@ -38,7 +38,7 @@ export function muteArguments({ muted }) {
   return typeof muted === 'boolean' ? { muted } : null;
 }
 
-export function queueArguments({ action, videoId, url, key, index }) {
+export function queueArguments({ action, videoId, url, key, index, current }) {
   if (action === 'add') {
     if ((videoId !== undefined) === (url !== undefined)) return null;
     const id = url === undefined ? videoId : parseYouTubeVideo(url)?.videoId;
@@ -46,6 +46,10 @@ export function queueArguments({ action, videoId, url, key, index }) {
   }
   if (action === 'move') {
     return Number.isSafeInteger(key) && Number.isSafeInteger(index) && index >= 0 ? { key, index } : null;
+  }
+  // Remove names a listed entry by key, or the now-playing video by id.
+  if (action === 'remove' && current !== undefined) {
+    return key === undefined && isVideoId(current) ? { current } : null;
   }
   if (action === 'remove' || action === 'play') return Number.isSafeInteger(key) ? { key } : null;
   return {};
@@ -121,10 +125,16 @@ export function createQueueControls(player, { log = console } = {}) {
       player.castQueue.move(entry.key, 0);
       return isIdle(player) ? start(entry.key) : true;
     },
-    remove: ({ key }) => player.castQueue.take(key) !== null,
+    // Removing the now-playing video moves on to the next queued one, or stops.
+    remove: ({ key, current }) => {
+      if (current === undefined) return player.castQueue.remove(key, player.video);
+      if (player.video?.id !== current) return false;
+      player.castQueue.forgetPlayed([current]);
+      return player.castQueue.length ? start() : player.reset().then(() => true);
+    },
     play: ({ key }) => (player.castQueue.snapshot().some(entry => entry.key === key)
       || player.castQueue.findPlayed(key, player.video) !== null) && start(key),
     move: ({ key, index }) => player.castQueue.move(key, index),
-    clear: () => { player.castQueue.clear(); return true; },
+    clear: () => { player.castQueue.clear(player.video); return true; },
   };
 }
