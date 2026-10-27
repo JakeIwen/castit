@@ -104,7 +104,7 @@ test('responses are read with has-any-value checks only: error, then message, th
     assert.equal(params(list[index + 2]).WFCondition, 100);
     assert.equal(params(list[index + 2]).WFInput.Variable.Value.OutputUUID, result.UUID);
     assert.equal(params(list[index + 3]).WFNotificationActionBody.Value.string,
-      workflow.WFWorkflowName === 'Van TV Queue' ? 'Added to the Van TV queue' : 'Casting on Van TV');
+      workflow.WFWorkflowName === 'Van TV Queue' ? 'Sent to Van TV (older receiver: deploy it to see the outcome)' : 'Casting on Van TV');
     assert.equal(params(list[index + 4]).WFControlFlowMode, 1);
     assert.equal(params(list[index + 5]).WFNotificationActionBody.Value.string, 'Van TV returned an unexpected response');
     assert.equal(list.length, index + 7);

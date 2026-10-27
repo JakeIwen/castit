@@ -3,9 +3,10 @@ import { action, attachment, condition, conditional, dictionary, output, text } 
 // One Shortcut per command, each a straight line of actions with no menu,
 // prompt or alert: a dialog-free Shortcut can be run and checked headlessly on
 // the Mac (`shortcuts run <name> -i <file>`) before it is tried on the phone.
+// Older receivers omit message, so the queue fallback must not claim an add succeeded.
 export const commands = Object.freeze([
   { name: 'Van TV Cast', path: '/api/cast', body: {}, resultKey: 'videoId', success: 'Casting on Van TV' },
-  { name: 'Van TV Queue', path: '/api/queue', body: { action: 'add' }, resultKey: 'done', success: 'Added to the Van TV queue' },
+  { name: 'Van TV Queue', path: '/api/queue', body: { action: 'add' }, resultKey: 'done', success: 'Sent to Van TV (older receiver: deploy it to see the outcome)' },
 ]);
 
 const title = 'Van TV';

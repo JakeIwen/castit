@@ -51,8 +51,14 @@ use no install-specific addresses.
 
 Shortcuts sync through iCloud, so the easiest route is the Mac:
 
-1. `open youtube/ios-shortcut/dist/*.shortcut` and click **Add Shortcut** in
-   each window. There is no CLI import.
+1. Open the two signed files:
+
+   ```sh
+   open "youtube/ios-shortcut/dist/Van TV Cast.shortcut"
+   open "youtube/ios-shortcut/dist/Van TV Queue.shortcut"
+   ```
+
+   Click **Add Shortcut** in each window. There is no CLI import.
 2. The two Shortcuts appear on the iPhone within a minute or so (open the
    Shortcuts app there to nudge the sync). Delete any older **Van TV**
    Shortcut first; a re-import never replaces one in place.
