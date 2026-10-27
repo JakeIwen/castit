@@ -82,30 +82,35 @@ test('the shared text goes straight from Shortcut Input into the POST body', () 
   }
 });
 
-test('JSON errors stop before success; cast and queue outcomes use receiver response values', () => {
+test('responses are read with has-any-value checks only: error, then message, then the result key', () => {
   for (const workflow of workflows()) {
     const list = workflow.WFWorkflowActions;
-    const index = list.findIndex(action => id(action) === 'downloadurl');
+    let index = list.findIndex(action => id(action) === 'downloadurl');
     const request = list[index];
-    const error = params(list[index + 1]);
-    assert.equal(error.WFDictionaryKey, 'error');
-    assert.equal(error.WFInput.Value.OutputUUID, ref(request));
-    assert.equal(params(list[index + 2]).WFCondition, 100);
-    assert.equal(params(list[index + 2]).WFInput.Variable.Value.OutputUUID, error.UUID);
-    assert.equal(inlineOutput(params(list[index + 3]).WFNotificationActionBody), error.UUID);
-    assert.equal(id(list[index + 4]), 'exit');
-    const result = params(list[index + 6]);
+    for (const key of ['error', 'message']) {
+      const item = params(list[index + 1]);
+      assert.equal(item.WFDictionaryKey, key);
+      assert.equal(item.WFInput.Value.OutputUUID, ref(request));
+      assert.equal(params(list[index + 2]).WFCondition, 100);
+      assert.equal(params(list[index + 2]).WFInput.Variable.Value.OutputUUID, item.UUID);
+      assert.equal(inlineOutput(params(list[index + 3]).WFNotificationActionBody), item.UUID);
+      assert.equal(id(list[index + 4]), 'exit');
+      assert.equal(params(list[index + 5]).WFControlFlowMode, 2);
+      index += 5;
+    }
+    const result = params(list[index + 1]);
+    assert.equal(result.WFDictionaryKey, workflow.WFWorkflowName === 'Van TV Queue' ? 'done' : 'videoId');
     assert.equal(result.WFInput.Value.OutputUUID, ref(request));
-    assert.equal(params(list[index + 7]).WFInput.Variable.Value.OutputUUID, result.UUID);
-    if (workflow.WFWorkflowName === 'Van TV Queue') {
-      assert.equal(result.WFDictionaryKey, 'done');
-      assert.equal(params(list[index + 8]).WFCondition, 4);
-      assert.equal(params(list[index + 8]).WFNumberValue, 1);
-      assert.equal(params(list[index + 9]).WFNotificationActionBody.Value.string, 'Added to the Van TV queue');
-      assert.equal(params(list[index + 11]).WFNotificationActionBody.Value.string, 'The Van TV queue is full');
-    } else {
-      assert.equal(result.WFDictionaryKey, 'videoId');
-      assert.equal(params(list[index + 8]).WFNotificationActionBody.Value.string, 'Casting on Van TV');
+    assert.equal(params(list[index + 2]).WFCondition, 100);
+    assert.equal(params(list[index + 2]).WFInput.Variable.Value.OutputUUID, result.UUID);
+    assert.equal(params(list[index + 3]).WFNotificationActionBody.Value.string,
+      workflow.WFWorkflowName === 'Van TV Queue' ? 'Added to the Van TV queue' : 'Casting on Van TV');
+    assert.equal(params(list[index + 4]).WFControlFlowMode, 1);
+    assert.equal(params(list[index + 5]).WFNotificationActionBody.Value.string, 'Van TV returned an unexpected response');
+    assert.equal(list.length, index + 7);
+    for (const action of list) {
+      assert.ok(!('WFNumberValue' in params(action)) && !('WFConditionalActionString' in params(action)));
+      if (id(action) === 'conditional' && params(action).WFControlFlowMode === 0) assert.equal(params(action).WFCondition, 100);
     }
   }
 });

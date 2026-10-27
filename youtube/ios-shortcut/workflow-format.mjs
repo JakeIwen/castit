@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-export const condition = Object.freeze({ equals: 4, hasValue: 100, isEmpty: 101 });
+export const condition = Object.freeze({ hasValue: 100 });
 
 export function action(identifier, parameters = {}) {
   return {

@@ -10,7 +10,6 @@ export const commands = Object.freeze([
 
 const title = 'Van TV';
 const messages = Object.freeze({
-  queueFull: 'The Van TV queue is full',
   unexpected: 'Van TV returned an unexpected response',
   networkHelp: 'If Get Contents of URL stops with a connection error: Van TV unreachable — are you on the van Wi-Fi? Shortcuts cannot catch network errors. The phone cannot be its own hotspot.',
 });
@@ -27,21 +26,24 @@ function value(response, key) {
   });
 }
 
+// Reads one response key and branches on whether it has a value. Every check
+// is "has any value": comparing a value (the queue's boolean `done` against 1)
+// stopped the Shortcut with "Please choose a value for each parameter".
+function check(response, key, actions, otherwise = []) {
+  const item = value(response, key);
+  const found = output(item, 'Dictionary Value');
+  return [item, ...conditional(found, condition.hasValue, actions(found), otherwise)];
+}
+
 function responseActions(request, command) {
   const response = output(request, 'Contents of URL');
-  const error = value(response, 'error');
-  const result = value(response, command.resultKey);
-  const resultOutput = output(result, 'Dictionary Value');
-  const success = [notify(command.success)];
-  const outcome = command.resultKey === 'done'
-    ? conditional(resultOutput, condition.equals, success, [notify(messages.queueFull)], { WFNumberValue: 1 })
-    : success;
+  const tell = found => [notify(found), action('exit')];
   return [
-    error,
-    ...conditional(output(error, 'Dictionary Value'), condition.hasValue,
-      [notify(output(error, 'Dictionary Value')), action('exit')]),
-    result,
-    ...conditional(resultOutput, condition.hasValue, outcome, [notify(messages.unexpected)]),
+    ...check(response, 'error', tell),
+    // The receiver's own wording, when the response carries one (queue add
+    // says whether the video was added or the queue was full).
+    ...check(response, 'message', tell),
+    ...check(response, command.resultKey, () => [notify(command.success)], [notify(messages.unexpected)]),
   ];
 }
 
