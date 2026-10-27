@@ -79,7 +79,8 @@ keep IP addresses, extension IDs, cookies and other private details out.
   (Pi) installs it.
 - `youtube/firefox/`: `push-youtube-cookies.zsh` runs on the Mac to install
   receiver watch-history cookies. `build/generate-config.mjs` exports `readLocalConfig`
-  and `senderConfig`, the extension's sender reader/validator; its CLI generates the manifest (from `manifest.template.json`) and root
+  and `senderConfig`, the shared sender reader/validator for the extension and
+  iOS Shortcut; its CLI generates the manifest (from `manifest.template.json`) and root
   `local-config.js`; `build.zsh` writes folder-preserving `dist/van-tv.xpi`
   and unpacked `dist/extension/`. Root `config.js` owns extension-wide
   vocabulary. `background/page.html` loads local config before
@@ -101,4 +102,10 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
+- `youtube/ios-shortcut/`: `build.zsh` generates and signs one dialog-free
+  share-sheet Shortcut per command (`dist/Van TV Cast.shortcut`,
+  `dist/Van TV Queue.shortcut`); `workflow.mjs` owns the commands and the
+  action list, `workflow-format.mjs` the Shortcuts plist vocabulary,
+  `generate.mjs` the config-driven CLI. The receiver finds the link inside
+  the shared text, so the Shortcut does no URL detection.
 - `youtube/vantv.zsh`: the Mac CLI over the same HTTP API.
