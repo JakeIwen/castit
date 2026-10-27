@@ -10,6 +10,9 @@ import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, spe
 
 const MAX_POST_BODY = 4096;
 const LINK_PREVIEW_LENGTH = 60;
+// Queue add responses carry their outcome in words for senders that can show
+// text but not compare values (the iOS Shortcut).
+const QUEUE_ADD_MESSAGES = Object.freeze({ true: 'Added to the Van TV queue', false: 'The Van TV queue is full' });
 // Web pages can't forge these origins, and a JSON body already forces a CORS
 // preflight this server never answers; the status page itself is same-origin.
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
@@ -124,7 +127,8 @@ async function handleQueue(request, { queue }) {
       }
       return [400, { error: 'Queue add needs exactly one of videoId or url; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
     }
-    return [200, { action, done: Boolean(await queue(action, fields)) }];
+    const done = Boolean(await queue(action, fields));
+    return [200, action === 'add' ? { action, done, message: QUEUE_ADD_MESSAGES[done] } : { action, done }];
   } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid queue request' }];
   }

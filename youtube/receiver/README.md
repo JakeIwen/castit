@@ -246,9 +246,12 @@ its resolver children. Starting another player later does not stop this one.
   in `settings.json` across sessions and restarts.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`
-  inserts next to play (up to 50), with exactly one of `videoId` or `url`. Queued
-  videos always start at zero, ignoring link timestamps. An addition starts at
-  once when the player is idle or stopped, even with older entries waiting.
+  inserts next to play (up to 50), with exactly one of `videoId` or `url`; `url`
+  may be any text containing a YouTube video link. The reply adds `message`
+  ("Added to the Van TV queue" or "The Van TV queue is full") beside `done`.
+  Queued videos always start at zero, ignoring link timestamps. An addition
+  starts at once when the player is idle or stopped, even with older entries
+  waiting.
   Playing or paused videos stay in place until they finish or Next is pressed.
   `play` and `remove` take an entry `key` from status; `remove` takes a `played`
   key too, or instead `current` with the loaded video's id, which forgets that

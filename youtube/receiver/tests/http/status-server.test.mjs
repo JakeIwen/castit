@@ -264,7 +264,7 @@ test('Queue route validates actions and fields before reaching the queue', async
   const post = body => fetch(`http://127.0.0.1:${server.address().port}/api/queue`, { method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'moz-extension://abc' }, body: JSON.stringify(body) });
   const added = await post({ action: 'add', videoId: VIDEO.id });
-  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true }]);
+  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true, message: 'Added to the Van TV queue' }]);
   assert.deepEqual(await (await post({ action: 'remove', key: 4 })).json(), { action: 'remove', done: false });
   assert.equal((await post({ action: 'play', key: 2 })).status, 200);
   for (const index of [0, Number.MAX_SAFE_INTEGER]) {
@@ -301,7 +301,7 @@ test('Queue link additions start at zero and need exactly one videoId or url', a
     headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
   const url = `https://youtu.be/${VIDEO.id}?t=90s`;
   const added = await post({ action: 'add', url });
-  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true }]);
+  assert.deepEqual([added.status, await added.json()], [200, { action: 'add', done: true, message: 'Added to the Van TV queue' }]);
   await settleUntil(() => instances[0]?.loaded);
   assert.deepEqual(instances[0].loaded, { id: VIDEO.id, position: 0 });
   assert.equal((await post({ action: 'add', url: `https://youtube.com/shorts/${SECOND.id}#t=2m` })).status, 200);
@@ -429,7 +429,7 @@ test('Cast and queue extract the first video from shared text without changing q
     for (const [url, position] of cases) {
       const response = await fetch(`${base}${path}`, { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, url }) });
-      const expected = action === 'add' ? { action: 'add', done: true } : { videoId: VIDEO.id, position };
+      const expected = action === 'add' ? { action: 'add', done: true, message: 'Added to the Van TV queue' } : { videoId: VIDEO.id, position };
       assert.deepEqual([response.status, await response.json()], [accepted, expected]);
     }
   }
