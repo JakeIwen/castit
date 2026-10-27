@@ -79,10 +79,12 @@ test('Cast links resolve ids and timestamps, keep explicit positions and reject 
     { videoId: null, url }, { url, position: -1 }, { url, position: 'nope' }]) {
     assert.equal((await post(body)).status, 400, JSON.stringify(body));
   }
-  for (const invalid of ['not a URL', `https://example.com/watch?v=${VIDEO.id}`, null, 12, {}, [],
-    `https://youtu.be/${VIDEO.id}?si=${'x'.repeat(2048)}`]) {
+  for (const [invalid, preview] of [['not a URL', 'not a URL'],
+    [`https://example.com/watch?v=${VIDEO.id}`, `https://example.com/watch?v=${VIDEO.id}`],
+    [null, 'null'], [12, '12'], [{}, '{}'], [[], '[]'],
+    [`https://youtu.be/${VIDEO.id}?si=${'x'.repeat(2048)}`, `https://youtu.be/${VIDEO.id}?si=${'x'.repeat(28)}…`]]) {
     const response = await post({ url: invalid });
-    assert.deepEqual([response.status, await response.json()], [400, { error: 'Not a YouTube video link' }]);
+    assert.deepEqual([response.status, await response.json()], [400, { error: `Not a YouTube video link: "${preview}"` }]);
   }
   assert.equal((await post({ url }, { Origin: 'https://evil.example' })).status, 403);
   assert.equal((await post({ url }, { 'Content-Type': 'text/plain' })).status, 403);
@@ -105,7 +107,8 @@ test('Cast and queue accept long shared links but bound URL characters and body 
   for (const [path, action, accepted] of [['/api/cast', undefined, 202], ['/api/queue', 'add', 200]]) {
     assert.equal((await post(path, { action, url })).status, accepted);
     const oversizedUrl = await post(path, { action, url: `${url}x` });
-    assert.deepEqual([oversizedUrl.status, await oversizedUrl.json()], [400, { error: 'Not a YouTube video link' }]);
+    assert.deepEqual([oversizedUrl.status, await oversizedUrl.json()],
+      [400, { error: `Not a YouTube video link: "${url.slice(0, 60)}…"` }]);
     for (const padding of ['x'.repeat(4096), 'é'.repeat(1500)]) {
       const oversizedBody = await post(path, { action, url, padding });
       assert.deepEqual([oversizedBody.status, await oversizedBody.json()], [413, { error: 'Request too large' }]);
@@ -306,9 +309,11 @@ test('Queue link additions start at zero and need exactly one videoId or url', a
     { action: 'add', videoId: null, url }, { action: 'add', videoId: VIDEO.id, url: null }]) {
     assert.equal((await post(body)).status, 400, JSON.stringify(body));
   }
-  for (const invalid of ['not a URL', `https://example.com/watch?v=${VIDEO.id}`, null, 12, {}, []]) {
+  for (const [invalid, preview] of [['not a URL', 'not a URL'],
+    [`https://example.com/watch?v=${VIDEO.id}`, `https://example.com/watch?v=${VIDEO.id}`],
+    [null, 'null'], [12, '12'], [{}, '{}'], [[], '[]']]) {
     const response = await post({ action: 'add', url: invalid });
-    assert.deepEqual([response.status, await response.json()], [400, { error: 'Not a YouTube video link' }]);
+    assert.deepEqual([response.status, await response.json()], [400, { error: `Not a YouTube video link: "${preview}"` }]);
   }
   assert.equal((await post({ action: 'add', url }, { Origin: 'https://evil.example' })).status, 403);
   assert.equal((await post({ action: 'add', url }, { 'Content-Type': 'text/plain' })).status, 403);
@@ -400,4 +405,61 @@ test('Subtitle HTTP controls validate fields, preserve language when disabled an
   assert.equal((await post({ enabled: false })).status, 200);
   const state = await (await fetch(`${base}/api/status`)).json();
   assert.deepEqual(state.subtitles, { enabled: false, language: 'pt-br', available: null, loading: false, error: false });
+});
+
+test('Cast and queue extract the first video from shared text without changing queue start positions', async t => {
+  const casts = [];
+  const additions = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) }, cast: async (...fields) => { casts.push(fields); },
+    queue: async (action, fields) => { additions.push([action, fields]); return true; },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const cases = [
+    [`Title https://youtu.be/${VIDEO.id}?si=x&t=90s`, 90],
+    [`https://m.youtube.com/shorts/${VIDEO.id}?feature=share#t=2m — check this out`, 120],
+    [`Watch https://youtu.be/${VIDEO.id}?t=4.5.`, 4.5],
+    [`https://example.com/video https://youtu.be/${VIDEO.id}?start=13 more text`, 13],
+    [`https://youtu.be/${VIDEO.id}?t=75 https://youtu.be/${SECOND.id}?t=90`, 75],
+  ];
+  for (const [path, action, accepted] of [['/api/cast', undefined, 202], ['/api/queue', 'add', 200]]) {
+    for (const [url, position] of cases) {
+      const response = await fetch(`${base}${path}`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, url }) });
+      const expected = action === 'add' ? { action: 'add', done: true } : { videoId: VIDEO.id, position };
+      assert.deepEqual([response.status, await response.json()], [accepted, expected]);
+    }
+  }
+  const override = await fetch(`${base}/api/cast`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: cases[0][0], position: 0 }) });
+  assert.deepEqual([override.status, await override.json()], [202, { videoId: VIDEO.id, position: 0 }]);
+  assert.deepEqual(casts, [...cases.map(([, position]) => [VIDEO.id, position]), [VIDEO.id, 0]]);
+  assert.deepEqual(additions, cases.map(() => ['add', { videoId: VIDEO.id }]));
+});
+
+test('Cast and queue link errors include trimmed previews capped at 60 characters', async t => {
+  const calls = [];
+  const server = await createStatusServer({ snapshot: () => ({ ok: true }),
+    pairing: { snapshot: () => ({}) }, cast: async (...fields) => { calls.push(fields); },
+    queue: async (...fields) => { calls.push(fields); return true; },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const cases = [['', ''], [' \n\t ', ''], [' \nNo link here\t ', 'No link here'],
+    ['x'.repeat(59), 'x'.repeat(59)], ['x'.repeat(60), 'x'.repeat(60)],
+    [` ${'x'.repeat(61)} `, `${'x'.repeat(60)}…`], ['𐐀'.repeat(61), `${'𐐀'.repeat(60)}…`]];
+  for (const [path, action] of [['/api/cast', undefined], ['/api/queue', 'add']]) {
+    for (const [url, preview] of cases) {
+      const response = await fetch(`${base}${path}`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, url }) });
+      assert.deepEqual([response.status, await response.json()],
+        [400, { error: `Not a YouTube video link: "${preview}"` }]);
+    }
+  }
+  assert.deepEqual(calls, []);
 });
