@@ -55,6 +55,7 @@ test('Local config names every missing or invalid receiver key', async t => {
     ['sshTarget', [undefined, null, '', '-option', 'pi@host extra', 'host\n']],
     ['hostnames', [undefined, null, 'host', [null], ['http://host'], ['host:8795'], ['host/path']]],
     ['lanAddress', [undefined, null, '', 'host.example', '999.1.1.1']],
+    ['tailscaleAddress', ['', 42, [], {}, 'host.example', '999.1.1.1', '::1']],
     ['audioDevice', [undefined, null, '', ' ', 42, 'bad\0device']],
     ['roomCommand', [undefined, [], {}, [''], ['command', 42], ['command', null], ['command', '\0']]],
     ['videoLibrary', [undefined, [], 'url', {}, { unit: 'player.service' }]],
@@ -98,7 +99,7 @@ test('Release config requires its own local file and preserves configured playba
   const missing = importConfig(module, directory);
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /Cannot read local config.*release\/local\.json.*ENOENT/);
-  document.receiver = { ...document.receiver, lanAddress: '198.51.100.20',
+  document.receiver = { ...document.receiver, lanAddress: '198.51.100.20', tailscaleAddress: '198.51.100.21',
     audioDevice: 'alsa/test-card', roomCommand: ['/usr/bin/true', ''],
     videoLibrary: { controlUrl: 'http://127.0.0.1:9999/api/control', unit: 'media-player.service' } };
   await writeFile(join(release, 'local.json'), JSON.stringify(document));
@@ -106,6 +107,7 @@ test('Release config requires its own local file and preserves configured playba
   assert.equal(result.status, 0, result.stderr);
   const { config, args } = JSON.parse(result.stdout);
   assert.equal(config.lanAddress, document.receiver.lanAddress);
+  assert.equal(config.tailscaleAddress, document.receiver.tailscaleAddress);
   assert.deepEqual(config.hostnames, document.receiver.hostnames);
   assert.deepEqual(config.roomCommand, document.receiver.roomCommand);
   assert.equal(config.videoLibraryUrl, document.receiver.videoLibrary.controlUrl);
@@ -144,4 +146,30 @@ test('Config honors CASTIT_LOCAL_CONFIG and the existing LAN address environment
   const missing = importConfig(module, directory, { CASTIT_LOCAL_CONFIG: join(directory, 'missing.json') });
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /Cannot read local config.*missing\.json.*ENOENT/);
+});
+
+test('Tailscale binding is optional and the configured address is an automatically trusted HTTP host', async t => {
+  const { directory, file, document } = await fixture(t);
+  delete document.receiver.tailscaleAddress;
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).tailscaleAddress, null);
+  document.receiver.tailscaleAddress = '198.51.100.21';
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).tailscaleAddress, document.receiver.tailscaleAddress);
+  const module = fileURLToPath(new URL('../../src/http/status-server.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const { createStatusServer } = await import(process.argv[1]);
+    const server = await createStatusServer({ snapshot: () => ({ ok: true }), pairing: {} });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch('http://127.0.0.1:' + server.address().port + '/health',
+        { headers: { Host: process.argv[2] } });
+      console.log(JSON.stringify({ status: response.status, body: await response.json() }));
+    } finally {
+      await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+    }
+  `, module, document.receiver.tailscaleAddress], { cwd: directory,
+    env: { ...process.env, CASTIT_LOCAL_CONFIG: file }, encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { status: 200, body: { ok: true } });
 });

@@ -22,7 +22,8 @@ zsh youtube/ios-shortcut/build.zsh
 ```
 
 The generator uses **only the first** `senders.receiverUrls` entry, including
-any base path. It reuses the Firefox generator's exported `readLocalConfig`
+any base path; the remaining entries are not tried as fallbacks. Put the Pi's
+Tailscale URL first to use it both on and away from the van LAN. It reuses the Firefox generator's exported `readLocalConfig`
 and `senderConfig`; therefore the shared config also requires `extensionId`.
 `CASTIT_LOCAL_CONFIG` overrides the config path (relative paths are resolved
 from `youtube/ios-shortcut/` by the build script). For an example-only build:
@@ -70,9 +71,12 @@ Shortcuts sync through iCloud, so the easiest route is the Mac:
 AirDrop or iCloud Drive plus **Files → tap the file → Add Shortcut** on the
 phone also works.
 
-The phone **must be able to reach the receiver**, normally on the van Wi-Fi.
-This does **not** work when this same phone is providing the hotspot. It does
-not need the YouTube app.
+The phone **must be able to reach the receiver**. For a Tailscale URL, connect
+both the phone and Pi to the same tailnet and configure the receiver's
+`tailscaleAddress`. Traffic can go directly over the van LAN when both devices
+are there, and work remotely otherwise. A LAN-only URL needs a reachable LAN
+route and does not work when this same phone is providing the hotspot. Neither
+Shortcut needs the YouTube app.
 
 ## Test on the Mac
 

@@ -26,9 +26,12 @@ cp ../local.example.json ../local.json
 
 - `sshTarget`: SSH host or `user@host` used by `deploy.sh`.
 - `hostnames`: extra trusted HTTP Host names, without ports. Loopback names and
-  `lanAddress` are always trusted.
+  `lanAddress` and configured `tailscaleAddress` are always trusted.
 - `lanAddress`: Pi IPv4 LAN address for discovery and status binding.
   `YOUTUBE_CAST_LAN_ADDRESS` overrides it at runtime.
+- `tailscaleAddress`: optional Pi Tailscale IPv4 address for status/API binding;
+  omitted or `null` disables it. If unavailable at boot, a warning is logged and
+  binding retries every five seconds without delaying loopback or LAN startup.
 - `audioDevice`: mpv audio-device value; inspect devices with `mpv --audio-device=help`.
 - `roomCommand`: optional argv array for an idempotent command run ~1.5 s after
   each playback start and resume, with an 18-second timeout. It must be cheap
@@ -144,7 +147,9 @@ Settings → Watch on TV → Enter TV code. TV-code pairing needs internet on bo
 devices, not direct phone-to-Pi connectivity. Codes refresh every five minutes.
 Chrome's built-in Google Cast button does not discover this receiver.
 
-The status page listens on loopback and the configured LAN address. DIAL's
+The status page listens on loopback, the configured LAN address and optional
+`tailscaleAddress`. Tailscale gives tailnet devices access to the status/API port;
+DIAL discovery still uses the LAN address. DIAL's
 upstream HTTP listener binds all interfaces; its discovery-interface setting
 does not restrict that listener. Both ports are for trusted networks only:
 there is no login. Do not forward them to the internet; use a host firewall if

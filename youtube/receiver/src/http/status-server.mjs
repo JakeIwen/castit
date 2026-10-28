@@ -9,6 +9,7 @@ import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, spe
   volumeArguments, muteArguments, queueArguments } from '../controls/player-controls.mjs';
 
 const MAX_POST_BODY = 4096;
+const STATUS_LISTEN_RETRY_MS = 5000;
 const LINK_PREVIEW_LENGTH = 60;
 // Queue add responses carry their outcome in words for senders that can show
 // text but not compare values (the iOS Shortcut).
@@ -36,7 +37,7 @@ const assets = {
 export async function createStatusServer({ snapshot, pairing, control = async () => false,
   queue = async () => false,
   cast = async () => { throw new Error('Cast unavailable'); },
-  hosts = ['localhost', '127.0.0.1', config.lanAddress, ...config.hostnames] }) {
+  hosts = ['localhost', '127.0.0.1', config.lanAddress, config.tailscaleAddress, ...config.hostnames].filter(Boolean) }) {
   const content = new Map(await Promise.all(Object.entries(assets).map(async ([path, [file, type]]) =>
     [path, { type, body: await readFile(new URL(`../../web/${file}`, import.meta.url)) }])));
   return createServer((request, response) => {
@@ -157,11 +158,29 @@ async function handleCast(request, { cast }) {
   } catch { return [503, { error: 'Van TV is not ready to cast' }]; }
 }
 
+// Tailscale may acquire its address after boot; keep loopback and LAN serving meanwhile.
+function retryStatusListen(server, { host, port, retryMs, log }) {
+  let retry;
+  let stopped = false;
+  const listen = () => { if (!stopped) server.listen(port, host); };
+  server.on('error', error => {
+    if (stopped) return;
+    log.warn(`Status listener ${host}:${port} unavailable (${error.code || 'listen failed'}); retrying`);
+    retry = setTimeout(listen, retryMs);
+    retry.unref();
+  });
+  listen();
+  return () => { stopped = true; clearTimeout(retry); };
+}
+
 export async function listenStatus(options, { addresses = ['127.0.0.1', config.lanAddress],
-  port = config.statusPort } = {}) {
+  extraAddresses = config.tailscaleAddress ? [config.tailscaleAddress] : [],
+  port = config.statusPort, retryMs = STATUS_LISTEN_RETRY_MS, log = console } = {}) {
   const servers = [];
+  const cancelRetries = [];
+  const required = new Set(addresses);
   try {
-    for (const host of new Set(addresses)) {
+    for (const host of required) {
       const server = await createStatusServer(options);
       servers.push(server);
       await new Promise((resolve, reject) => {
@@ -169,11 +188,21 @@ export async function listenStatus(options, { addresses = ['127.0.0.1', config.l
         server.listen(port, host, resolve);
       });
     }
-    return () => Promise.all(servers.map(server => new Promise(resolve => {
-      server.close(resolve);
-      server.closeIdleConnections();
-    })));
+    for (const host of new Set(extraAddresses)) {
+      if (required.has(host)) continue;
+      const server = await createStatusServer(options);
+      servers.push(server);
+      cancelRetries.push(retryStatusListen(server, { host, port, retryMs, log }));
+    }
+    return () => {
+      for (const cancel of cancelRetries) cancel();
+      return Promise.all(servers.map(server => new Promise(resolve => {
+        server.close(resolve);
+        server.closeIdleConnections();
+      })));
+    };
   } catch (error) {
+    for (const cancel of cancelRetries) cancel();
     for (const server of servers) server.close();
     throw error;
   }

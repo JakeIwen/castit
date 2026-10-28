@@ -48,13 +48,15 @@ function receiverConfig(value) {
   const hostnames = value.hostnames.map((value, index) => hostname(value, `receiver.hostnames[${index}]`));
   requireValue(typeof value.lanAddress === 'string' && isIPv4(value.lanAddress),
     'receiver.lanAddress', 'an IPv4 address for LAN discovery and binding');
+  requireValue(value.tailscaleAddress == null || (typeof value.tailscaleAddress === 'string'
+    && isIPv4(value.tailscaleAddress)), 'receiver.tailscaleAddress', 'null or an IPv4 address for status binding');
   requireValue(isText(value.audioDevice), 'receiver.audioDevice', 'a non-empty mpv audio device');
   requireValue(value.roomCommand === null || (Array.isArray(value.roomCommand)
     && isText(value.roomCommand[0])
     && value.roomCommand.every(argument => typeof argument === 'string' && !argument.includes('\0'))),
   'receiver.roomCommand', 'null or a non-empty argv array for an idempotent command run ~1.5 s after each playback start and resume');
   return Object.freeze({ sshTarget: value.sshTarget, hostnames: Object.freeze(hostnames),
-    lanAddress: value.lanAddress, audioDevice: value.audioDevice,
+    lanAddress: value.lanAddress, tailscaleAddress: value.tailscaleAddress ?? null, audioDevice: value.audioDevice,
     roomCommand: value.roomCommand === null ? null : Object.freeze([...value.roomCommand]),
     videoLibrary: videoLibrary(value.videoLibrary) });
 }

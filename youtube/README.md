@@ -17,8 +17,8 @@ HTTP API on port 8795 lets other senders cast and control playback directly.
 cp local.example.json local.json
 ```
 
-`receiver` holds the Pi's SSH target, trusted hostnames, LAN address, audio
-device and optional integrations (a command run before each cast session, a
+`receiver` holds the Pi's SSH target, trusted hostnames, LAN and optional Tailscale
+addresses, audio device and optional integrations (a command run before each cast session, a
 local video player to stop first); see the receiver README. `senders` holds the
 receiver URLs the extension, CLI and iOS Shortcut use, primary first, and the extension ID.
 `local.json` is ignored by Git; the deploy script copies it to the Pi.

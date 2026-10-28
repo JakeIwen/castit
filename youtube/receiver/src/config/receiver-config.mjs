@@ -8,6 +8,7 @@ const local = loadLocalConfig();
 export const config = Object.freeze({
   name: 'Van TV',
   lanAddress: process.env.YOUTUBE_CAST_LAN_ADDRESS || local.lanAddress,
+  tailscaleAddress: local.tailscaleAddress,
   hostnames: local.hostnames,
   dialPort: 8794,
   statusPort: 8795,

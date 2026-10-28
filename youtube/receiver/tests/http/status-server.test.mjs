@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { get } from 'node:http';
-import { createStatusServer } from '../../src/http/status-server.mjs';
+import { createServer, get } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
+import { createStatusServer, listenStatus } from '../../src/http/status-server.mjs';
 import { config } from '../../src/config/receiver-config.mjs';
 import { createPlayerControls, createQueueControls } from '../../src/controls/player-controls.mjs';
 import { PlayerStatus } from '../../src/playback/player.mjs';
@@ -469,4 +470,70 @@ test('Cast and queue link errors include trimmed previews capped at 60 character
     }
   }
   assert.deepEqual(calls, []);
+});
+
+test('An unassigned extra status address retries without delaying the required listener, and stops retrying on close',
+  { timeout: 3000 }, async t => {
+    const reservation = createServer();
+    reservation.listen(0, '127.0.0.1');
+    await once(reservation, 'listening');
+    const { port } = reservation.address();
+    await new Promise(resolve => reservation.close(resolve));
+    const warnings = [];
+    const close = await listenStatus({ snapshot: () => ({ ok: true }), pairing: {} },
+      { addresses: ['127.0.0.1'], extraAddresses: ['198.51.100.253'], port,
+        retryMs: 20, log: { warn: message => warnings.push(message) } });
+    t.after(close);
+    await settleUntil(() => warnings.length > 0);
+    assert.match(warnings[0], /198\.51\.100\.253.*EADDRNOTAVAIL.*retrying/);
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    assert.deepEqual([response.status, await response.json()], [200, { ok: true }]);
+    await settleUntil(() => warnings.length > 1);
+    await close();
+    const count = warnings.length;
+    await delay(80);
+    assert.equal(warnings.length, count);
+    await assert.rejects(fetch(`http://127.0.0.1:${port}/health`));
+  });
+
+test('An extra status listener recovers after a bind failure, deduplicates addresses and closes cleanly',
+  { timeout: 3000 }, async t => {
+    const blocker = createServer();
+    blocker.listen(0, '127.0.0.1');
+    await once(blocker, 'listening');
+    t.after(() => new Promise(resolve => blocker.close(resolve)));
+    const { port } = blocker.address();
+    const warnings = [];
+    const close = await listenStatus({ snapshot: () => ({ ok: true }), pairing: {} },
+      { addresses: [], extraAddresses: ['127.0.0.1', '127.0.0.1'], port,
+        retryMs: 20, log: { warn: message => warnings.push(message) } });
+    t.after(close);
+    await settleUntil(() => warnings.length > 0);
+    assert.match(warnings[0], /EADDRINUSE/);
+    await new Promise(resolve => blocker.close(resolve));
+    let response;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      try { response = await fetch(`http://127.0.0.1:${port}/health`); break; }
+      catch { await delay(10); }
+    }
+    assert.ok(response, 'extra listener never recovered');
+    assert.deepEqual([response.status, await response.json()], [200, { ok: true }]);
+    const count = warnings.length;
+    await delay(80);
+    assert.equal(warnings.length, count);
+    await close();
+    await assert.rejects(fetch(`http://127.0.0.1:${port}/health`));
+  });
+
+test('Required status bind failures still fail startup and close earlier required listeners', async t => {
+  const reservation = createServer();
+  reservation.listen(0, '127.0.0.1');
+  await once(reservation, 'listening');
+  const { port } = reservation.address();
+  await new Promise(resolve => reservation.close(resolve));
+  await assert.rejects(listenStatus({ snapshot: () => ({ ok: true }), pairing: {} },
+    { addresses: ['127.0.0.1', '198.51.100.253'], extraAddresses: [], port }), { code: 'EADDRNOTAVAIL' });
+  reservation.listen(port, '127.0.0.1');
+  await once(reservation, 'listening');
+  t.after(() => new Promise(resolve => reservation.close(resolve)));
 });
