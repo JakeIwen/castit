@@ -54,7 +54,7 @@ test('Superseded loads cannot change or clear progress or contribute a successfu
   now = 2501;
   current.finish(true);
   progress.start();
-  assert.equal(progress.snapshot().expected, 1.501);
+  assert.equal(progress.snapshot().expected, 1.5);
   progress.cancel();
   assert.equal(progress.snapshot(), null);
 });

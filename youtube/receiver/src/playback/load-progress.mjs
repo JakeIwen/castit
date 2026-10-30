@@ -43,6 +43,6 @@ export class LoadProgress {
     const middle = Math.floor(times.length / 2);
     const median = times.length % 2 ? times[middle] : (times[middle - 1] + times[middle]) / 2;
     return { phase: this.current.phase, elapsed: seconds(this.now() - this.current.started),
-      expected: times.length ? median / 1000 : null };
+      expected: times.length ? seconds(median) : null };
   }
 }
