@@ -20,6 +20,8 @@ export async function runReceiver({ receiver, player, store, log = console,
     player: Object.keys(PlayerStatus).find(key => PlayerStatus[key] === player.status) || 'UNKNOWN',
     video: player.video, position: player.position, duration: player.duration, audioDelay: player.audioDelay,
     diagnostics: player.diagnostics, loading: player.loading,
+    ...(player.videoStore?.snapshot(player.video?.id)
+      ?? { source: null, download: null, library: { available: false } }),
     quality: player.quality, subtitles: player.subtitles, speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
     played: player.castQueue.playedSnapshot(player.video),
     canPlayNext: player.canPlayNext,
@@ -35,6 +37,7 @@ export async function runReceiver({ receiver, player, store, log = console,
         pairing.stop();
         watchHistory.stop();
         await player.endSession();
+        await player.videoStore?.close();
         await receiver.stop();
         await closeStatus?.();
         await store.writes;
@@ -66,6 +69,9 @@ export async function runReceiver({ receiver, player, store, log = console,
       if (!title) void player.resolveVideoTitle(video);
     };
     closeStatus = await statusListener({ snapshot, pairing, cast,
+      refreshStorage: async () => { await player.videoStore?.refresh(); },
+      library: () => player.videoStore?.list()
+        ?? Promise.resolve({ available: false, freeBytes: null, channels: [], downloads: [] }),
       control: (action, fields) => controls[action](fields),
       queue: (action, fields) => queueControls[action](fields) });
     const startup = setTimeout(() => { log.error('Receiver startup timeout'); void stop(1); }, 60_000);

@@ -8,8 +8,9 @@ const ID = 'abcdefghijk';
 const NOW = 1_800_000_000_000;
 const url = (kind, expiry = NOW / 1000 + 3600) => `https://r1.googlevideo.com/videoplayback?kind=${kind}&expire=${expiry}`;
 const track = (kind, expiry) => ({ url: url(kind, expiry), protocol: 'https',
+  format_id: kind === 'video' ? '137' : '140', filesize: 1234, ext: 'mp4',
   vcodec: kind === 'video' ? 'avc1' : 'none', acodec: kind === 'audio' ? 'mp4a' : 'none' });
-const metadata = () => ({ id: ID, title: 'Title, with: punctuation',
+const metadata = () => ({ id: ID, title: 'Title, with: punctuation', channel: 'Channel', duration: 42,
   http_headers: { 'User-Agent': 'Fixture UA', Referer: 'https://www.youtube.com/' },
   requested_formats: [track('video'), track('audio')],
 });
@@ -23,7 +24,12 @@ test('Resolver runs the existing selector and hook options through bounded, nice
   } });
   const stream = await resolver.resolve(ID);
   assert.deepEqual(stream, { videoUrl: url('video'), audioUrl: url('audio'), title: metadata().title,
-    httpOptions: { 'user-agent': 'Fixture UA', 'http-header-fields': 'Referer: https://www.youtube.com/' } });
+    channel: 'Channel', duration: 42, tracks: [
+      { formatId: '137', role: 'video', size: 1234, ext: 'mp4', vcodec: 'avc1', acodec: 'none',
+        url: url('video'), headers: metadata().http_headers },
+      { formatId: '140', role: 'audio', size: 1234, ext: 'mp4', vcodec: 'none', acodec: 'mp4a',
+        url: url('audio'), headers: metadata().http_headers },
+    ], httpOptions: { 'user-agent': 'Fixture UA', 'http-header-fields': 'Referer: https://www.youtube.com/' } });
   const { argv, options } = calls[0];
   assert.deepEqual(argv.slice(0, 4), [playback.nice, '-n', String(playback.resolveNice), playback.ytdlp]);
   assert.equal(argv[argv.indexOf('--format') + 1], playback.format);
@@ -68,7 +74,9 @@ test('Muxed HTTPS formats are preserved and unknown expiries are never cached', 
   let calls = 0;
   const data = { id: ID, title: 'Muxed', protocol: 'https', url: 'https://media.invalid/muxed', vcodec: 'avc1', acodec: 'mp4a' };
   const resolver = new StreamResolver({ run: async () => { calls++; return result(data); } });
-  assert.deepEqual(await resolver.resolve(ID), { videoUrl: data.url, audioUrl: null, title: 'Muxed', httpOptions: {} });
+  assert.deepEqual(await resolver.resolve(ID), { videoUrl: data.url, audioUrl: null, title: 'Muxed', httpOptions: {},
+    channel: 'Unknown channel', duration: null, tracks: [{ formatId: '', role: 'video', size: null, ext: null,
+      vcodec: 'avc1', acodec: 'mp4a', url: data.url, headers: {} }] });
   await resolver.resolve(ID);
   assert.equal(calls, 2);
 });

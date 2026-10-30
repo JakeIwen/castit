@@ -58,6 +58,7 @@ test('Local config names every missing or invalid receiver key', async t => {
     ['tailscaleAddress', ['', 42, [], {}, 'host.example', '999.1.1.1', '::1']],
     ['audioDevice', [undefined, null, '', ' ', 42, 'bad\0device']],
     ['roomCommand', [undefined, [], {}, [''], ['command', 42], ['command', null], ['command', '\0']]],
+    ['videoStore', ['', 42, {}, 'relative/path', '/tmp', '/mnt/drive/../video', '/mnt/drive/video/', '/mnt/drive/bad\nname']],
     ['videoLibrary', [undefined, [], 'url', {}, { unit: 'player.service' }]],
   ];
   for (const [key, invalid] of cases) {
@@ -128,6 +129,19 @@ test('Release config requires its own local file and preserves configured playba
   assert.equal(config.installDirectory, '/home/pi/youtube-cast');
   assert.equal(config.stateDirectory, '/home/pi/.local/state/youtube-cast');
   assert.deepEqual([config.dialPort, config.statusPort], [8794, 8795]);
+});
+
+test('Video storage is optional in existing installations and validates a mounted-directory path', async t => {
+  const { file, document } = await fixture(t);
+  delete document.receiver.videoStore;
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).videoStore, null);
+  document.receiver.videoStore = null;
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).videoStore, null);
+  document.receiver.videoStore = '/mnt/media/saved';
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).videoStore, '/mnt/media/saved');
 });
 
 test('Config honors CASTIT_LOCAL_CONFIG and the existing LAN address environment override', async t => {

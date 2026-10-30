@@ -64,6 +64,9 @@ prepare() {
   for executable in npm /usr/bin/mpv /usr/bin/wlopm /usr/bin/dbus-send curl /usr/bin/python3; do
     command -v "$executable" >/dev/null || { echo "Missing prerequisite: $executable" >&2; return 1; }
   done
+  if [[ $(config_value videoStore) != null ]]; then
+    command -v /usr/bin/ffmpeg >/dev/null || { echo 'Missing prerequisite: /usr/bin/ffmpeg' >&2; return 1; }
+  fi
   systemd-analyze verify "$here/$unit"
   local file
   while IFS= read -r -d '' file; do /usr/bin/node --check "$file"; done \

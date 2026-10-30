@@ -43,6 +43,10 @@ cp ../local.example.json ../local.json
   If the command sets an amplifier's volume, give it a level suited to YouTube's
   loudness-normalized audio (louder than most films) and trim from there with
   the receiver's own volume.
+- `videoStore`: optional absolute directory directly below a mounted drive, or
+  `null` to disable disk buffering and downloads. The example uses
+  `/mnt/EXFAT512/van-tv`; storage needs `ffmpeg`. See [Video store](docs/video-store.md)
+  for the mount guard, free-space floor, retention, offline playback and API.
 - `videoLibrary`: `null` disables playback handoff. Otherwise set `controlUrl`
   to a bookmarking HTTP stop endpoint and `unit` to its systemd user service.
   The receiver checks that unit, POSTs form `action=stop`, and expects JSON
@@ -93,6 +97,13 @@ Prefetch uses the same deadline; a failed attempt is not retried every poll and
 does not poison the cache, so a later foreground load can try again.
 The phone's queue is not prefetched. Quality changes cancel old prefetch work and use separate cache entries. No account
 cookies are added to playback extraction.
+
+A configured mounted video store serves saved files first, then complete cache
+entries without extraction. Other direct streams pass through a loopback range
+cache; Stop or moving on expires unmarked bytes after ten minutes. Download
+keeps missing ranges, muxes a saved copy and makes it browsable through
+`GET /api/library`. Storage failure falls back to direct streaming, not SD-card
+writes. Details and limits are in [Video store](docs/video-store.md).
 
 Each attempted load writes one `Video load timing` line with `handoff`, `wake`,
 `mpv_start` (including property setup), `resolve`, `load` and `total` milliseconds,
@@ -220,6 +231,14 @@ its resolver children. Starting another player later does not stop this one.
   poll status for the outcome. A new navigation can cancel an unfinished load.
   `seek` requires exactly one of absolute `position` (>= 0) or relative
   `offset`, in seconds, clamped to the video.
+- `GET /api/library`: `{available, freeBytes, channels, downloads}`; channels
+  contain saved videos newest first. `/api/status` also adds `source`
+  (`web`, `cache`, `saved`, null), current-video `download` (`{state, progress,
+  error}` or null), and `library: {available}`.
+- `POST /api/control` with `{"action":"download"}` saves the current video;
+  optional `id` selects another video. `{"action":"delete_saved","id":"…"}`
+  removes a saved file. Both return `{action, done}`; Download continues in the
+  background. See [the exact storage API](docs/video-store.md#http-contract).
 - `POST /api/control` with `{"action":"audio_delay","delay":-0.12}` sets the
   A/V offset. Use exactly one of absolute `delay` or relative `offset`, in finite
   seconds. Values clamp to −1…+1 second and round to 0.01 second; positive values
@@ -374,7 +393,9 @@ npm test
 ```
 
 Tests use `../local.example.json`, temporary stores, local HTTP/IPC fixtures and
-fake playback processes; no real room command or media handoff runs.
+fake playback processes; no real room command or media handoff runs. Video-store
+tests also mux tiny generated clips with real ffmpeg/ffprobe (`brew install ffmpeg`
+on macOS; `sudo apt-get install ffmpeg` on Debian).
 `src/config/local-config.mjs` validates installation settings; `src/index.mjs` wires the receiver;
 `src/playback/player.mjs` implements playback, with process/IPC in `src/playback/mpv/`,
 room preparation and VLC handoff in `src/host/`, and the cast queue in

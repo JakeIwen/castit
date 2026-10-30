@@ -16,6 +16,7 @@ export const config = Object.freeze({
   runtimeDirectory: '/run/youtube-cast',
   installDirectory: '/home/pi/youtube-cast',
   videoLibraryUrl: local.videoLibrary?.controlUrl ?? null,
+  videoStore: local.videoStore,
   sponsorBlockUrl: 'https://sponsor.ajay.app/api/skipSegments',
   sponsorBlockCategories: ['sponsor', 'selfpromo'],
   sessionEnvironment: {

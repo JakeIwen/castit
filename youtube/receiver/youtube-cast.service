@@ -29,7 +29,9 @@ KillMode=control-group
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/pi/.local/state/youtube-cast /run/youtube-cast
+# Whitelist the mount parent, not the removable mount itself: an idle receiver
+# must not hold a private bind mount of the video disk across backup unmounts.
+ReadWritePaths=/home/pi/.local/state/youtube-cast /run/youtube-cast -/mnt
 # X11 uses /tmp/.X11-unix; ALSA/DRM and the user's D-Bus must remain accessible.
 PrivateTmp=false
 PrivateDevices=false

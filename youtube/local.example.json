@@ -6,7 +6,8 @@
     "tailscaleAddress": null,
     "audioDevice": "alsa/hdmi:CARD=vc4hdmi0,DEV=0",
     "roomCommand": null,
-    "videoLibrary": null
+    "videoLibrary": null,
+    "videoStore": "/mnt/EXFAT512/van-tv"
   },
   "senders": {
     "receiverUrls": ["http://raspberrypi.local:8795", "http://192.168.1.50:8795"],

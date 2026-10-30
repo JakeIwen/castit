@@ -5,7 +5,7 @@ import { findYouTubeVideo } from '../youtube/video-url.mjs';
 // Every action senders without a lounge session can send (the vantv command,
 // the Firefox popup, the Pi's vlcmd/pp shell functions behind the BTT buttons).
 export const CONTROL_ACTIONS = Object.freeze(['pause', 'resume', 'toggle', 'stop', 'next', 'previous',
-  'seek', 'audio_delay', 'speed', 'volume', 'mute', 'subtitles', 'quality']);
+  'seek', 'audio_delay', 'speed', 'volume', 'mute', 'subtitles', 'quality', 'download', 'delete_saved']);
 export const QUEUE_ACTIONS = Object.freeze(['add', 'remove', 'play', 'move', 'clear']);
 
 // Returns `seek` arguments from a request body, or null when they are invalid:
@@ -55,6 +55,9 @@ export function queueArguments({ action, videoId, url, key, index, current }) {
   return {};
 }
 
+export function downloadArguments({ id }) { return id === undefined || isVideoId(id) ? { id } : null; }
+export function deleteSavedArguments({ id }) { return isVideoId(id) ? { id } : null; }
+
 export function createPlayerControls(player, { log = console } = {}) {
   // Navigation acknowledges the request before extraction finishes, so another
   // Next/Previous can cancel that load through the player's existing play queue.
@@ -96,6 +99,8 @@ export function createPlayerControls(player, { log = console } = {}) {
     },
     audio_delay: ({ delay, offset }) => player.setAudioDelay(delay ?? player.audioDelay + offset),
     quality: ({ quality }) => player.setQuality(quality),
+    download: ({ id }) => player.videoStore?.download(id ?? player.video?.id, player.quality.selected) ?? false,
+    delete_saved: ({ id }) => player.videoStore?.deleteSaved(id) ?? false,
     subtitles: fields => player.setSubtitles(fields),
     speed: ({ speed, offset }) => player.setSpeed(speed ?? player.speed + offset),
     // Changing the level unmutes, like a TV remote.

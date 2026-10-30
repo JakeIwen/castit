@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { isIPv4 } from 'node:net';
+import { isAbsolute, normalize, dirname } from 'node:path';
 
 function requireValue(valid, key, expected) {
   if (!valid) throw new TypeError(`Local config ${key} must be ${expected}`);
@@ -39,6 +40,14 @@ function videoLibrary(value) {
   return Object.freeze({ controlUrl: value.controlUrl, unit: value.unit });
 }
 
+function videoStore(value) {
+  if (value == null) return null;
+  requireValue(isText(value) && isAbsolute(value) && normalize(value) === value && !value.endsWith('/')
+    && dirname(dirname(value)) !== '/' && !/[\x00-\x1f\x7f]/.test(value),
+  'receiver.videoStore', 'null or a normalized absolute directory directly below a mountpoint');
+  return value;
+}
+
 function receiverConfig(value) {
   requireValue(isObject(value), 'receiver', 'an object');
   requireValue(typeof value.sshTarget === 'string' && !/\s/.test(value.sshTarget)
@@ -58,7 +67,7 @@ function receiverConfig(value) {
   return Object.freeze({ sshTarget: value.sshTarget, hostnames: Object.freeze(hostnames),
     lanAddress: value.lanAddress, tailscaleAddress: value.tailscaleAddress ?? null, audioDevice: value.audioDevice,
     roomCommand: value.roomCommand === null ? null : Object.freeze([...value.roomCommand]),
-    videoLibrary: videoLibrary(value.videoLibrary) });
+    videoStore: videoStore(value.videoStore), videoLibrary: videoLibrary(value.videoLibrary) });
 }
 
 export function loadLocalConfig(file = process.env.CASTIT_LOCAL_CONFIG ?? new URL('../../local.json', import.meta.url)) {

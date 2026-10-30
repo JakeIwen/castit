@@ -33,6 +33,7 @@ keep IP addresses, extension IDs, cookies and other private details out.
 | `/home/pi/youtube-cast/` releases, `youtube-cast.service`, state in `/home/pi/.local/state/youtube-cast/` | the live Pi install; `youtube/receiver/deploy.sh` owns them |
 | `/home/pi/youtube-cast/current/controller.sh update-ytdlp` | the Pi's weekly crontab line |
 | DIAL port 8794, status/API port 8795, `/api/status`, `/api/control`, `/api/cast`, `/api/queue` | the extension, `vantv.zsh`, and the Pi shell's `vantv_*` functions (in `JakeIwen/scripts` `pi/.bashrc`) that route BTT media buttons |
+| `/api/library` and `receiver.videoStore` | saved-video senders; `youtube/receiver/src/video-store/video-store.mjs` owns the mounted store, with no fixed proxy port |
 | extension ID from `senders.extensionId` | installed Firefox add-on; changing it installs a separate add-on |
 | `youtube/vantv.zsh` | the Mac `vantv` alias in `~/.zshrc` |
 | an `mpv` process exists only while a video is loaded or playing | the Pi's labwc idle-blanking hook `~/.config/labwc/blank-when-idle.sh` (source in `JakeIwen/scripts` `pi/configs/labwc/`, installed by `pi/sync_scripts.sh`), which holds the screen on while `pgrep -x mpv` matches |
@@ -55,6 +56,14 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `playback/queue-prefetch.mjs` resolves the next queued video during
   playback, and `playback/load-timing.mjs` logs per-phase load times;
   `playback/load-progress.mjs` owns live load phases and recent successful timing estimates.
+  `video-store/video-store.mjs` is the disk-video feature's public playback/API boundary;
+  `contracts.mjs` owns source/download vocabulary and track/cache metadata, `store-disk.mjs`
+  the mount/space/path guard, `cache-entries.mjs` sparse entry metadata, `ranges.mjs`
+  interval arithmetic, `range-transfer.mjs` shared byte fetching and URL refresh,
+  `caching-proxy.mjs` the ephemeral loopback HTTP adapter, `cache-retention.mjs`
+  expiry, `video-downloads.mjs` background jobs, and `saved-library.mjs` muxing,
+  exFAT names and saved-file discovery. Store tests use real HTTP/disk/ffmpeg;
+  `docs/video-store.md` documents storage, offline limits and the API.
   `history/watch-history.mjs` marks videos watched on the signed-in account
   after real playback (opt-in via the cookie file that
   `push-youtube-cookies.zsh` installs); `history/ytdlp-history.mjs` is its

@@ -38,14 +38,15 @@ const MPV_SETTINGS = Object.freeze({ audioDelay: 'audio-delay', speed: 'speed' }
 export class MpvPlayer extends Player {
   constructor({ createMpv = () => new MpvProcess(), room = new RoomPreparation(),
     handoff = stopVideoLibrary, segments = fetchSegments, store, log = console,
-    castQueue = new CastQueue(), resolver = new StreamResolver() } = {}) {
+    castQueue = new CastQueue(), resolver = new StreamResolver(), videoStore = null } = {}) {
     super();
-    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver });
+    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver, videoStore });
     this.qualityPlayback = new QualityPlayback(this);
     this.subtitlePlayback = new SubtitlePlayback(resolver, log);
     this.playbackDiagnostics = new MpvDiagnostics();
     this.loadProgress = new LoadProgress();
-    this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
+    this.prefetch = new QueuePrefetch(videoStore ? { resolve: (...args) => videoStore.prefetch(...args) } : resolver,
+      () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
     this.speed = 1;
@@ -66,6 +67,7 @@ export class MpvPlayer extends Player {
       this.volume = { level: Math.min(100, Math.max(0, settings.volume.level)), muted: settings.volume.muted };
     }
     await this.castQueue.load();
+    await this.videoStore?.initialize();
   }
 
   play(video, position = 0, aid, queuedEntry) {
@@ -98,7 +100,8 @@ export class MpvPlayer extends Player {
   async resolveVideoTitle(video) {
     const request = this.request;
     try {
-      const title = normalizeVideoTitle(await this.castQueue.lookupTitle(video.id));
+      const local = this.videoStore ? await this.videoStore.local(video.id, this.quality.selected) : null;
+      const title = normalizeVideoTitle(local?.title ?? await this.castQueue.lookupTitle(video.id));
       if (!title || request !== this.request) return;
       if (this.videoRequest === request) {
         if (this.video?.title !== video.id) return;
@@ -139,7 +142,8 @@ export class MpvPlayer extends Player {
     }).catch(() => {});
     let outcome = 'failed';
     try {
-      const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
+      const resolving = timing.measure('resolve', () => (this.videoStore ?? this.resolver)
+        .resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
         .catch(error => {
           signal.throwIfAborted();
           if (error instanceof CommandTimeoutError) throw error;
@@ -180,7 +184,7 @@ export class MpvPlayer extends Player {
       signal.throwIfAborted();
       this.playbackDiagnostics.start(mpv, signal);
       this.subtitlePlayback.loaded(mpv, video.id, signal, stream, quality);
-      this.prefetch.start(signal);
+      if (!stream?.local) this.prefetch.start(signal);
       outcome = 'loaded';
       return true;
     } catch {
@@ -205,6 +209,7 @@ export class MpvPlayer extends Player {
     this.position = this.duration = 0;
     this.releasing = Promise.all([this.releasing, mpv?.close(), preparing, this.prefetch.stop()]);
     await this.releasing;
+    await this.videoStore?.release();
   }
 
   async doStop() {

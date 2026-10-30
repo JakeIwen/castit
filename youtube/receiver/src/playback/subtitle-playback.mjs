@@ -34,7 +34,7 @@ export class SubtitlePlayback {
   }
 
   loaded(mpv, videoId, signal, stream, quality) {
-    this.session = { mpv, videoId, signal, quality, tracks: new Map(), stream, tail: Promise.resolve() };
+    this.session = { mpv, videoId, signal, quality, tracks: new Map(), stream, local: Boolean(stream?.local), tail: Promise.resolve() };
     this.refresh();
   }
 
@@ -81,6 +81,8 @@ export class SubtitlePlayback {
 
   async apply(session, language, signal) {
     const { mpv, videoId, tracks, stream } = session;
+    // Local playback must not start yt-dlp for a caption URL while offline.
+    if (session.local) { this.available = false; return; }
     let id = tracks.get(language);
     if (id === undefined) {
       session.stream = null;

@@ -3,6 +3,7 @@ import { CommandTimeoutError, runCommandOutput } from '../host/process-command.m
 import { isSubtitleLanguage, selectSubtitle } from './subtitles.mjs';
 import { DEFAULT_QUALITY, isQuality, withinQuality } from './quality.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
+import { UNKNOWN_CHANNEL, TRACK_ROLES } from '../video-store/contracts.mjs';
 
 /**
  * @typedef {object} ResolvedStream
@@ -11,6 +12,9 @@ import { isVideoId } from '../youtube/video-id.mjs';
  * @property {import('./subtitles.mjs').SubtitleTrack|null} [subtitle]
  * @property {string} [subtitleLanguage]
  * @property {string} title
+ * @property {string} channel
+ * @property {number|null} duration
+ * @property {import('../video-store/contracts.mjs').ResolvedTrack[]} tracks
  * @property {Readonly<Record<string, string>>} httpOptions mpv file-local HTTP options
  */
 
@@ -51,7 +55,14 @@ function selectStream(data, videoId, quality) {
   const options = trackOptions[0];
   if (trackOptions.some(other => JSON.stringify(other) !== JSON.stringify(options))) return null;
   return Object.freeze({ videoUrl, audioUrl, title: typeof data.title === 'string' ? data.title : '',
-    httpOptions: Object.freeze(options) });
+    channel: typeof data.channel === 'string' ? data.channel : (typeof data.uploader === 'string' ? data.uploader : UNKNOWN_CHANNEL),
+    duration: Number.isFinite(data.duration) && data.duration >= 0 ? data.duration : null,
+    tracks: [video, audio].filter(Boolean).map(track => ({
+      formatId: String(track.format_id ?? ''), role: track === video ? TRACK_ROLES.VIDEO : TRACK_ROLES.AUDIO,
+      url: track.url, headers: { ...(track.http_headers ?? data.http_headers ?? {}) },
+      size: Number.isSafeInteger(track.filesize) && track.filesize > 0 ? track.filesize : null,
+      ext: track.ext || null, vcodec: track.vcodec || 'none', acodec: track.acodec || 'none',
+    })), httpOptions: Object.freeze(options) });
 }
 
 function cacheDeadline(stream, subtitle) {
@@ -82,13 +93,13 @@ export class StreamResolver {
     return (await this.extract(videoId, options))?.subtitle;
   }
 
-  async extract(videoId, { signal, prefetch = false, language = null, quality = DEFAULT_QUALITY } = {}) {
+  async extract(videoId, { signal, prefetch = false, language = null, quality = DEFAULT_QUALITY, fresh = false } = {}) {
     signal?.throwIfAborted();
     if (!isQuality(quality) || !isVideoId(videoId) || (language !== null && !isSubtitleLanguage(language))) return null;
     language = language?.toLowerCase() ?? null;
     const key = `${videoId}:${language || ''}:${quality}`;
     const cached = this.cache.get(key);
-    if (cached && cached.until > this.now()) return cached.result;
+    if (!fresh && cached && cached.until > this.now()) return cached.result;
     this.cache.delete(key);
     try {
       const result = await this.run(resolverArguments(videoId, { prefetch, language, quality }), {

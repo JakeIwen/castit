@@ -7,7 +7,8 @@ import { isVideoId } from '../youtube/video-id.mjs';
 import { findYouTubeVideo } from '../youtube/video-url.mjs';
 import { normalizeVideoTitle } from '../youtube/video-title.mjs';
 import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, speedArguments,
-  volumeArguments, muteArguments, queueArguments } from '../controls/player-controls.mjs';
+  volumeArguments, muteArguments, queueArguments, downloadArguments, deleteSavedArguments } from '../controls/player-controls.mjs';
+import { VideoStoreError } from '../video-store/contracts.mjs';
 
 const MAX_POST_BODY = 4096;
 const STATUS_LISTEN_RETRY_MS = 5000;
@@ -20,6 +21,8 @@ const QUEUE_ADD_MESSAGES = Object.freeze({ true: 'Added to the Van TV queue', fa
 const EXTENSION_ORIGINS = ['moz-extension://', 'chrome-extension://'];
 const POST_ROUTES = ['/api/pairing', '/api/control', '/api/cast', '/api/queue'];
 const controlArguments = {
+  download: { parse: downloadArguments, error: 'Download takes an optional video id' },
+  delete_saved: { parse: deleteSavedArguments, error: 'Delete saved needs a video id' },
   quality: { parse: qualityArguments, error: 'Quality must match a supported option (string)' },
   subtitles: { parse: subtitleArguments, error: 'Subtitles need a boolean enabled and/or a language code' },
   seek: { parse: seekArguments, error: 'Seek needs one of position (>= 0) or offset' },
@@ -36,7 +39,8 @@ const assets = {
 };
 
 export async function createStatusServer({ snapshot, pairing, control = async () => false,
-  queue = async () => false,
+  queue = async () => false, refreshStorage = async () => {},
+  library = async () => ({ available: false, freeBytes: null, channels: [], downloads: [] }),
   cast = async () => { throw new Error('Cast unavailable'); },
   hosts = ['localhost', '127.0.0.1', config.lanAddress, config.tailscaleAddress, ...config.hostnames].filter(Boolean) }) {
   const content = new Map(await Promise.all(Object.entries(assets).map(async ([path, [file, type]]) =>
@@ -57,7 +61,11 @@ export async function createStatusServer({ snapshot, pairing, control = async ()
       const state = snapshot();
       json(state.ok ? 200 : 503, state);
     } else if (request.method === 'GET' && url.pathname === '/api/status') {
-      json(200, { ...snapshot(), pairing: pairing.snapshot() });
+      void refreshStorage().then(() => json(200, { ...snapshot(), pairing: pairing.snapshot() }))
+        .catch(() => json(503, { error: 'Video store unavailable' }));
+    } else if (request.method === 'GET' && url.pathname === '/api/library') {
+      void library().then(value => json(200, value))
+        .catch(() => json(503, { error: 'Video library unavailable' }));
     } else if (request.method === 'POST' && POST_ROUTES.includes(url.pathname)) {
       if (!trustedOrigin(request.headers.origin, url.origin) || request.headers['content-type'] !== 'application/json') {
         json(403, { error: 'Trusted-origin JSON required' }); return;
@@ -105,7 +113,8 @@ async function handleControl(request, { control }) {
     if (!fields) return [400, { error: argumentsSpec.error }];
     return [200, { action, done: Boolean(await control(action, fields)) }];
   } catch (error) {
-    return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid control request' }];
+    return error instanceof VideoStoreError ? [error.statusCode, { error: error.message }]
+      : error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid control request' }];
   }
 }
 
