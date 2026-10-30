@@ -1,4 +1,5 @@
 import { diagnosticReason } from '../playback/diagnostics.mjs';
+import { playbackSourceLabel } from './saved-state.mjs';
 import { setAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
 const explanations = Object.freeze({
@@ -49,7 +50,8 @@ export class PlaybackMessages {
     this.measurements = document.createElement('p');
     this.measurements.className = 'playback-measurements';
     this.quality = document.createElement('p');
-    content.append(this.explanation, this.measurements, this.quality, notice, historyNotice);
+    this.source = document.createElement('p');
+    content.append(this.source, this.explanation, this.measurements, this.quality, notice, historyNotice);
     this.details.append(summary, content);
     before.before(this.details);
     this.render(undefined);
@@ -64,6 +66,9 @@ export class PlaybackMessages {
   render(status) {
     this.status = status;
     const view = playbackMessageModel(status);
+    const source = status?.video && playbackSourceLabel(status.source);
+    setText(this.source, source ? `Playing from: ${source}` : '');
+    setProperty(this.source, 'hidden', !source);
     const qualityMissing = Boolean(status?.ok && !status.quality);
     const qualityFailed = Boolean(status?.quality?.error);
     const warnings = Number(view.warning) + Number(qualityMissing || qualityFailed)

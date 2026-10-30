@@ -30,6 +30,8 @@ usage() {
   print -u2 '       vantv vol [+n|-n|n|mute|unmute]   show, nudge or set the volume (0-100, saved)'
   print -u2 '       vantv speed [+x|-x|x]   show, nudge or set the playback speed (0.25-3, saved)'
   print -u2 '       vantv queue [youtube-url|list|clear]   add a video (default: as for casting), list or clear'
+  print -u2 '       vantv download [youtube-url|id]   save a video (default: currently loaded video)'
+  print -u2 '       vantv saved   list saved videos by channel'
   exit 2
 }
 
@@ -158,6 +160,42 @@ queue_video() {
   print -r -- "Queued on Van TV: $url"
 }
 
+download_video() {
+  local id=${1:-} start parsed reply body='{"action":"download"}'
+  if [[ -n $id ]]; then
+    if [[ ! $id =~ '^[A-Za-z0-9_-]{11}$' ]]; then
+      is_youtube "$id" || usage
+      parsed=$(video_id "$id") || { print -u2 'No YouTube video id found.'; exit 1 }
+      read -r id start <<< "$parsed"
+    fi
+    body="{\"action\":\"download\",\"id\":\"$id\"}"
+  fi
+  reply=$(post control "$body")
+  [[ $(status_field done <<< "$reply") == true ]] || { print -u2 'Van TV could not start the download.'; exit 1 }
+  print -r -- "Download accepted on Van TV${id:+: $id}"
+}
+
+list_saved() {
+  local library count videos channel title id duration bytes i j
+  library=$(curl -fsS -m 10 "$VAN_TV/api/library")
+  [[ $(status_field available <<< "$library") == true ]] || { print -u2 'Saved videos unavailable.'; exit 1 }
+  count=$(status_field channels <<< "$library") || { print -u2 'Van TV did not report saved videos.'; exit 1 }
+  (( count )) || { print 'No saved videos.'; return }
+  for (( i = 0; i < count; i++ )); do
+    channel=$(status_field channels.$i.channel <<< "$library")
+    print -r -- "$channel"
+    videos=$(status_field channels.$i.videos <<< "$library")
+    for (( j = 0; j < videos; j++ )); do
+      title=$(status_field channels.$i.videos.$j.title <<< "$library")
+      id=$(status_field channels.$i.videos.$j.id <<< "$library")
+      duration=$(status_field channels.$i.videos.$j.duration <<< "$library") || duration='—'
+      [[ $duration == null ]] && duration='—'
+      bytes=$(status_field channels.$i.videos.$j.bytes <<< "$library")
+      printf '  %s [%s] · %s s · %.1f MiB\n' "$title" "$id" "$duration" $(( bytes / 1048576.0 ))
+    done
+  done
+}
+
 is_youtube() { [[ $1 =~ '^https://(((www|m|music)\.)?youtube\.com|youtu\.be)/' ]] }
 
 # Prints "<id> <start seconds>" for watch, youtu.be, shorts, live and embed links.
@@ -193,6 +231,8 @@ case ${1:-} in
   -h|--help) usage ;;
   pause|resume|stop) post control "{\"action\":\"$1\"}"; exit ;;
   status) curl -fsS -m 10 "$VAN_TV/api/status"; print; exit ;;
+  download) (( $# <= 2 )) || usage; download_video "${2:-}"; exit ;;
+  saved) (( $# == 1 )) || usage; list_saved; exit ;;
   quality) (( $# <= 2 )) || usage; if (( $# == 2 )); then set_quality "$2"; fi; show_quality; exit ;;
   subs) (( $# <= 2 )) || usage; [[ -n ${2:-} ]] && set_subtitles "$2"; show_subtitles; exit ;;
   delay) [[ -n ${2:-} ]] && set_delay $2; show_delay; exit ;;

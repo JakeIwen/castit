@@ -2,6 +2,7 @@ import '../config.js';
 import '../youtube/video-title.js';
 import { isPosition, isVideoId } from '../youtube/video-url.mjs';
 import { decodeDiagnostics } from '../playback/diagnostics.mjs';
+import { decodeDownload, decodeLibrary, decodeLibraryAvailability, decodeSource } from '../playback/video-store.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
 const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
@@ -15,7 +16,8 @@ const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(val
 /** @typedef {{phase: 'resolve'|'start'|'buffer', elapsed: number, expected: number|null}} LoadingProgress */
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
  * position: number, duration: number, audioDelay: number|null, speed: number|null,
- * loading: LoadingProgress|null,
+ * loading: LoadingProgress|null, source: string|null,
+ * download: import('../playback/video-store.mjs').Download|null, library: {available: boolean}|null,
  * diagnostics: import('../../receiver/src/playback/diagnostics.mjs').PlaybackDiagnostics|null,
  * quality: {selected: string, options: {value: string, label: string}[], loading: boolean, error: boolean}|null,
  * subtitles: {enabled: boolean, language: string, available: boolean|null, loading: boolean, error: boolean}|null,
@@ -100,6 +102,8 @@ export function decodeStatus(value) {
   return { ok, player, video, position, duration, audioDelay, speed,
     canPlayNext: typeof value.canPlayNext === 'boolean' ? value.canPlayNext : null,
     loading: decodeLoading(value.loading),
+    source: decodeSource(value.source), download: decodeDownload(value.download),
+    library: decodeLibraryAvailability(value.library),
     diagnostics: decodeDiagnostics(value.diagnostics),
     quality: decodeQuality(value.quality), subtitles: decodeSubtitles(value.subtitles),
     volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),
@@ -116,6 +120,11 @@ const actionFields = Object.freeze({
 
 function controlBody(action, fields) {
   if (!actions.includes(action)) throw new Error('Unknown playback action');
+  if (action === config.control.download || action === config.control.deleteSaved) {
+    if (fields?.id === undefined && action === config.control.download) return { action };
+    if (!isVideoId(fields?.id)) throw new Error('Invalid YouTube video');
+    return { action, id: fields.id };
+  }
   if (action === config.control.quality) {
     if (typeof fields?.quality !== 'string' || !/^[a-z0-9]{1,16}$/.test(fields.quality)) {
       throw new Error('Invalid quality fields');
@@ -233,5 +242,10 @@ export function createReceiverClient({ fetcher = globalThis.fetch,
     return result;
   }
 
-  return { status, cast, control, queue };
+  async function library() {
+    await status();
+    return decodeLibrary(await requestJson(fetcher, `${preferred}/api/library`, {}, timeoutMs));
+  }
+
+  return { status, cast, control, queue, library };
 }

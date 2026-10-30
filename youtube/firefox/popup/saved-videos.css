@@ -1,0 +1,16 @@
+.saved-videos { margin-top: 10px; border-top: 1px solid var(--van-tv-border); padding-top: 8px; }
+.saved-videos summary { cursor: pointer; color: var(--van-tv-muted); font-size: 12px; font-weight: 650; }
+.saved-content { max-height: var(--van-tv-saved-max-height); overflow-y: auto; overscroll-behavior: contain; }
+.saved-message, .saved-download { color: var(--van-tv-muted); font-size: 12px; margin-top: 6px; }
+.saved-message:empty { display: none; }
+.saved-channel h3 { margin: 10px 0 4px; font-size: 12px; overflow-wrap: anywhere; }
+.saved-channel ul { list-style: none; padding: 0; margin: 0; }
+.saved-video { padding: 6px 0; border-bottom: 1px solid var(--van-tv-border); }
+.saved-title { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.saved-meta { color: var(--van-tv-muted); font-size: var(--van-tv-timeline-font-size); }
+.saved-actions, .saved-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 12px; }
+.saved-actions[hidden], .saved-confirm[hidden] { display: none; }
+.saved-videos button { min-height: var(--van-tv-saved-button-height); padding: 0 8px; color: var(--van-tv-muted); }
+.saved-confirm { color: var(--van-tv-text); }
+.saved-confirm button { background: var(--van-tv-control); }
+.saved-videos :focus-visible { outline: 2px solid var(--van-tv-focus); outline-offset: -2px; }

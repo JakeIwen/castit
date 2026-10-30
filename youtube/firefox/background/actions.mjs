@@ -5,14 +5,14 @@ import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs
 
 const config = globalThis.VAN_TV_CONFIG;
 const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
-// Firefox nests an extension's items in a submenu once there is more than one
-// per context, so each context gets one item and Shift-click queues instead.
-const menu = Object.freeze({ link: 'cast-link', page: 'cast-page' });
+// Firefox groups multiple extension items into a submenu; Save is separate
+// because Shift-click already queues the video.
+const menu = Object.freeze({ link: 'cast-link', page: 'cast-page', saveLink: 'save-link', savePage: 'save-page' });
 const menuTitle = 'Van TV: Cast Now (Shift: Add to Queue)';
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'title', 'key', 'current', 'index', 'quality', 'enabled', 'language']) {
+  for (const name of ['id', 'position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'title', 'key', 'current', 'index', 'quality', 'enabled', 'language']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;
@@ -21,6 +21,7 @@ function controlFields(message) {
 export function createMessageHandler(browserApi, receiver, videoDetails) {
   const routes = {
     [config.message.status]: () => receiver.status(),
+    [config.message.library]: () => receiver.library(),
     [config.message.control]: message => receiver.control(message.action, controlFields(message)),
     [config.message.cast]: message => receiver.cast(message.videoId, message.position, message.title),
     [config.message.tabVideo]: async () => tabVideo(browserApi, await activeTab(browserApi)),
@@ -60,6 +61,10 @@ export async function installContextMenus(browserApi, receiver) {
     contexts: ['link'], targetUrlPatterns: patterns.link });
   browserApi.contextMenus.create({ id: menu.page, title: menuTitle,
     contexts: ['page'], documentUrlPatterns: patterns.page });
+  browserApi.contextMenus.create({ id: menu.saveLink, title: 'Save on Van TV',
+    contexts: ['link'], targetUrlPatterns: patterns.link });
+  browserApi.contextMenus.create({ id: menu.savePage, title: 'Save on Van TV',
+    contexts: ['page'], documentUrlPatterns: patterns.page });
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);
     if (!video) throw new Error('This link is not a YouTube video');
@@ -79,6 +84,8 @@ export async function installContextMenus(browserApi, receiver) {
         queued(await receiver.queue(config.queue.add, { videoId: video.videoId, title: video.title }));
       },
     },
+    [menu.saveLink]: { save: info => saveVideo(receiver, info.linkUrl) },
+    [menu.savePage]: { save: (_info, tab) => saveVideo(receiver, tab?.url) },
     [menu.page]: {
       cast: async (_info, tab) => castTab(browserApi, receiver, tab),
       queue: async (_info, tab) => queued(await queueTab(browserApi, receiver, tab)),
@@ -93,9 +100,18 @@ export async function installContextMenus(browserApi, receiver) {
       console.warn('Van TV sidebar could not open', error);
     });
     const queue = info.modifiers?.includes('Shift');
-    void showCastResult(browserApi, () => (queue ? item.queue : item.cast)(info, tab),
-      queue ? 'Van TV — added to the queue' : 'Van TV — cast accepted');
+    const operation = item.save ?? (queue ? item.queue : item.cast);
+    const success = item.save ? 'Van TV — download accepted'
+      : queue ? 'Van TV — added to the queue' : 'Van TV — cast accepted';
+    void showCastResult(browserApi, () => operation(info, tab), success);
   });
+}
+
+async function saveVideo(receiver, url) {
+  const video = parseYouTubeVideo(url);
+  if (!video) throw new Error('This is not a YouTube video');
+  const result = await receiver.control(config.control.download, { id: video.videoId });
+  if (!result.done) throw new Error('Van TV could not start the download');
 }
 
 export function installRemoteAction(browserApi) {
