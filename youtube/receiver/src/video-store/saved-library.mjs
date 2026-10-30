@@ -51,7 +51,8 @@ export class SavedLibrary {
       if (!isVideoId(video?.id) || typeof video.title !== 'string' || typeof video.channel !== 'string'
         || typeof video.file !== 'string' || basename(video.file) !== video.file
         || !video.file.endsWith('.mp4') && !video.file.endsWith('.mkv')
-        || !Number.isFinite(Date.parse(video.savedAt))) return null;
+        || (video.duration !== null && (!Number.isFinite(video.duration) || video.duration < 0))
+        || typeof video.savedAt !== 'string' || !Number.isFinite(Date.parse(video.savedAt))) return null;
       const path = join(dirname(sidecar), video.file);
       await this.disk.safe(path);
       const file = await stat(path);
