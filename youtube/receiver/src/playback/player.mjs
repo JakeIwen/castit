@@ -163,12 +163,14 @@ export class MpvPlayer extends Player {
           mpv.on('disconnect', () => {
             if (this.mpv === mpv && !signal.aborted) void this.failedPlayback();
           });
+          // An earlier stop can finish during this load; LOADING is not a
+          // startup-default guard. Seed both values before any observations.
+          await this.applyVolume(mpv);
           for (const [index, property] of ['time-pos', 'duration', 'pause', 'volume', 'mute', 'media-title'].entries()) {
             await mpv.command(['observe_property', index + 1, property]);
           }
           await mpv.command(['set_property', 'ytdl-format', qualityFormat(quality)]);
           if (paused) await mpv.command(['set_property', 'pause', true]);
-          await this.applyVolume();
           for (const [name, property] of Object.entries(MPV_SETTINGS)) {
             await mpv.command(['set_property', property, this[name]]);
           }
@@ -240,9 +242,9 @@ export class MpvPlayer extends Player {
     } catch { return false; }
   }
 
-  async applyVolume() {
-    await this.mpv.command(['set_property', 'volume', this.volume.level]);
-    await this.mpv.command(['set_property', 'mute', this.volume.muted]);
+  async applyVolume(mpv = this.mpv) {
+    await mpv.command(['set_property', 'volume', this.volume.level]);
+    await mpv.command(['set_property', 'mute', this.volume.muted]);
   }
 
   async doSetVolume(volume) {
