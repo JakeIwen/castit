@@ -7,13 +7,14 @@ skips `sponsor` and `selfpromo` segments when available. The receiver appears as
 
 ## Requirements and configuration
 
-The Pi needs Node >= 20, npm, mpv, Python 3 with venv/pip, curl, `xset`,
-`dbus-send`, and an active `pi` X session on `:0`. The deployment machine needs
+The Pi needs Node >= 20, npm, mpv, Python 3 with venv/pip, curl, `wlopm`,
+`dbus-send`, and an active `pi` labwc (Wayland) session with Xwayland on `:0`;
+mpv draws through Xwayland and `wlopm` wakes the screen. The deployment machine needs
 Node, SSH and SCP. The controller checks prerequisites without installing OS
 packages. On Debian-based systems, the media prerequisites include:
 
 ```sh
-sudo apt-get install mpv python3-venv python3-pip x11-xserver-utils dbus-bin
+sudo apt-get install mpv python3-venv python3-pip wlopm dbus-bin
 ```
 
 From this directory, copy the shared example and edit its `receiver` section:

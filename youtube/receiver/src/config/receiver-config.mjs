@@ -20,11 +20,13 @@ export const config = Object.freeze({
   sponsorBlockCategories: ['sponsor', 'selfpromo'],
   sessionEnvironment: {
     DISPLAY: ':0',
+    WAYLAND_DISPLAY: 'wayland-0',
     XDG_RUNTIME_DIR: '/run/user/1000',
     DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus',
   },
   roomCommand: local.roomCommand,
-  wakeCommand: ['/usr/bin/xset', '-display', ':0', 'dpms', 'force', 'on'],
+  // The desktop is labwc (Wayland); xset on Xwayland can't power the output on.
+  wakeCommand: ['/usr/bin/wlopm', '--on', '*'],
   vlcQuitCommand: ['/usr/bin/dbus-send', '--session', '--type=method_call',
     '--print-reply', '--dest=org.mpris.MediaPlayer2.vlc', '/org/mpris/MediaPlayer2',
     'org.mpris.MediaPlayer2.Quit'],

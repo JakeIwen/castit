@@ -61,7 +61,7 @@ prepare() {
   /usr/bin/node -e 'if(Number(process.versions.node.split(".")[0])<20)process.exit(1)'
   /usr/bin/node --input-type=module -e 'await import(process.argv[1])' "$here/src/config/receiver-config.mjs"
   local executable
-  for executable in npm /usr/bin/mpv /usr/bin/xset /usr/bin/dbus-send curl /usr/bin/python3; do
+  for executable in npm /usr/bin/mpv /usr/bin/wlopm /usr/bin/dbus-send curl /usr/bin/python3; do
     command -v "$executable" >/dev/null || { echo "Missing prerequisite: $executable" >&2; return 1; }
   done
   systemd-analyze verify "$here/$unit"
