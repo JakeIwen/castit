@@ -34,6 +34,7 @@ keep IP addresses, extension IDs, cookies and other private details out.
 | `/home/pi/youtube-cast/current/controller.sh update-ytdlp` | the Pi's weekly crontab line |
 | DIAL port 8794, status/API port 8795, `/api/status`, `/api/control`, `/api/cast`, `/api/queue` | the extension, `vantv.zsh`, and the Pi shell's `vantv_*` functions (in `JakeIwen/scripts` `pi/.bashrc`) that route BTT media buttons |
 | `/api/library` and `receiver.videoStore` | saved-video senders; `youtube/receiver/src/video-store/video-store.mjs` owns the mounted store, with no fixed proxy port |
+| the store's folder name `van-tv` at the root of the EXFAT512 drive | the Pi's daily EXFAT snapshot excludes `/van-tv/` (`JakeIwen/scripts` `pi/scripts/backup/exfat_snapshot.sh`); renaming or moving the store needs that exclusion changed too, or videos land in the hdd1tb snapshots |
 | extension ID from `senders.extensionId` | installed Firefox add-on; changing it installs a separate add-on |
 | `youtube/vantv.zsh` | the Mac `vantv` alias in `~/.zshrc` |
 | an `mpv` process exists only while a video is loaded or playing | the Pi's labwc idle-blanking hook `~/.config/labwc/blank-when-idle.sh` (source in `JakeIwen/scripts` `pi/configs/labwc/`, installed by `pi/sync_scripts.sh`), which holds the screen on while `pgrep -x mpv` matches |
