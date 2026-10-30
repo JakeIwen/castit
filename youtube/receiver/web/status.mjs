@@ -108,7 +108,8 @@ async function update() {
     if (!response.ok) throw new Error('Status unavailable');
     const data = await response.json();
     element('receiver').textContent = data.receiver;
-    element('player').textContent = data.player;
+    element('player').textContent = data.loading
+      ? `${data.player} (${data.loading.phase}, ${data.loading.elapsed.toFixed(1)}s)` : data.player;
     element('video').textContent = data.video?.title || 'None';
     element('position').textContent = `${Math.floor(data.position)} / ${Math.floor(data.duration)} seconds`;
     element('senders').textContent = String(data.senders);

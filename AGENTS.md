@@ -52,7 +52,8 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `playback/diagnostics.mjs` owns the playback diagnostics contract and cautious
   cause classification; `playback/mpv/diagnostics.mjs` samples mpv without overlapping polls,
   `playback/queue-prefetch.mjs` resolves the next queued video during
-  playback, and `playback/load-timing.mjs` logs per-phase load times.
+  playback, and `playback/load-timing.mjs` logs per-phase load times;
+  `playback/load-progress.mjs` owns live load phases and recent successful timing estimates.
   `history/watch-history.mjs` marks videos watched on the signed-in account
   after real playback (opt-in via the cookie file that
   `push-youtube-cookies.zsh` installs); `history/ytdlp-history.mjs` is its
@@ -65,7 +66,8 @@ keep IP addresses, extension IDs, cookies and other private details out.
   (volume, speed, quality, subtitles, A/V offset); `pairing/stable-dial-uuid.mjs` preserves the
   SSDP UUID and `pairing/pairing-codes.mjs` owns TV codes.
   `youtube/video-id.mjs` is the one video-id check; `youtube/video-url.mjs`
-  parses shared YouTube links and timestamps for casting and queueing.
+  parses shared YouTube links and timestamps for casting and queueing;
+  `youtube/video-title.mjs` normalizes sender/queue titles and identifies mpv URL placeholders.
   `controls/player-controls.mjs` owns `/api/control` and `/api/queue` actions;
   `queue/cast-queue.mjs` owns the queue for senders without a phone session
   and its title lookup and backward/forward history entries. `MpvPlayer.playPrevious`

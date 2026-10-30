@@ -4,8 +4,10 @@ import { fetchSegments, SponsorSkipper } from './sponsor-block.mjs';
 import { RoomPreparation } from '../host/room-preparation.mjs';
 import { stopVideoLibrary } from '../host/vlc-handoff.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
+import { normalizeVideoTitle, isPlaceholderTitle } from '../youtube/video-title.mjs';
 import { CastQueue } from '../queue/cast-queue.mjs';
 import { LoadTiming } from './load-timing.mjs';
+import { LoadProgress } from './load-progress.mjs';
 import { StreamResolver } from './stream-resolver.mjs';
 import { SubtitlePlayback } from './subtitle-playback.mjs';
 import { savedSubtitles, subtitleArguments } from './subtitles.mjs';
@@ -41,6 +43,7 @@ export class MpvPlayer extends Player {
     this.qualityPlayback = new QualityPlayback(this);
     this.subtitlePlayback = new SubtitlePlayback(resolver, log);
     this.playbackDiagnostics = new MpvDiagnostics();
+    this.loadProgress = new LoadProgress();
     this.prefetch = new QueuePrefetch(resolver, () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
@@ -88,6 +91,21 @@ export class MpvPlayer extends Player {
     return operation;
   }
 
+  // Direct casts need metadata too, but a late lookup must not rename a replay
+  // of the same id or replace a title already supplied by extraction/mpv.
+  async resolveVideoTitle(video) {
+    const request = this.request;
+    try {
+      const title = normalizeVideoTitle(await this.castQueue.lookupTitle(video.id));
+      if (!title || request !== this.request) return;
+      if (this.videoRequest === request) {
+        if (this.video?.title !== video.id) return;
+        this.video.title = title;
+      }
+      if (!video.title || video.title === video.id) video.title = title;
+    } catch {}
+  }
+
   stop(aid) {
     this.qualityPlayback.cancel();
     this.playTarget = null;
@@ -112,10 +130,11 @@ export class MpvPlayer extends Player {
     void this.segments(video.id, { signal }).then(segments => {
       if (this.mpv === mpv && !signal.aborted) this.skipper = new SponsorSkipper(segments);
     }).catch(() => {});
+    const progress = this.loadProgress.start(signal, timing.started);
     let outcome = 'failed';
     try {
       const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
-        .catch(() => { signal.throwIfAborted(); return null; });
+        .catch(() => { signal.throwIfAborted(); return null; }).finally(() => progress.resolved());
       const wake = timing.measure('wake', () => this.room.beforeVideo(signal));
       const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
         timing.measure('mpv_start', async () => {
@@ -146,6 +165,7 @@ export class MpvPlayer extends Player {
       signal.throwIfAborted();
       timing.path = stream ? 'direct' : 'hook';
       if (stream?.title) this.video.title = stream.title;
+      progress.buffering();
       await timing.measure('load', () => mpv.load(video.id, position, signal, stream));
       signal.throwIfAborted();
       this.playbackDiagnostics.start(mpv, signal);
@@ -160,7 +180,7 @@ export class MpvPlayer extends Player {
       if (this.mpv === mpv) await this.release();
       else await this.pendingPreparation;
       return false;
-    } finally { timing.report(this.log, outcome); }
+    } finally { progress.finish(outcome === 'loaded'); timing.report(this.log, outcome); }
   }
 
   async release() {
@@ -244,6 +264,7 @@ export class MpvPlayer extends Player {
 
   get quality() { return this.qualityPlayback.snapshot(); }
   get diagnostics() { return this.playbackDiagnostics.snapshot(); }
+  get loading() { return this.loadProgress.snapshot(); }
   get qualityReloading() { return Boolean(this.qualityPlayback.target); }
   setQuality(value) { return this.qualityPlayback.set(value); }
 
@@ -359,7 +380,10 @@ export class MpvPlayer extends Player {
         if (this.status === PlayerStatus.PLAYING) await this.skipper?.tick(value, target => this.seek(target));
       },
       duration: value => { if (Number.isFinite(value)) this.duration = value; },
-      'media-title': value => { if (this.video) this.video.title = String(value); },
+      'media-title': value => {
+        const title = String(value);
+        if (this.video && !isPlaceholderTitle(title, this.video.id)) this.video.title = title;
+      },
       pause: async value => {
         if (this.status === PlayerStatus.PLAYING || this.status === PlayerStatus.PAUSED) {
           await this.notifyExternalStateChange(value ? PlayerStatus.PAUSED : PlayerStatus.PLAYING);

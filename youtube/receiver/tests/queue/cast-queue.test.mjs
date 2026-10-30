@@ -22,6 +22,20 @@ test('Cast queue keeps order, looks up titles, caps its length and takes by key'
   assert.equal(queue.take(), null);
 });
 
+test('Supplied queue titles are immediate and skip lookup; empty titles retain best-effort lookup', async () => {
+  const lookups = [];
+  const queue = new CastQueue({ lookupTitle: async id => { lookups.push(id); return ' Looked  up‮ '; } });
+  const supplied = queue.add('aaaaaaaaaaa', ' Sender  title\u0000 ');
+  assert.equal(supplied.title, 'Sender title');
+  const capped = queue.add('bbbbbbbbbbb', '𐐀'.repeat(201));
+  assert.equal(capped.title, '𐐀'.repeat(200));
+  const empty = queue.add('ccccccccccc', ' ‮ ');
+  assert.equal(empty.title, null);
+  await settleUntil(() => empty.title);
+  assert.deepEqual(lookups, ['ccccccccccc']);
+  assert.equal(empty.title, 'Looked up');
+});
+
 test('Cast queue moves to the final index, clamps large indices and rejects missing or played keys', () => {
   const queue = new CastQueue({ lookupTitle: async () => null });
   const a = queue.add('aaaaaaaaaaa');

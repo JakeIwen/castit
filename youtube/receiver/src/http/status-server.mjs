@@ -5,6 +5,7 @@ import { subtitleArguments } from '../playback/subtitles.mjs';
 import { config } from '../config/receiver-config.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 import { findYouTubeVideo } from '../youtube/video-url.mjs';
+import { normalizeVideoTitle } from '../youtube/video-title.mjs';
 import { CONTROL_ACTIONS, QUEUE_ACTIONS, seekArguments, audioDelayArguments, speedArguments,
   volumeArguments, muteArguments, queueArguments } from '../controls/player-controls.mjs';
 
@@ -122,6 +123,9 @@ async function handleQueue(request, { queue }) {
     const body = await readJsonBody(request);
     const { action } = body;
     if (!QUEUE_ACTIONS.includes(action)) return [400, { error: 'Unknown queue action' }];
+    if (action === 'add' && body.title !== undefined && typeof body.title !== 'string') {
+      return [400, { error: 'Title must be a string' }];
+    }
     const fields = queueArguments(body);
     if (!fields) {
       if (action === 'add' && body.url !== undefined && body.videoId === undefined) {
@@ -129,6 +133,8 @@ async function handleQueue(request, { queue }) {
       }
       return [400, { error: 'Queue add needs exactly one of videoId or url; remove, play and move need an integer key; move needs a non-negative safe integer index' }];
     }
+    const title = action === 'add' ? normalizeVideoTitle(body.title) : null;
+    if (title) fields.title = title;
     const done = Boolean(await queue(action, fields));
     return [200, action === 'add' ? { action, done, message: QUEUE_ADD_MESSAGES[done] } : { action, done }];
   } catch (error) {
@@ -143,6 +149,8 @@ async function handleCast(request, { cast }) {
   try { body = await readJsonBody(request); } catch (error) {
     return error instanceof RangeError ? [413, { error: error.message }] : [400, { error: 'Invalid cast request' }];
   }
+  if (body.title !== undefined && typeof body.title !== 'string') return [400, { error: 'Title must be a string' }];
+  const title = normalizeVideoTitle(body.title);
   if ((body.videoId !== undefined) === (body.url !== undefined)) {
     return [400, { error: 'Cast needs exactly one of videoId or url' }];
   }
@@ -153,7 +161,8 @@ async function handleCast(request, { cast }) {
   if (!isVideoId(videoId)) return [400, { error: 'Invalid videoId' }];
   if (!Number.isFinite(position) || position < 0) return [400, { error: 'Invalid position' }];
   try {
-    await cast(videoId, position);
+    if (title) await cast(videoId, position, title);
+    else await cast(videoId, position);
     return [202, { videoId, position }];
   } catch { return [503, { error: 'Van TV is not ready to cast' }]; }
 }

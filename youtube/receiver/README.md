@@ -170,13 +170,21 @@ its resolver children. Starting another player later does not stop this one.
   status, `audioDelay` in seconds, `speed`, `volume` (`{level, muted}`) and
   `subtitles` (`{enabled, language, available, loading, error}`),
   `quality` (`{selected, options: [{value, label}], loading, error}`), and
-  `queue` (`[{key, id, title}]`, title null until YouTube supplies it). `played`
+  `queue` (`[{key, id, title}]`, title null until supplied or looked up). `played`
   has the same entry shape: up to 20 videos that started on this receiver, oldest
   first, excluding the currently loaded video. Repeated video ids move to the
   end; titles follow mpv, falling back to the queued video's oEmbed title. Entry
   keys are unique across both lists.
   `canPlayNext` is true when the cast queue, phone queue or enabled phone
   autoplay has another video; senders can disable Next when it is false.
+  `loading` is null outside a load, otherwise `{phase, elapsed, expected}`. Phase
+  is `resolve` while yt-dlp resolution is pending, `start` while screen wake,
+  handoff or mpv startup is pending after resolution, then `buffer` while mpv
+  opens/buffers the stream. `elapsed` is total seconds rounded to 0.1; `expected`
+  is the median total seconds of the last up to ten successful loads in this
+  process, or null before the first success. Failed/cancelled loads
+  do not count. Queue navigation and quality reloads report the same progress;
+  a superseding request or Stop clears old progress immediately.
   `diagnostics` reports `available`, `buffering`, a suspected `reason`
   (`bandwidth`, `rendering`, `unknown`, or null), `bufferSeconds`,
   `inputBytesPerSecond`, `requiredBytesPerSecond`, `frameDrops` and `decoderDrops`.
@@ -186,8 +194,11 @@ its resolver children. Starting another player later does not stop this one.
   while the current buffer is low; these measurements do not prove an ISP or CPU fault.
   Pause, seeks, new loads and disconnects clear stale warnings or baselines.
 - `POST /api/cast`: JSON with exactly one of `videoId` or `url`, for example
-  `{"videoId":"dQw4w9WgXcQ","position":12.5}` or
-  `{"url":"https://youtu.be/dQw4w9WgXcQ?t=1m30s"}`. An optional non-negative
+  `{"videoId":"dQw4w9WgXcQ","position":12.5,"title":"Video title"}` or
+  `{"url":"https://youtu.be/dQw4w9WgXcQ?t=1m30s"}`. Optional `title` is shown
+  immediately; without it, a best-effort oEmbed lookup runs alongside the load
+  and only fills a still-current placeholder. mpv URL placeholders never replace
+  a known title. An optional non-negative
   `position` in seconds overrides the link's timestamp; otherwise links use their
   timestamp and bare ids start at zero. Returns 202 with `{videoId, position}`
   while loading; poll status for the result. Invalid links return 400 with
@@ -253,7 +264,9 @@ its resolver children. Starting another player later does not stop this one.
 - `POST /api/queue`: the cast queue, for senders without a phone session.
   `{"action":"add","videoId":"…"}` or `{"action":"add","url":"https://youtu.be/…"}`
   inserts next to play (up to 50), with exactly one of `videoId` or `url`; `url`
-  may be any text containing a YouTube video link. The reply adds `message`
+  may be any text containing a YouTube video link. Optional `title` is stored
+  immediately and skips oEmbed lookup; without one, the existing best-effort
+  lookup supplies the title. The reply adds `message`
   ("Added to the Van TV queue" or "The Van TV queue is full") beside `done`.
   Queued videos always start at zero, ignoring link timestamps. An addition
   starts at once when the player is idle or stopped, even with older entries
@@ -271,7 +284,7 @@ its resolver children. Starting another player later does not stop this one.
   the upcoming queue and played history, keeping only the loaded video's entry. Queued videos play before the
   phone's own queue, at the end of each video or on Next. Both lists are saved
   in `queue.json` in the private state directory and survive Stop, the last
-  sender's disconnect and restarts; restoring them never starts playback. Queue titles come from YouTube's
+  sender's disconnect and restarts; restoring them never starts playback. Queue titles come from the sender or YouTube's
   oEmbed endpoint. The status page shows recently played videos newest first.
 - The library ignores sender messages it doesn't implement. The receiver logs
   each one's name (never its payload) as `Unhandled sender message: <name>` in
@@ -286,6 +299,13 @@ Timestamps use `t`, then `start`, then `#t=`, in seconds (including decimals) or
 forms such as `1h2m3s`; invalid timestamps start at zero. `url` must be a string
 of at most 2048 characters; JSON bodies over 4096 bytes return 413. The status
 page's YouTube link box casts on Enter or **Cast**, or queues next with **Add to Queue**.
+
+For cast and queue `add`, a present `title` must be a string (otherwise 400,
+`{"error":"Title must be a string"}`). Control/format characters are stripped,
+whitespace collapses, ends are trimmed, and titles cap at 200 Unicode characters.
+An empty normalized title is treated as absent. Older senders need no changes.
+The cast response remains `{videoId, position}`; queue responses keep their
+existing `action`, `done` and (for `add`) `message` fields.
 
 POSTs require `Content-Type: application/json` and an absent, `null`, extension
 or same-server Origin. Foreign Hosts and web origins are rejected; cross-origin

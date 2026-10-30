@@ -119,8 +119,8 @@ export function createQueueControls(player, { log = console } = {}) {
   return {
     // Each addition is next to play; an idle receiver starts that entry even
     // when older entries were kept after Stop or a restart.
-    add: ({ videoId }) => {
-      const entry = player.castQueue.add(videoId);
+    add: ({ videoId, title }) => {
+      const entry = player.castQueue.add(videoId, title);
       if (!entry) return false;
       player.castQueue.move(entry.key, 0);
       return isIdle(player) ? start(entry.key) : true;

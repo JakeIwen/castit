@@ -19,7 +19,7 @@ export async function runReceiver({ receiver, player, store, log = console,
     name: config.name, pid: process.pid, instance, receiver: receiver.status,
     player: Object.keys(PlayerStatus).find(key => PlayerStatus[key] === player.status) || 'UNKNOWN',
     video: player.video, position: player.position, duration: player.duration, audioDelay: player.audioDelay,
-    diagnostics: player.diagnostics,
+    diagnostics: player.diagnostics, loading: player.loading,
     quality: player.quality, subtitles: player.subtitles, speed: player.speed, volume: player.volume, queue: player.castQueue.snapshot(),
     played: player.castQueue.playedSnapshot(player.video),
     canPlayNext: player.canPlayNext,
@@ -59,10 +59,11 @@ export async function runReceiver({ receiver, player, store, log = console,
     watchHistory.start(player);
     const controls = createPlayerControls(player);
     const queueControls = createQueueControls(player, { log });
-    const cast = async (videoId, position) => {
+    const cast = async (videoId, position, title) => {
       if (receiver.status !== Constants.STATUSES.RUNNING) throw new Error('Receiver not running');
-      void player.play({ id: videoId, client: Constants.CLIENTS.YT }, position)
-        .catch(() => log.warn('Direct cast failed'));
+      const video = { id: videoId, title, client: Constants.CLIENTS.YT };
+      void player.play(video, position).catch(() => log.warn('Direct cast failed'));
+      if (!title) void player.resolveVideoTitle(video);
     };
     closeStatus = await statusListener({ snapshot, pairing, cast,
       control: (action, fields) => controls[action](fields),

@@ -1,19 +1,15 @@
 import { config } from '../config/receiver-config.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
+import { normalizeVideoTitle } from '../youtube/video-title.mjs';
 
-const MAX_TITLE_LENGTH = 200;
 const PLAYED_LIMIT = 20;
 const STORE_KEY = 'queue';
-
-function storedTitle(title) {
-  return typeof title === 'string' && title ? title.slice(0, MAX_TITLE_LENGTH) : null;
-}
 
 // Saved entries are re-validated: the file outlives any one release.
 function storedEntries(value, limit) {
   if (!Array.isArray(value)) return [];
   return value.filter(entry => isVideoId(entry?.id)).slice(-limit)
-    .map(entry => ({ id: entry.id, title: storedTitle(entry.title) }));
+    .map(entry => ({ id: entry.id, title: normalizeVideoTitle(entry.title) }));
 }
 
 // Best-effort title for a queued video; null when YouTube doesn't answer.
@@ -24,7 +20,7 @@ export async function fetchTitle(id, { fetcher = globalThis.fetch } = {}) {
   const response = await fetcher(url, { signal: AbortSignal.timeout(config.titleLookupTimeoutMs) });
   if (!response.ok) return null;
   const { title } = await response.json();
-  return typeof title === 'string' && title ? title.slice(0, MAX_TITLE_LENGTH) : null;
+  return normalizeVideoTitle(title);
 }
 
 // Videos queued by senders without a lounge session (the extension, vantv).
@@ -62,13 +58,15 @@ export class CastQueue {
 
   get length() { return this.entries.length; }
 
-  add(id) {
+  add(id, title) {
     if (!isVideoId(id) || this.entries.length >= this.limit) return null;
-    const entry = { key: ++this.lastKey, id, title: null };
+    const entry = { key: ++this.lastKey, id, title: normalizeVideoTitle(title) };
     this.entries.push(entry);
     void this.save();
-    void Promise.resolve().then(() => this.lookupTitle(id))
-      .then(title => { entry.title = title ?? null; void this.save(); }, () => {});
+    if (!entry.title) {
+      void Promise.resolve().then(() => this.lookupTitle(id))
+        .then(title => { entry.title = normalizeVideoTitle(title); void this.save(); }, () => {});
+    }
     return entry;
   }
 
@@ -120,7 +118,7 @@ export class CastQueue {
   returnNext(video) {
     if (!isVideoId(video?.id) || this.length >= this.limit) return null;
     const entry = { key: ++this.lastKey, id: video.id,
-      title: storedTitle(video.title === video.id ? null : video.title) };
+      title: normalizeVideoTitle(video.title === video.id ? null : video.title) };
     this.entries.unshift(entry);
     void this.save();
     return entry;
