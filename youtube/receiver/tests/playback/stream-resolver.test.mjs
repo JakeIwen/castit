@@ -39,6 +39,16 @@ test('Resolver runs the existing selector and hook options through bounded, nice
   assert.equal(options.maxBytes, playback.resolveMaxBytes);
 });
 
+test('Per-format headers without a top-level set still select the direct stream', async () => {
+  const headers = { 'User-Agent': 'Fixture UA', Accept: '*/*' };
+  const { http_headers: _, ...data } = metadata();
+  data.requested_formats = data.requested_formats.map(format => ({ ...format, http_headers: headers }));
+  const stream = await new StreamResolver({ run: async () => result(data) }).resolve(ID);
+  assert.deepEqual(stream?.httpOptions, { 'user-agent': 'Fixture UA' });
+  data.requested_formats[1] = { ...data.requested_formats[1], http_headers: { 'User-Agent': 'different' } };
+  assert.equal(await new StreamResolver({ run: async () => result(data) }).resolve(ID), null);
+});
+
 test('Cache hits avoid another process, expiring before the earliest video or audio URL', async () => {
   let now = NOW;
   let calls = 0;

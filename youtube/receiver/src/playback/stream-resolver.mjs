@@ -44,10 +44,12 @@ function selectStream(data, videoId, quality) {
   const videoUrl = directUrl(video);
   const audioUrl = audio ? directUrl(audio) : null;
   if (!videoUrl || (audio && !audioUrl)) return null;
-  const options = httpOptions(data.http_headers);
-  // Per-track credentials cannot be represented by one set of file-local headers.
-  if (tracks.some(track => track.http_headers
-    && JSON.stringify(httpOptions(track.http_headers)) !== JSON.stringify(options))) return null;
+  // yt-dlp now puts headers only on each format; a track without its own uses
+  // the top-level set. Differing per-track credentials cannot be represented by
+  // one set of file-local headers.
+  const trackOptions = tracks.map(track => httpOptions(track.http_headers ?? data.http_headers));
+  const options = trackOptions[0];
+  if (trackOptions.some(other => JSON.stringify(other) !== JSON.stringify(options))) return null;
   return Object.freeze({ videoUrl, audioUrl, title: typeof data.title === 'string' ? data.title : '',
     httpOptions: Object.freeze(options) });
 }
