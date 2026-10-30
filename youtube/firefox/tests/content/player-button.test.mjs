@@ -8,7 +8,8 @@ const manifest = JSON.parse(await readFile(new URL('../../manifest.template.json
 const scripts = await Promise.all(manifest.content_scripts[0].js
   .map(path => readFile(new URL(`../../${path}`, import.meta.url), 'utf8')));
 
-function page({ heading = '  Watch page title  ', title = '(3) Document title - YouTube' } = {}) {
+function page({ heading = '  Watch page title  ', title = '(3) Document title - YouTube',
+  playerData = null, flexyId = videoId } = {}) {
   let listener, click, button;
   const sent = [];
   const controls = { prepend: node => { button = node; node.parentElement = controls; } };
@@ -17,8 +18,10 @@ function page({ heading = '  Watch page title  ', title = '(3) Document title - 
     URL, location: { href: `https://www.youtube.com/watch?v=${videoId}` },
     document: {
       title, documentElement: {}, addEventListener() {},
-      getElementById: () => button,
-      querySelector: selector => selector.includes('yt-formatted-string')
+      getElementById: id => id === 'movie_player'
+        ? { wrappedJSObject: { getVideoData: () => playerData } } : button,
+      querySelector: selector => selector === 'ytd-watch-flexy' ? { getAttribute: () => flexyId }
+        : selector.includes('yt-formatted-string')
         ? (heading === null ? null : { textContent: heading })
         : selector === '.ytp-right-controls' ? controls : selector === '#movie_player video' ? video : null,
       createElement: () => ({ dataset: {}, setAttribute() {}, classList: { toggle() {}, remove() {} },
@@ -54,4 +57,20 @@ test('missing or blank watch headings use the cleaned document title, and stale 
     assert.equal(selection.title, 'Document title');
     assert.equal(await p.message({ type: 'get-video', url: 'https://www.youtube.com/watch?v=other', videoId }), null);
   }
+});
+
+test('the player API title wins when it names this video', async () => {
+  const p = page({ playerData: { video_id: videoId, title: ' Player title ' } });
+  const selection = await p.message({ type: 'get-video', url: p.context.location.href, videoId });
+  assert.equal(selection.title, 'Player title');
+});
+
+test('titles left over from the previous video are never sent', async () => {
+  const stalePlayer = page({ playerData: { video_id: 'aaaaaaaaaaa', title: 'Previous video' } });
+  const selection = await stalePlayer.message({ type: 'get-video', url: stalePlayer.context.location.href, videoId });
+  assert.equal(selection.title, 'Watch page title');
+  const stalePage = page({ playerData: { video_id: 'aaaaaaaaaaa', title: 'Previous video' }, flexyId: 'aaaaaaaaaaa' });
+  stalePage.click();
+  await Promise.resolve();
+  assert.deepEqual(plain(stalePage.sent), [{ type: 'cast', videoId, position: 42 }]);
 });

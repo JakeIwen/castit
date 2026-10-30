@@ -10,10 +10,18 @@ function currentVideo() {
   const videoId = url.searchParams.get('v');
   if (url.pathname !== config.youtube.watchPath || !videoId
       || !config.youtube.videoIdPattern.test(videoId)) return null;
-  return { videoId, position: currentPosition() ?? 0, title: currentTitle() };
+  return { videoId, position: currentPosition() ?? 0, title: currentTitle(videoId) };
 }
 
-function currentTitle() {
+// YouTube navigates in place, so the heading and document title can still name
+// the previous video; only titles tied to this video id are sent. Without one
+// the receiver looks the title up itself.
+function currentTitle(videoId) {
+  try {
+    const data = document.getElementById('movie_player')?.wrappedJSObject?.getVideoData?.();
+    if (data?.video_id === videoId && cleanVideoTitle(data.title)) return cleanVideoTitle(data.title);
+  } catch { /* The page's player API is not ours; fall back to the page. */ }
+  if (document.querySelector('ytd-watch-flexy')?.getAttribute('video-id') !== videoId) return undefined;
   return cleanVideoTitle(document.querySelector('ytd-watch-metadata h1 yt-formatted-string, h1.title yt-formatted-string')?.textContent)
     ?? cleanVideoTitle(document.title, { page: true });
 }
@@ -108,7 +116,7 @@ browser.runtime.onMessage.addListener(message => {
     // The background parsed this exact URL; avoid another URL parser here and
     // refuse a stale selection if YouTube navigated while the message travelled.
     return Promise.resolve(location.href === message.url
-      ? { videoId: message.videoId, position: currentPosition(), title: currentTitle() } : null);
+      ? { videoId: message.videoId, position: currentPosition(), title: currentTitle(message.videoId) } : null);
   }
   if (message?.type === config.message.castAccepted) {
     pauseCurrent(message.videoId, message.url);

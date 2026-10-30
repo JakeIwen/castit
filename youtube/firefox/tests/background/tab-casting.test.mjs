@@ -30,12 +30,17 @@ test('casting prefers the content title, even when URL time supplies the playhea
   }
 });
 
-test('casting falls back to a cleaned tab title if the script or its title is unavailable', async () => {
-  for (const [current, noScript] of [[null, true], [{ videoId, position: 64 }, false],
-    [{ videoId, position: 64, title: '  ' }, false]]) {
-    const f = fixture(current, noScript);
+test('casting uses the cleaned tab title only when no content script answers', async () => {
+  const f = fixture(null, true);
+  await castTab(f.browser, f.receiver, tab);
+  assert.deepEqual(f.requests, [['cast', videoId, 15, 'Tab title']]);
+});
+
+test('a content script without a title for this video sends none, since the tab title may be stale', async () => {
+  for (const current of [{ videoId, position: 64 }, { videoId, position: 64, title: '  ' }]) {
+    const f = fixture(current);
     await castTab(f.browser, f.receiver, tab);
-    assert.deepEqual(f.requests, [['cast', videoId, noScript ? 15 : 64, 'Tab title']]);
+    assert.deepEqual(f.requests, [['cast', videoId, 64, undefined]]);
   }
 });
 

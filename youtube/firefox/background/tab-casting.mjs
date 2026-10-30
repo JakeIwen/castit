@@ -18,23 +18,26 @@ export async function tabVideo(browserApi, tab) {
   try { current = await browserApi.tabs.sendMessage(tab.id, {
     type: message.getVideo, url: tab.url, videoId: parsed.videoId,
   }); }
-  catch { return parsed; }
+  // Without a script the tab title is the only name, and it is as current as the URL.
+  catch {
+    const title = cleanVideoTitle(tab.title, { page: true });
+    return title ? { ...parsed, title } : parsed;
+  }
   // A responsive content script returning no video means the SPA navigated;
   // only an unavailable script may fall back to the original URL.
   if (!current || current.videoId !== parsed.videoId) {
     throw new Error('The tab changed; try casting again');
   }
   const title = cleanVideoTitle(current.title);
-  const selection = current.position === null ? parsed : current;
-  if (!isPosition(selection.position)) throw new Error('Invalid tab playback position');
-  return title ? { ...selection, title } : selection;
+  const position = current.position === null ? parsed.position : current.position;
+  if (!isPosition(position)) throw new Error('Invalid tab playback position');
+  return title ? { videoId: parsed.videoId, position, title } : { videoId: parsed.videoId, position };
 }
 
 export async function castTab(browserApi, receiver, tab) {
   const video = await tabVideo(browserApi, tab);
   if (!video) throw new Error('Open a YouTube video to cast this tab');
-  const title = cleanVideoTitle(video.title) ?? cleanVideoTitle(tab?.title, { page: true });
-  const result = await receiver.cast(video.videoId, video.position, title);
+  const result = await receiver.cast(video.videoId, video.position, video.title);
   try {
     await browserApi.tabs.sendMessage(tab.id, {
       type: message.castAccepted, videoId: video.videoId, url: tab.url,
