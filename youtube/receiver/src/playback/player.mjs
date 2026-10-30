@@ -3,6 +3,7 @@ import { MpvProcess } from './mpv/process.mjs';
 import { fetchSegments, SponsorSkipper } from './sponsor-block.mjs';
 import { RoomPreparation } from '../host/room-preparation.mjs';
 import { stopVideoLibrary } from '../host/vlc-handoff.mjs';
+import { CommandTimeoutError } from '../host/process-command.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
 import { normalizeVideoTitle, isPlaceholderTitle } from '../youtube/video-title.mjs';
 import { CastQueue } from '../queue/cast-queue.mjs';
@@ -139,7 +140,11 @@ export class MpvPlayer extends Player {
     let outcome = 'failed';
     try {
       const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
-        .catch(() => { signal.throwIfAborted(); return null; }).finally(() => progress.resolved());
+        .catch(error => {
+          signal.throwIfAborted();
+          if (error instanceof CommandTimeoutError) throw error;
+          return null;
+        }).finally(() => progress.resolved());
       const wake = timing.measure('wake', () => this.room.beforeVideo(signal));
       const starting = timing.measure('handoff', () => this.handoff({ signal })).then(() =>
         timing.measure('mpv_start', async () => {

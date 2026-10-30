@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { QueuePrefetch } from '../../src/playback/queue-prefetch.mjs';
+import { StreamResolver } from '../../src/playback/stream-resolver.mjs';
+import { CommandTimeoutError } from '../../src/host/process-command.mjs';
 import { playback } from '../../src/config/receiver-config.mjs';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -34,6 +36,30 @@ test('Prefetch notices mid-play queue changes and never overlaps extractions', a
   entries[0] = { id: 'zzzzzzzzzzz' };
   t.mock.timers.tick(playback.prefetchIntervalMs);
   assert.equal(calls.length, 2);
+});
+
+test('Timed-out prefetch is not retried every poll and the foreground gets a fresh attempt', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const id = 'abcdefghijk';
+  let calls = 0;
+  const resolver = new StreamResolver({ run: async (_argv, options) => {
+    assert.equal(options.timeoutMs, playback.resolveTimeoutMs);
+    if (++calls === 1) throw new CommandTimeoutError();
+    return { code: 0, stdout: JSON.stringify({ id, protocol: 'https',
+      url: 'https://media.invalid/video', vcodec: 'avc1', acodec: 'mp4a' }) };
+  } });
+  const entries = [{ id }];
+  const prefetch = new QueuePrefetch(resolver, () => entries);
+  t.after(() => prefetch.stop());
+  prefetch.start(new AbortController().signal);
+  await flush();
+  t.mock.timers.tick(playback.prefetchIntervalMs * 3);
+  await flush();
+  assert.equal(calls, 1);
+  assert.deepEqual(entries, [{ id }], 'failed prefetch leaves the queue untouched');
+  await prefetch.stop();
+  assert.equal((await resolver.resolve(id)).videoUrl, 'https://media.invalid/video');
+  assert.equal(calls, 2);
 });
 
 test('Aborting a playback cancels the only prefetch and clears its timer', async t => {

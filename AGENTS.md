@@ -60,7 +60,9 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `push-youtube-cookies.zsh` installs); `history/ytdlp-history.mjs` is its
   yt-dlp adapter and failure vocabulary.
   `host/process-command.mjs` owns bounded subprocess groups (`runCommand`,
-  and `runCommandOutput` for captured output), also used by playback and
+  and `runCommandOutput` for captured output), with `CommandTimeoutError`
+  distinguishing an exhausted budget from ordinary command failure; playback
+  must not repeat a timed-out extraction through mpv's hook. Also used by
   history; `host/room-preparation.mjs` owns the screen wake and the
   optional idempotent room check run ~1.5 s after each start and resume; `host/vlc-handoff.mjs` owns the optional local player stop.
   `storage/private-data-store.mjs` preserves screen identity and settings

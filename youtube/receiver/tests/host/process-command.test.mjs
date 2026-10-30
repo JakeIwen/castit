@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runCommand, runCommandOutput } from '../../src/host/process-command.mjs';
+import { CommandTimeoutError, runCommand, runCommandOutput } from '../../src/host/process-command.mjs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,11 +30,15 @@ test('Output capture caps each stream independently while draining large output'
 test('Output commands reject spawn failure, timeout and cancellation', async () => {
   await assert.rejects(runCommandOutput(['/nonexistent-castit-test-command']), { code: 'ENOENT' });
   const command = node('setInterval(() => {}, 1000)');
-  await assert.rejects(runCommandOutput(command, { timeoutMs: 50 }), /timeout/);
+  await assert.rejects(runCommandOutput(command, { timeoutMs: 50 }), CommandTimeoutError);
   const abort = new AbortController();
   const pending = runCommandOutput(command, { signal: abort.signal });
   abort.abort();
-  await assert.rejects(pending, /cancellation/);
+  await assert.rejects(pending, error => {
+    assert.match(error.message, /cancellation/);
+    assert.equal(error instanceof CommandTimeoutError, false);
+    return true;
+  });
   await assert.rejects(runCommandOutput(command, { signal: abort.signal }), { name: 'AbortError' });
 });
 

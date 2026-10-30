@@ -1,6 +1,13 @@
 import { spawn } from 'node:child_process';
 import { config } from '../config/receiver-config.mjs';
 
+export class CommandTimeoutError extends Error {
+  constructor() {
+    super('Command timeout');
+    this.name = 'CommandTimeoutError';
+  }
+}
+
 export function signalGroup(pid, signal) {
   if (!pid) return;
   try { process.kill(-pid, signal); } catch (error) {
@@ -60,7 +67,7 @@ function execute(argv, { timeoutMs, signal, env, maxBytes }) {
     child.once('error', error => { cleanup(); reject(error); });
     child.once('close', (code, exitSignal) => {
       cleanup();
-      if (timedOut) reject(new Error('Command timeout/cancellation'));
+      if (timedOut) reject(signal?.aborted ? new Error('Command cancellation') : new CommandTimeoutError());
       else resolve({ code, exitSignal, stdout: stdout(), stderr: stderr() });
     });
   });

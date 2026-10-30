@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LoadTiming } from '../../src/playback/load-timing.mjs';
 import { StreamResolver } from '../../src/playback/stream-resolver.mjs';
+import { runCommandOutput } from '../../src/host/process-command.mjs';
 import { PlayerStatus } from '../../src/playback/player.mjs';
 import { playerFixture, FakeMpv, VIDEO, SECOND, settleUntil } from './player-fixture.mjs';
 
@@ -84,6 +85,48 @@ test('Resolver rejection falls back to the original video load without leaking e
   assert.equal(await player.play(VIDEO), true);
   assert.equal(selected, null);
   assert.ok(logs.every(line => !line.includes(VIDEO.id)));
+});
+
+test('An extraction timeout fails the load without running mpv extraction again', async t => {
+  let extractions = 0;
+  let loads = 0;
+  const logs = [];
+  const resolver = new StreamResolver({ run: (_argv, options) => {
+    extractions++;
+    return runCommandOutput([process.execPath, '-e', 'setInterval(() => {}, 1000)'],
+      { ...options, timeoutMs: 30 });
+  } });
+  const mpv = new FakeMpv();
+  mpv.load = async () => { loads++; };
+  const { player } = playerFixture({ resolver, createMpv: () => mpv,
+    log: { warn: line => logs.push(line), info: line => logs.push(line) } });
+  t.after(() => player.endSession());
+  assert.equal(await player.play(VIDEO), false);
+  assert.equal(extractions, 1);
+  assert.equal(loads, 0, 'neither direct loading nor the ytdl hook may start');
+  assert.equal(mpv.closed, true);
+  assert.equal(player.loading, null);
+  assert.equal(player.status, PlayerStatus.STOPPED);
+  assert.ok(logs.some(line => line.includes('outcome=failed')));
+  assert.ok(logs.every(line => !line.includes(VIDEO.id)));
+});
+
+test('Different per-track headers still fall back through the real resolver and player', async t => {
+  let selected = 'unset';
+  const resolver = new StreamResolver({ run: async () => ({ code: 0, stdout: JSON.stringify({
+    id: VIDEO.id, requested_formats: [
+      { protocol: 'https', url: 'https://media.invalid/video', vcodec: 'avc1', acodec: 'none',
+        http_headers: { 'User-Agent': 'video' } },
+      { protocol: 'https', url: 'https://media.invalid/audio', vcodec: 'none', acodec: 'mp4a',
+        http_headers: { 'User-Agent': 'audio' } },
+    ],
+  }) }) });
+  const mpv = new FakeMpv();
+  mpv.load = async (_id, _position, _signal, stream) => { selected = stream; };
+  const { player } = playerFixture({ resolver, createMpv: () => mpv });
+  t.after(() => player.endSession());
+  assert.equal(await player.play(VIDEO), true);
+  assert.equal(selected, null);
 });
 
 test('New play cancels every old independent phase and awaits their cleanup', async t => {

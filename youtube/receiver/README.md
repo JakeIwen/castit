@@ -79,13 +79,18 @@ not reused.
 `src/playback/stream-resolver.mjs` runs bounded subprocess groups at nice 10.
 Simple selected HTTP(S) video/audio tracks load directly using mpv 0.35's
 per-file option map, with external audio and ytdl disabled only for that file.
-Extraction errors and hook-dependent results (live/fragmented streams
+Non-timeout extraction errors and hook-dependent results (live/fragmented streams
 or incompatible per-track headers) use the original watch-URL/ytdl-hook path.
+A 60-second resolver deadline instead fails that load: the hook would start the same
+extraction again from scratch. Stop or a replacement still cancels and drains
+the subprocess; a subsequent cast can try again.
 The in-memory cache holds at most 16 results, expiring one minute before the
 earliest stream or subtitle URL expiration, keyed by video, subtitle language and quality.
 Subtitles never force a hook fallback; disabled subtitles are ignored. The first upcoming cast-queue entry is
 prefetched at nice 19 while playing; polling notices additions every two seconds,
 never runs two prefetches at once, and never consumes or reorders the queue.
+Prefetch uses the same deadline; a failed attempt is not retried every poll and
+does not poison the cache, so a later foreground load can try again.
 The phone's queue is not prefetched. Quality changes cancel old prefetch work and use separate cache entries. No account
 cookies are added to playback extraction.
 

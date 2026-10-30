@@ -1,5 +1,5 @@
 import { playback, resolverArguments } from '../config/receiver-config.mjs';
-import { runCommandOutput } from '../host/process-command.mjs';
+import { CommandTimeoutError, runCommandOutput } from '../host/process-command.mjs';
 import { isSubtitleLanguage, selectSubtitle } from './subtitles.mjs';
 import { DEFAULT_QUALITY, isQuality, withinQuality } from './quality.mjs';
 import { isVideoId } from '../youtube/video-id.mjs';
@@ -69,7 +69,10 @@ export class StreamResolver {
     this.cache = new Map();
   }
 
-  /** @returns {Promise<ResolvedStream|null>} null selects mpv's original ytdl hook. */
+  /**
+   * @returns {Promise<ResolvedStream|null>} null selects mpv's original ytdl hook.
+   * @throws {CommandTimeoutError} An exhausted extraction budget must not select the hook.
+   */
   async resolve(videoId, options = {}) {
     return (await this.extract(videoId, options))?.stream ?? null;
   }
@@ -106,8 +109,10 @@ export class StreamResolver {
         while (this.cache.size > playback.resolveCacheEntries) this.cache.delete(this.cache.keys().next().value);
       }
       return selected;
-    } catch {
+    } catch (error) {
       signal?.throwIfAborted();
+      // A hook retry repeats the same extraction after its entire budget is spent.
+      if (error instanceof CommandTimeoutError) throw error;
       // Upstream text includes signed media URLs; failures deliberately carry no payload.
       return null;
     }

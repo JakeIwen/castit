@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StreamResolver } from '../../src/playback/stream-resolver.mjs';
 import { playback, watchUrl } from '../../src/config/receiver-config.mjs';
-import { runCommandOutput } from '../../src/host/process-command.mjs';
+import { CommandTimeoutError, runCommandOutput } from '../../src/host/process-command.mjs';
 
 const ID = 'abcdefghijk';
 const NOW = 1_800_000_000_000;
@@ -94,6 +94,18 @@ test('Resolution failures and unsupported hook-dependent formats select fallback
   assert.equal(await new StreamResolver({ run: async () => { throw new Error('spawn failed'); } }).resolve(ID), null);
   const resolver = new StreamResolver({ run: () => assert.fail('invalid id must not spawn') });
   assert.equal(await resolver.resolve('--invalid'), null);
+});
+
+test('Timeout rejects rather than selecting the hook and leaves an explicit retry possible', async () => {
+  let calls = 0;
+  const resolver = new StreamResolver({ now: () => NOW, run: async (_argv, options) => {
+    if (++calls > 1) return result(metadata());
+    return runCommandOutput([process.execPath, '-e', 'setInterval(() => {}, 1000)'],
+      { ...options, timeoutMs: 30 });
+  } });
+  await assert.rejects(resolver.resolve(ID), CommandTimeoutError);
+  assert.ok(await resolver.resolve(ID));
+  assert.equal(calls, 2, 'timeout must not poison the stream cache');
 });
 
 test('Prefetch has lower scheduling priority and successful results serve the foreground', async () => {

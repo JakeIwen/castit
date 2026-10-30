@@ -68,7 +68,8 @@ export const playback = Object.freeze({
   nice: '/usr/bin/nice',
   resolveNice: 10,
   prefetchNice: 19,
-  resolveTimeoutMs: 20_000,
+  // Allow a slow network/JS challenge to finish once instead of restarting it in mpv.
+  resolveTimeoutMs: 60_000,
   subtitleLoadTimeoutMs: 20_000,
   resolveMaxBytes: 8 * 1024 * 1024,
   resolveExpiryMarginMs: 60_000,
