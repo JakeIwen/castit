@@ -2,9 +2,12 @@ import { parseYouTubeVideo } from './video-url.mjs';
 
 const MAX_TITLE_LENGTH = 200;
 
+// Line breaks and tabs separate words; invisible format characters (bidi
+// overrides) are dropped, except the joiner that builds emoji sequences.
 export function normalizeVideoTitle(title) {
   if (typeof title !== 'string') return null;
-  const text = title.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/gu, ' ').trim();
+  const text = title.replace(/\p{Cc}/gu, ' ').replace(/(?!\u200d)\p{Cf}/gu, '')
+    .replace(/\s+/gu, ' ').trim();
   return Array.from(text).slice(0, MAX_TITLE_LENGTH).join('') || null;
 }
 

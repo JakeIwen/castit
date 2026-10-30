@@ -6,7 +6,8 @@ const ID = 'abcdefghijk';
 
 test('Video titles strip control/format characters, collapse whitespace and cap Unicode characters', () => {
   assert.equal(normalizeVideoTitle(' \u0000Hello‮   world​ '), 'Hello world');
-  assert.equal(normalizeVideoTitle('A\nB\tC'), 'ABC');
+  assert.equal(normalizeVideoTitle('A\nB\tC'), 'A B C');
+  assert.equal(normalizeVideoTitle('Family 👨\u200d👩\u200d👧'), 'Family 👨\u200d👩\u200d👧');
   for (const title of [undefined, null, 42, '', ' \u0000‮ ']) assert.equal(normalizeVideoTitle(title), null);
   assert.equal(normalizeVideoTitle('𐐀'.repeat(201)), '𐐀'.repeat(200));
 });
