@@ -288,7 +288,9 @@ its resolver children. Starting another player later does not stop this one.
   oEmbed endpoint. The status page shows recently played videos newest first.
 - The library ignores sender messages it doesn't implement. The receiver logs
   each one's name (never its payload) as `Unhandled sender message: <name>` in
-  the journal, to show what a phone feature such as its speed menu sends.
+  the journal, to show what a phone feature such as its speed menu sends. Each
+  name is logged once per receiver run, so repeated keepalives (`noop`) don't
+  fill the journal.
 
 Links must be a single HTTP(S) URL on `youtube.com`, `www.youtube.com`,
 `m.youtube.com` or `music.youtube.com` (`/watch?v=ID`, `/shorts/ID`, `/live/ID`,
