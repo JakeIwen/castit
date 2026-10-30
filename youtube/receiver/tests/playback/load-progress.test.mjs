@@ -14,8 +14,7 @@ test('Load progress reports rounded elapsed seconds and medians of only the last
   const progress = new LoadProgress({ now: () => now });
   assert.equal(progress.snapshot(), null);
   for (let duration = 1; duration <= 11; duration++) {
-    const abort = new AbortController();
-    const load = progress.start(abort.signal);
+    const load = progress.start();
     assert.equal(progress.snapshot().phase, LOAD_PHASES.RESOLVE);
     assert.equal(progress.snapshot().expected, duration === 1 ? null : duration / 2);
     now += 260;
@@ -28,39 +27,35 @@ test('Load progress reports rounded elapsed seconds and medians of only the last
     load.finish(true);
     assert.equal(progress.snapshot(), null);
   }
-  const failed = progress.start(new AbortController().signal);
+  const failed = progress.start();
   now += 100_000;
   failed.finish(false);
-  const abort = new AbortController();
-  const cancelled = progress.start(abort.signal);
+  const cancelled = progress.start();
   now += 100_000;
-  abort.abort();
+  progress.cancel();
   assert.equal(progress.snapshot(), null);
   cancelled.finish(true);
-  progress.start(new AbortController().signal);
+  progress.start();
   assert.deepEqual(progress.snapshot(), { phase: LOAD_PHASES.RESOLVE, elapsed: 0, expected: 6.5 });
 });
 
 test('Superseded loads cannot change or clear progress or contribute a successful timing', () => {
   let now = 0;
   const progress = new LoadProgress({ now: () => now });
-  const oldAbort = new AbortController();
-  const old = progress.start(oldAbort.signal);
+  const old = progress.start();
+  progress.cancel();
   now = 1000;
-  const current = progress.start(new AbortController().signal);
+  const current = progress.start();
   current.resolved();
-  oldAbort.abort();
   old.resolved();
   old.buffering();
   old.finish(true);
   assert.deepEqual(progress.snapshot(), { phase: LOAD_PHASES.START, elapsed: 0, expected: null });
   now = 2501;
   current.finish(true);
-  progress.start(new AbortController().signal);
+  progress.start();
   assert.equal(progress.snapshot().expected, 1.501);
-  const aborted = new AbortController();
-  aborted.abort();
-  progress.start(aborted.signal).finish(true);
+  progress.cancel();
   assert.equal(progress.snapshot(), null);
 });
 
@@ -118,6 +113,37 @@ test('Player progress follows resolution, startup and buffering, including quali
   const previous = player.playPrevious();
   assert.equal(await previous, true);
   assert.equal(player.video.id, VIDEO.id);
+  assert.equal(player.loading, null);
+});
+
+test('Tracking clears progress on exceptions before playback setup and excludes those attempts', async () => {
+  const progress = new LoadProgress();
+  await assert.rejects(progress.track(async () => { throw new Error('setup failed'); }), /setup failed/);
+  assert.equal(progress.snapshot(), null);
+  await progress.track(async () => {
+    assert.equal(progress.snapshot().expected, null);
+    return false;
+  });
+  assert.equal(progress.snapshot(), null);
+});
+
+test('Quality reload progress covers previous mpv teardown and cancels immediately while it drains', async t => {
+  const cleanup = gate();
+  let closing = false;
+  class ClosingMpv extends FakeMpv {
+    async close() { closing = true; await cleanup.promise; await super.close(); }
+  }
+  const { player } = playerFixture({ createMpv: () => new ClosingMpv() });
+  t.after(() => player.endSession());
+  await player.play(VIDEO);
+  assert.equal(await player.setQuality('720'), true);
+  await settleUntil(() => closing);
+  assert.equal(player.loading.phase, LOAD_PHASES.RESOLVE);
+  const stopped = player.stop();
+  assert.equal(player.loading, null);
+  cleanup.resolve();
+  await stopped;
+  await settleUntil(() => player.quality.loading === false);
   assert.equal(player.loading, null);
 });
 

@@ -10,20 +10,25 @@ export class LoadProgress {
     this.successful = [];
   }
 
-  start(signal, started = this.now()) {
-    const load = { phase: LOAD_PHASES.RESOLVE, started };
+  cancel() { this.current = null; }
+
+  async track(operation) {
+    const load = this.start();
+    let successful = false;
+    try { successful = await operation(load); return successful; }
+    finally { load.finish(successful); }
+  }
+
+  start() {
+    const load = { phase: LOAD_PHASES.RESOLVE, started: this.now() };
     this.current = load;
-    const cancel = () => { if (this.current === load) this.current = null; };
-    signal.addEventListener('abort', cancel, { once: true });
-    if (signal.aborted) cancel();
     const phase = value => { if (this.current === load) load.phase = value; };
     return {
       resolved: () => phase(LOAD_PHASES.START),
       buffering: () => phase(LOAD_PHASES.BUFFER),
       finish: successful => {
-        signal.removeEventListener('abort', cancel);
         if (this.current !== load) return;
-        if (successful && !signal.aborted) {
+        if (successful) {
           this.successful.push(this.now() - load.started);
           this.successful = this.successful.slice(-HISTORY_LIMIT);
         }

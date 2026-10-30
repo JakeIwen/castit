@@ -70,6 +70,7 @@ export class MpvPlayer extends Player {
   play(video, position = 0, aid, queuedEntry) {
     if (!isVideoId(video?.id) || !Number.isFinite(position) || position < 0) return Promise.resolve(false);
     this.qualityPlayback.cancel();
+    this.loadProgress.cancel();
     this.playTarget = { video, position, queuedEntry, recorded: false };
     const request = ++this.request;
     this.abort?.abort();
@@ -108,6 +109,7 @@ export class MpvPlayer extends Player {
 
   stop(aid) {
     this.qualityPlayback.cancel();
+    this.loadProgress.cancel();
     this.playTarget = null;
     ++this.request;
     this.abort?.abort();
@@ -115,7 +117,11 @@ export class MpvPlayer extends Player {
     return super.stop(aid);
   }
 
-  async doPlay(video, position, paused = false) {
+  doPlay(video, position, paused = false) {
+    return this.loadProgress.track(progress => this.loadVideo(video, position, paused, progress));
+  }
+
+  async loadVideo(video, position, paused, progress) {
     const timing = new LoadTiming();
     await this.release();
     if (this.activeRequest !== this.request) return false;
@@ -130,7 +136,6 @@ export class MpvPlayer extends Player {
     void this.segments(video.id, { signal }).then(segments => {
       if (this.mpv === mpv && !signal.aborted) this.skipper = new SponsorSkipper(segments);
     }).catch(() => {});
-    const progress = this.loadProgress.start(signal, timing.started);
     let outcome = 'failed';
     try {
       const resolving = timing.measure('resolve', () => this.resolver.resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
@@ -180,7 +185,7 @@ export class MpvPlayer extends Player {
       if (this.mpv === mpv) await this.release();
       else await this.pendingPreparation;
       return false;
-    } finally { progress.finish(outcome === 'loaded'); timing.report(this.log, outcome); }
+    } finally { timing.report(this.log, outcome); }
   }
 
   async release() {
@@ -276,6 +281,7 @@ export class MpvPlayer extends Player {
   }
 
   reloadQuality(target) {
+    this.loadProgress.cancel();
     const request = ++this.request;
     this.abort?.abort();
     this.playTarget = target;
