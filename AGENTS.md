@@ -90,7 +90,9 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `background/video-details.mjs` channel name, avatar and subscriber
   lookups, `background/tab-casting.mjs` playhead handoff, and
   `background/actions.mjs` messages, menus and shortcuts.
-  `youtube/video-url.mjs` owns URL parsing for background and popup.
+  `youtube/video-url.mjs` owns URL parsing for background and popup;
+  `youtube/video-title.js`, a classic script, cleans sender titles for both
+  the content script and background modules.
   `content/player-button.js` and `content/player-button.css` own the
   player button; `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css`
   own the toolbar-opened sidebar remote. `popup/queue-list.mjs` owns its combined queue/history
@@ -101,6 +103,8 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `playback/diagnostics.mjs` validates telemetry entering the extension;
   `popup/playback-messages.mjs` and its CSS own the collapsible Info section,
   including buffering explanations and active warning symbols.
+  `popup/load-progress.mjs` and its CSS own the load phase, elapsed time and
+  estimate bar that replace the seek bar while a video loads.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.
