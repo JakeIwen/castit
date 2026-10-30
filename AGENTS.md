@@ -35,7 +35,7 @@ keep IP addresses, extension IDs, cookies and other private details out.
 | DIAL port 8794, status/API port 8795, `/api/status`, `/api/control`, `/api/cast`, `/api/queue` | the extension, `vantv.zsh`, and the Pi shell's `vantv_*` functions (in `JakeIwen/scripts` `pi/.bashrc`) that route BTT media buttons |
 | extension ID from `senders.extensionId` | installed Firefox add-on; changing it installs a separate add-on |
 | `youtube/vantv.zsh` | the Mac `vantv` alias in `~/.zshrc` |
-| an `mpv` process exists only while a video is loaded or playing | the Pi's labwc idle-blanking hook `~/.config/labwc/blank-when-idle.sh` (not in a repo), which holds the screen on while `pgrep -x mpv` matches |
+| an `mpv` process exists only while a video is loaded or playing | the Pi's labwc idle-blanking hook `~/.config/labwc/blank-when-idle.sh` (source in `JakeIwen/scripts` `pi/configs/labwc/`, installed by `pi/sync_scripts.sh`), which holds the screen on while `pgrep -x mpv` matches |
 
 ## Where things live
 
