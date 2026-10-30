@@ -21,7 +21,9 @@ export class RangeTransfer {
   async ensurePiece(session, track, start, end, signal) {
     const key = `${session.entry.id}:${track.formatId}`;
     const previous = this.queues.get(key) ?? Promise.resolve();
+    let started = false;
     const operation = previous.catch(() => {}).then(async () => {
+      started = true;
       signal?.throwIfAborted();
       for (const [left, right] of missingRanges(track.ranges, start, end)) {
         for (let cursor = left; cursor < right; cursor += STORE_LIMITS.chunkBytes) {
@@ -30,8 +32,9 @@ export class RangeTransfer {
       }
     });
     this.queues.set(key, operation);
-    try { await operation; }
-    finally { if (this.queues.get(key) === operation) this.queues.delete(key); }
+    const finish = () => { if (this.queues.get(key) === operation) this.queues.delete(key); };
+    void operation.then(finish, finish);
+    await cancellableWait(operation, signal, () => started);
   }
 
   async refresh(session, track, signal) {
@@ -104,6 +107,21 @@ export class RangeTransfer {
     if (track.size === null) await this.ensure(session, track, 0, 1, signal);
     return track.size;
   }
+}
+
+// Cancelling a waiting playback request must not wait for, or cancel, an
+// independent Download that owns the current chunk. The queue still drains in order.
+async function cancellableWait(operation, signal, started) {
+  if (!signal) return operation;
+  let cancel;
+  const aborted = new Promise((_, reject) => {
+    cancel = () => { if (!started()) reject(signal.reason); };
+    signal.addEventListener('abort', cancel, { once: true });
+  });
+  try {
+    if (signal.aborted) cancel();
+    await Promise.race([operation, aborted]);
+  } finally { signal.removeEventListener('abort', cancel); }
 }
 
 function upstreamRange(response, start, end, knownSize) {
