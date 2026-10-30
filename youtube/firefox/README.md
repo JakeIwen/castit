@@ -76,8 +76,8 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   playback pauses after acceptance. **Shift-click** adds to the queue instead:
   it inserts next from the beginning and leaves the tab playing, and starts
   immediately when the receiver is idle or stopped. Both open the sidebar.
-  It is one item because Firefox puts two or more items from one extension in
-  a submenu. The queue and played history persist across Stop and restarts;
+  **Save on Van TV** saves the page or link's video without interrupting playback.
+  Firefox groups these two items into a submenu. The queue and played history persist across Stop and restarts;
   they never start by themselves.
 - Cast and queue requests include a title when one is available, so updated receivers
   show it while the stream loads. Player/tab casts prefer the watch page's title,
@@ -107,6 +107,21 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   navigation cancels unfinished loading. The playhead stops advancing during buffering.
   **Cast this tab** also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
+- The download icon beside CC saves the loaded video. Hover for download progress,
+  saving, saved or error details; click again to retry an error. It is hidden when
+  no video is loaded or the library is unavailable.
+- **Saved** expands channel groups (alphabetical), with title, duration and size.
+  **Play** casts from the beginning, **Queue** adds the video, and **Delete** asks
+  for a second inline confirmation. The section refreshes on opening and after
+  actions, and while open downloads are active, not on every playback poll.
+  **Info** also shows the current source: saved copy, disk cache or YouTube.
+  The Mac CLI has `vantv download [youtube-url|id]` (default: loaded video) and
+  `vantv saved` (list by channel).
+- Automatic closing on non-YouTube tab navigation is not available in Firefox
+  Developer Edition 160: [`sidebarAction.close()` requires a user action](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/sidebarAction/close),
+  and the [160 API schema](https://github.com/mozilla-firefox/firefox/blob/FIREFOX_160_0b1_RELEASE/browser/components/extensions/schemas/sidebar_action.json)
+  enforces `requireUserInput` for close/open/toggle. Tab events are not such
+  handlers. The toolbar button still closes the sidebar directly from its click.
 - **CC** toggles the receiver's saved subtitles live, including while idle.
   English is the default language; uploaded captions take priority over automatic
   captions. Hover CC for language, loading, missing-track and failure status. Change language

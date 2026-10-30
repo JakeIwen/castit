@@ -23,6 +23,8 @@
   --van-tv-timeline-label-height: 24px;
   --van-tv-timeline-font-size: 11px;
   --van-tv-load-bar-height: 4px;
+  --van-tv-saved-max-height: 360px;
+  --van-tv-saved-button-height: 28px;
 }
 
 @media (prefers-color-scheme: dark) {

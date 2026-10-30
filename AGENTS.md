@@ -108,6 +108,11 @@ keep IP addresses, extension IDs, cookies and other private details out.
   including buffering explanations and active warning symbols.
   `popup/load-progress.mjs` and its CSS own the load phase, elapsed time and
   estimate bar that replace the seek bar while a video loads.
+  `playback/video-store.mjs` validates source, download and library responses;
+  `popup/saved-state.mjs` owns their pure labels/list models.
+  `popup/saved-videos.mjs` and its CSS own the collapsible Saved browser,
+  inline deletion confirmation and on-demand/active-download refresh;
+  `popup/download-control.mjs` and its CSS own the current-video save button.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.

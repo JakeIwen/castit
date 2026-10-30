@@ -1,0 +1,5 @@
+#download { position: relative; }
+#download:disabled { opacity: 1; }
+#download-progress { position: absolute; bottom: 0; font-size: var(--van-tv-timeline-font-size); background: var(--van-tv-background); border-radius: var(--van-tv-control-radius); }
+#download[data-state="saved"] { color: var(--van-tv-focus); }
+#download[data-state="error"] { color: var(--van-tv-error); }

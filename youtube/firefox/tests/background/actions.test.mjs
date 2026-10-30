@@ -209,13 +209,12 @@ test('toolbar clicks toggle the full-height sidebar directly from the user gestu
   assert.deepEqual(browser.sidebars, ['toggle', 'toggle']);
 });
 
-// Firefox wraps two or more items from one extension in a submenu.
-test('the context menu has one top-level item in each context', async () => {
+test('the context menu offers casting and a separate Save item in each YouTube context', async () => {
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, {});
   for (const context of ['link', 'page']) {
     assert.deepEqual(browser.menus.filter(item => item.contexts.includes(context))
-      .map(item => item.title), ['Van TV: Cast Now (Shift: Add to Queue)']);
+      .map(item => item.title), ['Van TV: Cast Now (Shift: Add to Queue)', 'Save on Van TV']);
   }
   assert.ok(browser.menus.every(item => !Object.hasOwn(item, 'parentId')));
   assert.ok(browser.menus.find(item => item.contexts.includes('link')).targetUrlPatterns.includes('*://youtu.be/*'));
@@ -281,6 +280,37 @@ test('player casts and extension queue messages forward optional titles to the H
   assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => request.body), [
     { videoId, position: 9, title: 'Player title' }, { action: 'add', videoId, title: 'Queue title' },
   ]);
+});
+
+test('Save on Van TV downloads page and link ids without pausing or casting', async t => {
+  const fixture = await startReceiver(t);
+  for (const menuItemId of ['save-link', 'save-page']) {
+    const browser = browserFixture();
+    await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+    browser.click({ menuItemId, modifiers: ['Shift'], linkUrl: `https://youtu.be/${videoId}?t=90` });
+    await browser.completed;
+    assert.deepEqual(browser.messages, []);
+    assert.deepEqual(browser.titles, ['Van TV — download accepted']);
+  }
+  assert.deepEqual(fixture.requests.filter(r => r.method === 'POST').map(r => [r.path, r.body]), [
+    ['/api/control', { action: 'download', id: videoId }], ['/api/control', { action: 'download', id: videoId }],
+  ]);
+});
+
+test('Save rejects non-video links and receiver refusal rather than showing success', async t => {
+  const fixture = await startReceiver(t, { respond(request, response) {
+    if (request.method !== 'POST') return false;
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ action: 'download', done: false })); return true;
+  } });
+  for (const linkUrl of ['https://www.youtube.com/', `https://youtu.be/${videoId}`]) {
+    const browser = browserFixture();
+    await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+    browser.click({ menuItemId: 'save-link', linkUrl });
+    await browser.completed;
+    assert.deepEqual(browser.badges, ['!']);
+    assert.doesNotMatch(browser.titles[0], /accepted/);
+  }
 });
 
 test('shortcut failure is visible in the toolbar badge and hover title', async t => {

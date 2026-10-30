@@ -20,7 +20,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     cast: 'cast', castTab: 'cast-tab', tabVideo: 'tab-video',
     status: 'status', control: 'control', getVideo: 'get-video',
     castAccepted: 'cast-accepted', queue: 'queue', queueTab: 'queue-tab',
-    videoDetails: 'video-details',
+    videoDetails: 'video-details', library: 'library',
   }),
   // The receiver's watchHistory.reason values the popup explains.
   historyReason: Object.freeze({
@@ -30,11 +30,14 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     idle: 'IDLE', loading: 'LOADING', playing: 'PLAYING',
     paused: 'PAUSED', stopped: 'STOPPED',
   }),
+  source: Object.freeze({ web: 'web', cache: 'cache', saved: 'saved' }),
+  downloadState: Object.freeze({ downloading: 'downloading', finalizing: 'finalizing', saved: 'saved', error: 'error' }),
   loadingPhase: Object.freeze({ resolve: 'resolve', start: 'start', buffer: 'buffer' }),
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
     next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',
     speed: 'speed', volume: 'volume', mute: 'mute', subtitles: 'subtitles', quality: 'quality',
+    download: 'download', deleteSaved: 'delete_saved',
   }),
   queue: Object.freeze({ add: 'add', remove: 'remove', play: 'play', clear: 'clear', move: 'move' }),
   subtitleLanguagePattern: /^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}$/i,

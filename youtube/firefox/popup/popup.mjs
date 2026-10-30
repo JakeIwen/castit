@@ -6,6 +6,8 @@ import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
 import { PlaybackMessages } from './playback-messages.mjs';
 import { LoadProgress } from './load-progress.mjs';
+import { DownloadControl } from './download-control.mjs';
+import { SavedVideos } from './saved-videos.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
@@ -18,6 +20,7 @@ const ids = [
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
   'playback-time', 'load-progress', 'load-progress-label', 'load-progress-bar', 'load-progress-fill',
+  'download', 'download-progress',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
@@ -71,6 +74,13 @@ const queueList = new QueueList({ list: element.queue, section: element['queue-s
   jumpButton: element['queue-end'],
   onAction: fields => perform(config.message.queue, fields, '', 'This video is no longer in the list'),
   onOpen: openYouTube });
+const savedVideos = new SavedVideos({ before: element['queue-section'],
+  load: () => send(config.message.library),
+  act: (type, fields) => send(type, fields, true), onChanged: refreshStatus });
+const downloadControl = new DownloadControl(element.download, element['download-progress'], () => {
+  const id = latestStatus?.video?.id;
+  if (id) void perform(config.message.control, { action: config.control.download, id }, 'Download accepted');
+});
 
 async function withRequest(operation) {
   requestsInFlight += 1;
@@ -151,6 +161,8 @@ function updateControls() {
   setText(element['subtitle-status'], subtitleStatus);
   qualitySelector.render(latestStatus?.quality, latestStatus?.ok, busy);
   queueList.setBusy(busy);
+  savedVideos.setBusy(busy);
+  downloadControl.render(latestStatus, busy);
   setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.clearableCount);
   setProperty(element['cast-tab'], 'disabled', busy || !tabAvailable);
   setProperty(element['queue-tab'], 'disabled', busy || !tabAvailable || !view?.queueEnabled);
@@ -252,7 +264,7 @@ async function perform(type, fields, success, unchanged = 'No playback change') 
     if (operation === latestOperation) messages.setNotice(error.message, true);
   }
   finally {
-    await refreshStatus();
+    await Promise.all([refreshStatus(), savedVideos.refresh()]);
     pendingOperations -= 1;
     busy = pendingOperations > 0;
     updateControls();
@@ -333,6 +345,7 @@ window.addEventListener('pagehide', () => {
   clearTimeout(pollTimer);
   clearInterval(progressTimer);
   queueList.destroy();
+  savedVideos.destroy();
 });
 void browser.browserAction.setBadgeText({ text: '' });
 void browser.browserAction.setTitle({ title: 'Van TV' });

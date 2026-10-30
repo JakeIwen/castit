@@ -8,6 +8,13 @@ export const defaultStatus = Object.freeze({
   receiver: 'running', senders: 0, pairing: { code: 'private-test-code' },
 });
 
+export const defaultLibrary = Object.freeze({
+  available: true, freeBytes: 8_000_000_000,
+  channels: [{ channel: 'Test channel', videos: [{ id: videoId, title: 'A saved video',
+    channel: 'Test channel', duration: 180, bytes: 10485760, savedAt: '2026-10-30T12:00:00Z' }] }],
+  downloads: [],
+});
+
 export async function startReceiver(t, { respond } = {}) {
   const requests = [];
   const server = createServer(async (request, response) => {
@@ -18,6 +25,7 @@ export async function startReceiver(t, { respond } = {}) {
     requests.push(entry);
     if (respond && await respond(entry, response)) return;
     const body = request.url === '/api/status' ? defaultStatus
+      : request.url === '/api/library' ? defaultLibrary
       : request.url === '/api/cast' ? entry.body : { action: entry.body.action, done: true };
     response.writeHead(request.url === '/api/cast' ? 202 : 200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(body));
