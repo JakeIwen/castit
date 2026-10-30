@@ -1,16 +1,21 @@
 import '../config.js';
+import '../youtube/video-title.js';
 import { isPosition, isVideoId } from '../youtube/video-url.mjs';
 import { decodeDiagnostics } from '../playback/diagnostics.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
+const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
 const states = Object.values(config.player);
 const actions = Object.values(config.control);
 const queueActions = Object.values(config.queue);
+const loadingPhases = Object.values(config.loadingPhase);
 const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(value);
 
 /** @typedef {{key: number, id: string, title: string|null}} QueueEntry */
+/** @typedef {{phase: 'resolve'|'start'|'buffer', elapsed: number, expected: number|null}} LoadingProgress */
 /** @typedef {{ok: boolean, player: string, video: {id: string, title: string}|null,
  * position: number, duration: number, audioDelay: number|null, speed: number|null,
+ * loading: LoadingProgress|null,
  * diagnostics: import('../../receiver/src/playback/diagnostics.mjs').PlaybackDiagnostics|null,
  * quality: {selected: string, options: {value: string, label: string}[], loading: boolean, error: boolean}|null,
  * subtitles: {enabled: boolean, language: string, available: boolean|null, loading: boolean, error: boolean}|null,
@@ -66,6 +71,13 @@ function decodeQuality(value) {
   return { selected, loading, error, options: value.options.map(({ value, label }) => ({ value, label })) };
 }
 
+function decodeLoading(value) {
+  if (!value || !loadingPhases.includes(value.phase) || !isPosition(value.elapsed)
+      || (value.expected !== null && (!isFiniteNumber(value.expected) || value.expected <= 0))) return null;
+  const { phase, elapsed, expected } = value;
+  return { phase, elapsed, expected };
+}
+
 function subtitleFields(fields) {
   const { enabled, language } = fields ?? {};
   if ((enabled === undefined && language === undefined)
@@ -87,6 +99,7 @@ export function decodeStatus(value) {
   const speed = isFiniteNumber(value.speed) ? value.speed : null;
   return { ok, player, video, position, duration, audioDelay, speed,
     canPlayNext: typeof value.canPlayNext === 'boolean' ? value.canPlayNext : null,
+    loading: decodeLoading(value.loading),
     diagnostics: decodeDiagnostics(value.diagnostics),
     quality: decodeQuality(value.quality), subtitles: decodeSubtitles(value.subtitles),
     volume: decodeVolume(value.volume), queue: decodeQueue(value.queue), played: decodeQueue(value.played),
@@ -176,9 +189,9 @@ export function createReceiverClient({ fetcher = globalThis.fetch,
     }
   }
 
-  async function cast(videoId, position = 0) {
+  async function cast(videoId, position = 0, title) {
     if (!isVideoId(videoId) || !isPosition(position)) throw new Error('Invalid YouTube video or position');
-    const result = await post('/api/cast', { videoId, position });
+    const result = await post('/api/cast', { videoId, position, title: cleanVideoTitle(title) });
     if (result?.videoId !== videoId || !isPosition(result.position)) {
       throw new Error('Invalid Van TV cast response; check playback before retrying');
     }
@@ -200,6 +213,7 @@ export function createReceiverClient({ fetcher = globalThis.fetch,
     if (action === config.queue.add) {
       if (!isVideoId(fields?.videoId)) throw new Error('Invalid YouTube video');
       body.videoId = fields.videoId;
+      body.title = cleanVideoTitle(fields.title);
     } else if (action === config.queue.remove && fields?.current !== undefined) {
       // The now-playing video has no queue key; the receiver matches its id.
       if (!isVideoId(fields.current)) throw new Error('Invalid YouTube video');

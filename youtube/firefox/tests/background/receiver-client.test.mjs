@@ -28,6 +28,21 @@ test('background HTTP round trip sends JSON casts and controls without cookies o
   }
 });
 
+test('cast and queue add send bounded titles and omit absent, blank or non-string titles', async t => {
+  const fixture = await startReceiver(t);
+  const receiver = createReceiverClient({ baseUrls: [fixture.url] });
+  for (const title of ['  A title  ', 'x'.repeat(220), undefined, null, '', '  ', 42, {}]) {
+    await receiver.cast(videoId, 0, title);
+    await receiver.queue('add', { videoId, title });
+  }
+  const posts = fixture.requests.filter(request => request.method === 'POST');
+  const titles = ['A title', 'x'.repeat(200), ...Array(6).fill(undefined)];
+  assert.deepEqual(posts.map(request => request.body), titles.flatMap(title => {
+    const field = title ? { title } : {};
+    return [{ videoId, position: 0, ...field }, { action: 'add', videoId, ...field }];
+  }));
+});
+
 test('A/V offset controls send one absolute delay or relative offset', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: [fixture.url] });
@@ -46,6 +61,23 @@ test('status keeps a reported A/V offset and marks an older receiver as lacking 
   assert.equal(decodeStatus({ ...defaultStatus, audioDelay: -0.12 }).audioDelay, -0.12);
   assert.equal(decodeStatus(defaultStatus).audioDelay, null);
   assert.equal(decodeStatus({ ...defaultStatus, audioDelay: 'loud' }).audioDelay, null);
+});
+
+test('status loading retains only valid phase and timing fields, with older receivers treated as idle', () => {
+  for (const phase of Object.values(globalThis.VAN_TV_CONFIG.loadingPhase)) {
+    for (const expected of [null, 22.5]) {
+      const loading = { phase, elapsed: 0, expected };
+      assert.deepEqual(decodeStatus({ ...defaultStatus, loading: { ...loading, extra: 'discard' } }).loading, loading);
+    }
+  }
+  const valid = { phase: 'resolve', elapsed: 6.5, expected: 20 };
+  assert.deepEqual(decodeStatus({ ...defaultStatus, loading: valid }).loading, valid);
+  for (const loading of [undefined, null, {}, [], 'loading',
+    ...[{ phase: 'other' }, { phase: 'toString' }, { elapsed: -1 }, { elapsed: NaN }, { elapsed: Infinity },
+      { elapsed: '6' }, { expected: 0 }, { expected: -1 }, { expected: Infinity }, { expected: NaN },
+      { expected: undefined }, { expected: '20' }].map(patch => ({ ...valid, ...patch }))]) {
+    assert.equal(decodeStatus({ ...defaultStatus, loading }).loading, null);
+  }
 });
 
 test('status preserves explicit Next availability and treats missing or malformed values as unknown', () => {

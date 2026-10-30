@@ -2,8 +2,8 @@ import '../config.js';
 
 const { youtube } = globalThis.VAN_TV_CONFIG;
 
-/** @typedef {{videoId: string, position: number}} VideoSelection */
-/** @typedef {{videoId: string, position: number|null}} VideoObservation */
+/** @typedef {{videoId: string, position: number, title?: string}} VideoSelection */
+/** @typedef {{videoId: string, position: number|null, title?: string}} VideoObservation */
 
 export function isVideoId(value) {
   return typeof value === 'string' && youtube.videoIdPattern.test(value);

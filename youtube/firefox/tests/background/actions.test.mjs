@@ -256,6 +256,33 @@ test('popup move messages pass the final index and key through to HTTP', async t
   ]);
 });
 
+test('link cast and queue carry link text but omit empty and duration-only thumbnail labels', async t => {
+  const fixture = await startReceiver(t);
+  for (const modifiers of [[], ['Shift']]) {
+    for (const linkText of ['  A link title  ', '', '  ', '12:34', '1:02:03', undefined]) {
+      const browser = browserFixture();
+      await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+      browser.click({ menuItemId: 'cast-link', modifiers, linkText, linkUrl: `https://youtu.be/${videoId}` });
+      await browser.completed;
+      const body = fixture.requests.filter(request => request.method === 'POST').at(-1).body;
+      assert.deepEqual(body, { ...(modifiers.length ? { action: 'add' } : { position: 0 }),
+        videoId, ...(linkText === '  A link title  ' ? { title: 'A link title' } : {}) });
+      assert.deepEqual(browser.messages, []);
+    }
+  }
+});
+
+test('player casts and extension queue messages forward optional titles to the HTTP client', async t => {
+  const fixture = await startReceiver(t);
+  const handle = createMessageHandler(browserFixture().browserApi,
+    createReceiverClient({ baseUrls: [fixture.url] }));
+  await handle({ type: config.message.cast, videoId, position: 9, title: 'Player title' }, { tab });
+  await handle({ type: config.message.queue, action: 'add', videoId, title: 'Queue title' }, {});
+  assert.deepEqual(fixture.requests.filter(request => request.method === 'POST').map(request => request.body), [
+    { videoId, position: 9, title: 'Player title' }, { action: 'add', videoId, title: 'Queue title' },
+  ]);
+});
+
 test('shortcut failure is visible in the toolbar badge and hover title', async t => {
   const fixture = await startReceiver(t, { respond(request, response) {
     response.writeHead(503); response.end('{}'); return true;

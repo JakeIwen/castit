@@ -5,6 +5,7 @@ import {
 import { QualitySelector } from './quality-selector.mjs';
 import { QueueList } from './queue-list.mjs';
 import { PlaybackMessages } from './playback-messages.mjs';
+import { LoadProgress } from './load-progress.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
@@ -16,8 +17,11 @@ const ids = [
   'volume-down', 'volume-up', 'volume-value', 'mute', 'speed-down', 'speed-up', 'speed-reset',
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
+  'playback-time', 'load-progress', 'load-progress-label', 'load-progress-bar', 'load-progress-fill',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
+  label: element['load-progress-label'], bar: element['load-progress-bar'], fill: element['load-progress-fill'] });
 const messages = new PlaybackMessages({ before: element['queue-section'],
   notice: element.notice, historyNotice: element['history-notice'] });
 const transportControls = [
@@ -90,9 +94,10 @@ function renderActivity() {
     : (latestStatus === undefined ? 'Connecting…' : 'Van TV unreachable');
   const label = latestStatus?.diagnostics?.buffering ? 'Buffering'
     : state === latestStatus?.player ? state[0] + state.slice(1).toLowerCase() : state;
-  setText(element.state, working ? 'Working' : label);
+  const activity = latestStatus?.loading || latestStatus?.player === config.player.loading ? 'Loading' : 'Working';
+  setText(element.state, working ? activity : label);
   setClass(element.state, 'working', working);
-  setAttribute(element.state, 'aria-label', working ? 'Working…' : label);
+  setAttribute(element.state, 'aria-label', working ? `${activity}…` : label);
   setProperty(element.state, 'title', working ? label : '');
 }
 
@@ -103,6 +108,7 @@ async function openYouTube(url, background = false) {
 }
 
 function renderPlayback() {
+  if (loadProgress.render()) return;
   const duration = latestStatus?.duration ?? 0;
   if (!scrub.dragging) {
     setProperty(element.scrub, 'max', String(duration));
@@ -126,7 +132,7 @@ function updateControls() {
   setBooleanAttribute(element['pause-icon'], 'hidden', toggleLabel !== 'Pause');
   setProperty(element.toggle, 'title', toggleLabel);
   setAttribute(element.toggle, 'aria-label', toggleLabel);
-  if (!scrub.dragging) setProperty(element.scrub, 'disabled', busy || !view?.scrubEnabled);
+  if (!scrub.dragging) setProperty(element.scrub, 'disabled', busy || Boolean(latestStatus?.loading) || !view?.scrubEnabled);
   for (const { button, enabled } of settingControls) {
     const reset = button === element['reset-delay'] && latestStatus?.audioDelay === 0
       || button === element['speed-reset'] && latestStatus?.speed === 1;
@@ -148,7 +154,7 @@ function updateControls() {
   setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.clearableCount);
   setProperty(element['cast-tab'], 'disabled', busy || !tabAvailable);
   setProperty(element['queue-tab'], 'disabled', busy || !tabAvailable || !view?.queueEnabled);
-  setProperty(element.duration, 'disabled', !view?.scrubEnabled);
+  setProperty(element.duration, 'disabled', Boolean(latestStatus?.loading) || !view?.scrubEnabled);
 }
 
 function renderChannel(channel) {
@@ -211,6 +217,7 @@ async function refreshStatus() {
     if (!scrub.dragging) scrub = createScrubState();
   }
   progressTime = performance.now();
+  loadProgress.update(latestStatus?.loading, progressTime);
   renderStatus();
 }
 
@@ -256,6 +263,7 @@ function updateProgress() {
   const now = performance.now();
   const seconds = (now - progressTime) / 1000;
   progressTime = now;
+  if (latestStatus?.loading) { loadProgress.render(now); return; }
   if (!latestStatus?.ok || latestStatus.player !== config.player.playing || latestStatus.diagnostics?.buffering) return;
   scrub = transitionScrub(scrub, {
     type: 'advance', seconds, duration: latestStatus.duration,

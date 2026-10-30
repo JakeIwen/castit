@@ -79,6 +79,12 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   It is one item because Firefox puts two or more items from one extension in
   a submenu. The queue and played history persist across Stop and restarts;
   they never start by themselves.
+- Cast and queue requests include a title when one is available, so updated receivers
+  show it while the stream loads. Player/tab casts prefer the watch page's title,
+  falling back to the tab title without YouTube's suffix or notification count;
+  tab queueing uses that cleaned tab title. Link menus use link text, ignoring
+  blank or duration-only thumbnail labels. Titles are plain text capped at 200
+  characters; older receivers can ignore the optional field.
 - **Info** expands playback diagnostics, action messages and watch-history issues.
   A warning symbol remains visible when collapsed. Buffering is confirmed from
   mpv; bandwidth is described as a suspicion only after repeated low-rate samples.
@@ -132,9 +138,17 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
 - Drag an upcoming row's grip to reorder it; the list scrolls near its edges and
   **Escape** cancels. With an upcoming row or one of its controls focused,
   **Alt+ArrowUp/Down** moves it one place instead.
-- The state pill shows animated **Working…** while loading or awaiting a user action;
-  reduced-motion settings keep the indicator static. Older receivers without
-  played history still show the current video and their upcoming queue.
+- During loading, updated receivers replace the seek/time area with **Finding the
+  stream**, **Starting the player** or **Buffering**, plus elapsed seconds. The clock
+  advances between polls. A progress bar uses the receiver's median recent load
+  time when available, stops short of completion at 95%, and pulses instead once
+  that estimate is exceeded or no estimate exists. This is an estimate, not a
+  countdown; the scrubber returns when loading ends. Older receivers without load
+  timing keep the normal disabled scrubber.
+- The state pill shows **Loading…** during a load and **Working…** while awaiting
+  other user actions; reduced-motion settings keep both indicators and the load
+  bar static. Older receivers without played history still show the current
+  video and their upcoming queue.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
   Reassign it in `about:addons` → gear menu → **Manage Extension Shortcuts**.
   Shortcut/menu failures put `!` on the toolbar; its tooltip gives the error.
@@ -170,10 +184,15 @@ loads the generated root `local-config.js` before `background/main.mjs`.
 YouTube channel lookups, `background/tab-casting.mjs` handles playhead handoff and
 tab queuing, and `background/actions.mjs` handles messages, menus and shortcuts.
 `youtube/video-url.mjs` parses URLs for the background and popup contexts.
+`youtube/video-title.js` is the classic-script title cleaner shared by background
+modules and the content script; it loads before the player button in the manifest.
 `content/player-button.js` and `content/player-button.css` own the player button;
 `popup/popup.html`, `popup/popup.mjs` and `popup/popup.css` own the sidebar remote.
 `popup/queue-list.mjs` owns queue/history rendering, anchoring and drag interactions;
-`popup/state.mjs` owns pure view state and reorder math.
+`popup/state.mjs` owns pure view state, load-progress labels/estimates and reorder math.
+`popup/load-progress.mjs` and its CSS own the seek-area loading display and clock
+interpolation; `background/receiver-client.mjs` validates optional `status.loading`
+(`phase`, nonnegative `elapsed` seconds, positive `expected` seconds or `null`).
 `popup/quality-selector.mjs` and its CSS own the quality menu. Shared colors and sizes
 live in `theme/tokens.css`. `playback/diagnostics.mjs` validates receiver measurements;
 `popup/playback-messages.mjs` and its CSS own the collapsible messages and warnings.

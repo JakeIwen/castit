@@ -19,6 +19,10 @@
   --van-tv-queue-button-size: 26px;
   --van-tv-queue-icon-size: 14px;
   --van-tv-queue-fade: 6px;
+  --van-tv-timeline-track-height: 22px;
+  --van-tv-timeline-label-height: 24px;
+  --van-tv-timeline-font-size: 11px;
+  --van-tv-load-bar-height: 4px;
 }
 
 @media (prefers-color-scheme: dark) {

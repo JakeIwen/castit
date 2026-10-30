@@ -1,6 +1,23 @@
 import '../config.js';
 
-const { player, control, historyReason } = globalThis.VAN_TV_CONFIG;
+const { player, control, historyReason, loadingPhase } = globalThis.VAN_TV_CONFIG;
+const loadingLabels = Object.freeze({
+  [loadingPhase.resolve]: 'Finding the stream',
+  [loadingPhase.start]: 'Starting the player',
+  [loadingPhase.buffer]: 'Buffering',
+});
+
+export function loadProgressModel(loading, secondsSincePoll = 0) {
+  if (!loading || !Object.hasOwn(loadingLabels, loading.phase)) return null;
+  const elapsed = loading.elapsed + Math.max(0, secondsSincePoll);
+  const indeterminate = loading.expected === null || elapsed > loading.expected;
+  return {
+    label: `${loadingLabels[loading.phase]} · ${Math.floor(elapsed)} s`,
+    // A median is an estimate, not a completion signal.
+    percent: indeterminate ? null : Math.min(95, Math.floor(elapsed / loading.expected * 100)),
+    indeterminate,
+  };
+}
 const playbackActions = Object.freeze([
   control.previous, control.seek, control.toggle, control.next, control.stop,
 ]);
@@ -97,7 +114,8 @@ export function queueListModel(status) {
 }
 
 export function isWorking(status, requestsInFlight = 0) {
-  return status?.player === player.loading || Boolean(status?.quality?.loading) || requestsInFlight > 0;
+  return Boolean(status?.loading) || status?.player === player.loading
+    || Boolean(status?.quality?.loading) || requestsInFlight > 0;
 }
 
 // Centers belong to the remaining upcoming rows, with the dragged row excluded.

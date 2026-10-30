@@ -30,6 +30,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     idle: 'IDLE', loading: 'LOADING', playing: 'PLAYING',
     paused: 'PAUSED', stopped: 'STOPPED',
   }),
+  loadingPhase: Object.freeze({ resolve: 'resolve', start: 'start', buffer: 'buffer' }),
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',
     next: 'next', previous: 'previous', seek: 'seek', audioDelay: 'audio_delay',

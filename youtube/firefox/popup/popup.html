@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="quality-selector.css">
   <link rel="stylesheet" href="playback-messages.css">
+  <link rel="stylesheet" href="load-progress.css">
 </head>
 <body>
   <header>
@@ -24,12 +25,23 @@
     </span>
   </a>
   <div class="scrubber">
-    <input id="scrub" type="range" min="0" max="0" step="1"
-      value="0" aria-label="Playback position" disabled>
-    <div class="timeline-labels">
-      <span id="elapsed">—</span>
-      <button id="duration" type="button" title="Show remaining time"
-        aria-label="Show remaining time" aria-pressed="false" disabled>—</button>
+    <div id="playback-time">
+      <input id="scrub" type="range" min="0" max="0" step="1"
+        value="0" aria-label="Playback position" disabled>
+      <div class="timeline-labels">
+        <span id="elapsed">—</span>
+        <button id="duration" type="button" title="Show remaining time"
+          aria-label="Show remaining time" aria-pressed="false" disabled>—</button>
+      </div>
+    </div>
+    <div id="load-progress" class="load-progress" hidden>
+      <span id="load-progress-label" class="load-progress-label"></span>
+      <div class="load-progress-track">
+        <div id="load-progress-bar" class="load-progress-bar" role="progressbar"
+          aria-label="Video loading" aria-valuemin="0" aria-valuemax="100">
+          <div id="load-progress-fill" class="load-progress-fill"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="transport" role="group" aria-label="Playback controls">

@@ -1,7 +1,9 @@
 import '../config.js';
+import '../youtube/video-title.js';
 import { isPosition, parseYouTubeVideo } from '../youtube/video-url.mjs';
 
 const { message, queue } = globalThis.VAN_TV_CONFIG;
+const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
 
 export async function activeTab(browserApi) {
   const [tab] = await browserApi.tabs.query({ active: true, currentWindow: true });
@@ -22,15 +24,17 @@ export async function tabVideo(browserApi, tab) {
   if (!current || current.videoId !== parsed.videoId) {
     throw new Error('The tab changed; try casting again');
   }
-  if (current.position === null) return parsed;
-  if (!isPosition(current.position)) throw new Error('Invalid tab playback position');
-  return current;
+  const title = cleanVideoTitle(current.title);
+  const selection = current.position === null ? parsed : current;
+  if (!isPosition(selection.position)) throw new Error('Invalid tab playback position');
+  return title ? { ...selection, title } : selection;
 }
 
 export async function castTab(browserApi, receiver, tab) {
   const video = await tabVideo(browserApi, tab);
   if (!video) throw new Error('Open a YouTube video to cast this tab');
-  const result = await receiver.cast(video.videoId, video.position);
+  const title = cleanVideoTitle(video.title) ?? cleanVideoTitle(tab?.title, { page: true });
+  const result = await receiver.cast(video.videoId, video.position, title);
   try {
     await browserApi.tabs.sendMessage(tab.id, {
       type: message.castAccepted, videoId: video.videoId, url: tab.url,
@@ -43,5 +47,5 @@ export async function castTab(browserApi, receiver, tab) {
 export async function queueTab(browserApi, receiver, tab) {
   const video = parseYouTubeVideo(tab?.url);
   if (!video) throw new Error('Open a YouTube video to queue this tab');
-  return receiver.queue(queue.add, { videoId: video.videoId });
+  return receiver.queue(queue.add, { videoId: video.videoId, title: cleanVideoTitle(tab?.title, { page: true }) });
 }

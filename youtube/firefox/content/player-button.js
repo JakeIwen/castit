@@ -1,4 +1,5 @@
 const config = globalThis.VAN_TV_CONFIG;
+const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
 const buttonId = 'van-tv-cast-button';
 const defaultLabel = 'Cast to Van TV';
 let scheduled = false;
@@ -9,7 +10,12 @@ function currentVideo() {
   const videoId = url.searchParams.get('v');
   if (url.pathname !== config.youtube.watchPath || !videoId
       || !config.youtube.videoIdPattern.test(videoId)) return null;
-  return { videoId, position: currentPosition() ?? 0 };
+  return { videoId, position: currentPosition() ?? 0, title: currentTitle() };
+}
+
+function currentTitle() {
+  return cleanVideoTitle(document.querySelector('ytd-watch-metadata h1 yt-formatted-string, h1.title yt-formatted-string')?.textContent)
+    ?? cleanVideoTitle(document.title, { page: true });
 }
 
 function playbackVideo() {
@@ -102,7 +108,7 @@ browser.runtime.onMessage.addListener(message => {
     // The background parsed this exact URL; avoid another URL parser here and
     // refuse a stale selection if YouTube navigated while the message travelled.
     return Promise.resolve(location.href === message.url
-      ? { videoId: message.videoId, position: currentPosition() } : null);
+      ? { videoId: message.videoId, position: currentPosition(), title: currentTitle() } : null);
   }
   if (message?.type === config.message.castAccepted) {
     pauseCurrent(message.videoId, message.url);

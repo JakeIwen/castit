@@ -1,8 +1,10 @@
 import '../config.js';
+import '../youtube/video-title.js';
 import { activeTab, castTab, queueTab, tabVideo } from './tab-casting.mjs';
 import { parseYouTubeVideo, youtubeMenuPatterns } from '../youtube/video-url.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
+const cleanVideoTitle = globalThis.VAN_TV_CLEAN_VIDEO_TITLE;
 // Firefox nests an extension's items in a submenu once there is more than one
 // per context, so each context gets one item and Shift-click queues instead.
 const menu = Object.freeze({ link: 'cast-link', page: 'cast-page' });
@@ -10,7 +12,7 @@ const menuTitle = 'Van TV: Cast Now (Shift: Add to Queue)';
 
 function controlFields(message) {
   const fields = {};
-  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'key', 'current', 'index', 'quality', 'enabled', 'language']) {
+  for (const name of ['position', 'delay', 'offset', 'speed', 'level', 'muted', 'videoId', 'title', 'key', 'current', 'index', 'quality', 'enabled', 'language']) {
     if (Object.hasOwn(message, name)) fields[name] = message[name];
   }
   return fields;
@@ -20,7 +22,7 @@ export function createMessageHandler(browserApi, receiver, videoDetails) {
   const routes = {
     [config.message.status]: () => receiver.status(),
     [config.message.control]: message => receiver.control(message.action, controlFields(message)),
-    [config.message.cast]: message => receiver.cast(message.videoId, message.position),
+    [config.message.cast]: message => receiver.cast(message.videoId, message.position, message.title),
     [config.message.tabVideo]: async () => tabVideo(browserApi, await activeTab(browserApi)),
     [config.message.castTab]: async () => castTab(browserApi, receiver, await activeTab(browserApi)),
     [config.message.queue]: message => receiver.queue(message.action, controlFields(message)),
@@ -61,7 +63,7 @@ export async function installContextMenus(browserApi, receiver) {
   const linkVideo = info => {
     const video = parseYouTubeVideo(info.linkUrl);
     if (!video) throw new Error('This link is not a YouTube video');
-    return video;
+    return { ...video, title: cleanVideoTitle(info.linkText, { link: true }) };
   };
   const queued = result => {
     if (!result.done) throw new Error('The Van TV queue is full');
@@ -70,9 +72,12 @@ export async function installContextMenus(browserApi, receiver) {
     [menu.link]: {
       cast: async info => {
         const video = linkVideo(info);
-        await receiver.cast(video.videoId, video.position);
+        await receiver.cast(video.videoId, video.position, video.title);
       },
-      queue: async info => queued(await receiver.queue(config.queue.add, { videoId: linkVideo(info).videoId })),
+      queue: async info => {
+        const video = linkVideo(info);
+        queued(await receiver.queue(config.queue.add, { videoId: video.videoId, title: video.title }));
+      },
     },
     [menu.page]: {
       cast: async (_info, tab) => castTab(browserApi, receiver, tab),
