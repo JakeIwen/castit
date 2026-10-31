@@ -20,7 +20,7 @@ const ids = [
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
   'playback-time', 'load-progress', 'load-progress-label', 'load-progress-bar', 'load-progress-fill',
-  'download', 'download-progress',
+  'download', 'download-progress', 'save-tab',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
@@ -166,6 +166,7 @@ function updateControls() {
   setProperty(element['queue-clear'], 'disabled', busy || !view?.queueList.clearableCount);
   setProperty(element['cast-tab'], 'disabled', busy || !tabAvailable);
   setProperty(element['queue-tab'], 'disabled', busy || !tabAvailable || !view?.queueEnabled);
+  setProperty(element['save-tab'], 'disabled', busy || !tabAvailable);
   setProperty(element.duration, 'disabled', Boolean(latestStatus?.loading) || !view?.scrubEnabled);
 }
 
@@ -329,6 +330,8 @@ element['cast-tab'].addEventListener('click', () => void perform(
   config.message.castTab, {}, 'Cast accepted'));
 element['queue-tab'].addEventListener('click', () => void perform(
   config.message.queueTab, {}, 'Added to the queue', 'The queue is full'));
+element['save-tab'].addEventListener('click', () => void perform(
+  config.message.saveTab, {}, 'Download accepted'));
 element['queue-end'].addEventListener('click', () => queueList.jumpToEnd());
 element['queue-clear'].addEventListener('click', () => void perform(
   config.message.queue, { action: config.queue.clear }, ''));

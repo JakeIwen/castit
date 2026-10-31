@@ -129,14 +129,20 @@
     </div>
     <ol id="queue"></ol>
   </section>
-  <footer>
-    <button id="cast-tab" type="button" title="Cast this tab" disabled>
+  <!-- Short labels keep three buttons on one line in a narrow sidebar; the
+       titles and accessible names say they act on the open tab. -->
+  <footer role="group" aria-label="This tab">
+    <button id="cast-tab" type="button" title="Cast this tab" aria-label="Cast this tab" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h18v14h-8M3 12a7 7 0 0 1 7 7m-7-3a3 3 0 0 1 3 3"/><circle cx="3" cy="19" r=".7"/></svg>
-      Cast this tab
+      Cast
     </button>
-    <button id="queue-tab" type="button" title="Add this tab's video to the end of the Van TV queue" disabled>
+    <button id="queue-tab" type="button" title="Add this tab's video to the end of the Van TV queue" aria-label="Queue this tab" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h7m6-3v6m-3-3h6"/></svg>
-      Queue this tab
+      Queue
+    </button>
+    <button id="save-tab" type="button" title="Save this tab's video on Van TV without interrupting playback" aria-label="Save this tab" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg>
+      Save
     </button>
   </footer>
   <p id="notice" role="status"></p>

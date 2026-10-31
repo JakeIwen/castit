@@ -229,12 +229,12 @@ test('the pane toggle gets its F13 default on install and on the update that add
   assert.equal(updates.length, 3);
 });
 
-test('the context menu offers casting and a separate Save item in each YouTube context', async () => {
+test('the context menu offers one Cast item per YouTube context, so Firefox keeps it out of a submenu', async () => {
   const browser = browserFixture();
   await installContextMenus(browser.browserApi, {});
   for (const context of ['link', 'page']) {
     assert.deepEqual(browser.menus.filter(item => item.contexts.includes(context))
-      .map(item => item.title), ['Van TV: Cast Now (Shift: Add to Queue)', 'Save on Van TV']);
+      .map(item => item.title), ['Van TV: Cast Now (Shift: Add to Queue)']);
   }
   assert.ok(browser.menus.every(item => !Object.hasOwn(item, 'parentId')));
   assert.ok(browser.menus.find(item => item.contexts.includes('link')).targetUrlPatterns.includes('*://youtu.be/*'));
@@ -302,35 +302,32 @@ test('player casts and extension queue messages forward optional titles to the H
   ]);
 });
 
-test('Save on Van TV downloads page and link ids without pausing or casting', async t => {
+test('Save this tab downloads the active tab video without pausing or casting', async t => {
   const fixture = await startReceiver(t);
-  for (const menuItemId of ['save-link', 'save-page']) {
-    const browser = browserFixture();
-    await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-    browser.click({ menuItemId, modifiers: ['Shift'], linkUrl: `https://youtu.be/${videoId}?t=90` });
-    await browser.completed;
-    assert.deepEqual(browser.messages, []);
-    assert.deepEqual(browser.titles, ['Van TV — download accepted']);
-  }
+  const browser = browserFixture();
+  const handle = createMessageHandler(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+  const result = await handle({ type: config.message.saveTab }, {});
+  assert.equal(result.ok, true);
+  assert.equal(result.data.done, true);
+  assert.deepEqual(browser.messages, []);
   assert.deepEqual(fixture.requests.filter(r => r.method === 'POST').map(r => [r.path, r.body]), [
-    ['/api/control', { action: 'download', id: videoId }], ['/api/control', { action: 'download', id: videoId }],
+    ['/api/control', { action: 'download', id: videoId }],
   ]);
 });
 
-test('Save rejects non-video links and receiver refusal rather than showing success', async t => {
+test('Save this tab reports a refused download or a non-video tab instead of success', async t => {
   const fixture = await startReceiver(t, { respond(request, response) {
     if (request.method !== 'POST') return false;
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({ action: 'download', done: false })); return true;
   } });
-  for (const linkUrl of ['https://www.youtube.com/', `https://youtu.be/${videoId}`]) {
-    const browser = browserFixture();
-    await installContextMenus(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
-    browser.click({ menuItemId: 'save-link', linkUrl });
-    await browser.completed;
-    assert.deepEqual(browser.badges, ['!']);
-    assert.doesNotMatch(browser.titles[0], /accepted/);
-  }
+  const browser = browserFixture();
+  const handle = createMessageHandler(browser.browserApi, createReceiverClient({ baseUrls: [fixture.url] }));
+  assert.deepEqual(await handle({ type: config.message.saveTab }, {}),
+    { ok: false, error: 'Van TV could not start the download' });
+  browser.browserApi.tabs.query = async () => [{ id: 5, url: 'https://www.youtube.com/' }];
+  assert.deepEqual(await handle({ type: config.message.saveTab }, {}),
+    { ok: false, error: 'This is not a YouTube video' });
 });
 
 test('shortcut failure is visible in the toolbar badge and hover title', async t => {

@@ -76,9 +76,10 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   playback pauses after acceptance. **Shift-click** adds to the queue instead:
   it inserts next from the beginning and leaves the tab playing, and starts
   immediately when the receiver is idle or stopped. Both open the sidebar.
-  **Save on Van TV** saves the page or link's video without interrupting playback.
-  Firefox groups these two items into a submenu. The queue and played history persist across Stop and restarts;
-  they never start by themselves.
+  It is the extension's only item in each context, so Firefox shows it at the
+  top level instead of in a submenu. **Save** in the sidebar's bottom row saves
+  the open tab's video without interrupting playback. The queue and played history
+  persist across Stop and restarts; they never start by themselves.
 - Cast and queue requests include a title when one is available, so updated receivers
   show it while the stream loads. Player/tab casts prefer the watch page's title,
   falling back to the tab title without YouTube's suffix or notification count;
@@ -105,7 +106,7 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   phone queue (including enabled phone autoplay). Older receivers fall back to
   the cast queue. Previous, available Next and Stop remain usable during loading; a newer
   navigation cancels unfinished loading. The playhead stops advancing during buffering.
-  **Cast this tab** also accepts short links, shorts, live and embed URLs;
+  The bottom row's **Cast** (this tab) also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
 - The download icon beside CC saves the loaded video. Hover for download progress,
   saving, saved or error details; click again to retry an error. It is hidden when
@@ -146,7 +147,7 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   video stops and the next queued video starts (playback stops when none is
   queued). **Jump to end** scrolls to the last queued video; **Clear** removes
   every played and upcoming video, leaving the current one playing.
-  **Queue this tab** adds the active tab's video.
+  The bottom row's **Queue** adds the active tab's video.
 - Each row's external-link button opens YouTube while keeping the sidebar. **⌘/Ctrl-click**
   or **middle-click** a played/upcoming title to open YouTube in a background tab
   without changing receiver playback.

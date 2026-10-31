@@ -20,7 +20,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     cast: 'cast', castTab: 'cast-tab', tabVideo: 'tab-video',
     status: 'status', control: 'control', getVideo: 'get-video',
     castAccepted: 'cast-accepted', queue: 'queue', queueTab: 'queue-tab',
-    videoDetails: 'video-details', library: 'library',
+    videoDetails: 'video-details', library: 'library', saveTab: 'save-tab',
   }),
   // The receiver's watchHistory.reason values the popup explains.
   historyReason: Object.freeze({
