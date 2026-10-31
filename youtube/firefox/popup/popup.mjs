@@ -305,17 +305,18 @@ element.scrub.addEventListener('input', event => {
   renderPlayback();
 });
 
-element.scrub.addEventListener('change', event => {
+function seekTo(position) {
   const result = transitionScrub(scrub, {
-    type: 'change', position: Number(event.currentTarget.value),
-    duration: latestStatus?.duration,
+    type: 'change', position, duration: latestStatus?.duration,
   });
   scrub = result.state;
   if (latestStatus) latestStatus = { ...latestStatus, position: scrub.position };
   progressTime = performance.now();
   renderStatus();
   void perform(config.message.control, { action: config.control.seek, ...result.seek }, '');
-});
+}
+
+element.scrub.addEventListener('change', event => seekTo(Number(event.currentTarget.value)));
 
 // Links open in normal tabs while the sidebar remains available as a remote.
 for (const link of [element.video, element.channel]) {
