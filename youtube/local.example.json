@@ -6,6 +6,7 @@
     "tailscaleAddress": null,
     "audioDevice": "alsa/hdmi:CARD=vc4hdmi0,DEV=0",
     "roomCommand": null,
+    "meteredCommand": "/home/pi/scripts/vanpi-metered",
     "videoLibrary": null,
     "videoStore": "/mnt/EXFAT512/van-tv"
   },

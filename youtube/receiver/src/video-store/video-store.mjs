@@ -12,14 +12,14 @@ import { SOURCES, DOWNLOAD_STATES, VideoStoreError, downloadStatus } from './con
 /** Public boundary for playback, controls and HTTP. No drive handles survive a request. */
 export class VideoStore {
   constructor({ root, resolver, disk = new StoreDisk(root), now = Date.now,
-    setTimer, clearTimer, fetcher, run, ffmpeg } = {}) {
+    setTimer, clearTimer, fetcher, run, ffmpeg, permissions, downloadWait } = {}) {
     Object.assign(this, { disk, resolver });
     this.entries = new CacheEntries(disk, now);
     this.retention = new CacheRetention(this.entries, { now, setTimer, clearTimer });
     this.transfer = new RangeTransfer(this.entries, resolver, { fetcher });
     this.proxy = new CachingProxy(this.entries, this.transfer);
     this.library = new SavedLibrary(disk, { now, run, ffmpeg });
-    this.downloads = new VideoDownloads(this);
+    this.downloads = new VideoDownloads(this, { permissions, wait: downloadWait });
     this.available = false;
     this.source = null;
   }

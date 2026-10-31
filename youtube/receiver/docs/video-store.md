@@ -70,6 +70,15 @@ entire download. Repeating Download resumes an error without refetching recorded
 bytes. A restart preserves marked entries but requires an explicit retry; it does
 not silently begin using network bandwidth.
 
+Before a background save starts extraction or full-track transfers, it requires
+`pi.castit_saves` from the configured metered CLI. A denial keeps the same job
+pending with `Waiting for metered connection permission`, without fetching track
+bytes or failing the request. Pending jobs retry every 30 seconds (longer than the
+15-second permission cache), then resume automatically when permitted. Repeating
+Download while pending coalesces with that request. The Firefox save control and
+Saved list show the wait reason and keep polling. This is admission before a save,
+not mid-transfer enforcement; ordinary playback buffering is unchanged.
+
 ffmpeg copies the video/audio codecs without re-encoding into:
 
 ```text
@@ -98,8 +107,9 @@ playback. A currently running download must finish before Delete is accepted.
   `web` includes a stream being buffered by the proxy; `cache` means a complete
   on-disk selection; `saved` means a promoted library file.
 - `download`: `null` or `{state, progress, error}` for the current video. States
-  are `downloading`, `finalizing`, `saved`, `error`; progress is 0–1 or null while
-  the size is unknown, and error is a safe message or null.
+  are `waiting`, `downloading`, `finalizing`, `saved`, `error`; progress is 0–1 or null
+  while the size is unknown. `error` is a safe message or null; for `waiting` it
+  explains the queue/permission hold rather than a failure.
 - `library`: `{available: boolean}`, refreshed against the mount for each status
   request. The space floor does not make an otherwise readable library unavailable.
 

@@ -22,6 +22,13 @@ test('Quality options come from capabilities; old or malformed receivers disable
   assert.equal(isWorking({ ...defaultStatus, quality: { ...quality, loading: true } }), true);
 });
 
+test('Metered Auto labels survive status decoding for the capability-driven selector', () => {
+  const metered = { ...quality, selected: 'auto', options: [
+    { value: 'auto', label: 'Auto (720p, metered)' }, quality.options[1],
+  ] };
+  assert.deepEqual(decodeStatus({ ...defaultStatus, quality: metered }).quality, metered);
+});
+
 test('Popup quality and subtitle fields reach HTTP intact through the message handler', async t => {
   const fixture = await startReceiver(t);
   const receiver = createReceiverClient({ baseUrls: [fixture.url] });

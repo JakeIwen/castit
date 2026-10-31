@@ -17,6 +17,10 @@ export const config = Object.freeze({
   installDirectory: '/home/pi/youtube-cast',
   videoLibraryUrl: local.videoLibrary?.controlUrl ?? null,
   videoStore: local.videoStore,
+  meteredCommand: local.meteredCommand,
+  meteredTimeoutMs: 2000,
+  // Fifteen seconds coalesces load/prefetch checks while bounding stale admission.
+  meteredCacheMs: 15_000,
   sponsorBlockUrl: 'https://sponsor.ajay.app/api/skipSegments',
   sponsorBlockCategories: ['sponsor', 'selfpromo'],
   sessionEnvironment: {

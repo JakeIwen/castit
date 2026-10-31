@@ -1,9 +1,12 @@
-import { DOWNLOAD_STATES, VideoStoreError, downloadStatus } from './contracts.mjs';
+import { setTimeout as delay } from 'node:timers/promises';
+import { DOWNLOAD_STATES, STORE_LIMITS, VideoStoreError, downloadStatus } from './contracts.mjs';
+import { MeteredPermissions, METERED_CONSUMERS } from '../host/metered-permissions.mjs';
 import { complete, cachedBytes } from './ranges.mjs';
 
 export class VideoDownloads {
-  constructor(store) {
-    this.store = store;
+  constructor(store, { permissions = new MeteredPermissions(),
+    wait = (ms, signal) => delay(ms, undefined, { signal, ref: false }) } = {}) {
+    Object.assign(this, { store, permissions, wait });
     this.jobs = new Map();
     this.tail = Promise.resolve();
     this.abort = new AbortController();
@@ -26,7 +29,7 @@ export class VideoDownloads {
     if (existing?.pending) return true;
     if (await library.find(id)) return true;
     if (this.jobs.get(id)?.pending) return true;
-    const job = { id, title: id, ...downloadStatus(DOWNLOAD_STATES.DOWNLOADING) };
+    const job = { id, title: id, ...downloadStatus(DOWNLOAD_STATES.WAITING, null, 'Queued to save') };
     this.jobs.set(id, job);
     const keeping = retention.keep(id);
     job.pending = this.tail.catch(() => {}).then(() => keeping).then(() => this.run(job, quality)).catch(error => {
@@ -38,10 +41,26 @@ export class VideoDownloads {
     return true;
   }
 
+  async waitForPermission(job, signal) {
+    for (;;) {
+      signal.throwIfAborted();
+      const permitted = await this.permissions.allows(METERED_CONSUMERS.SAVES);
+      signal.throwIfAborted();
+      if (permitted) {
+        Object.assign(job, downloadStatus(DOWNLOAD_STATES.DOWNLOADING, job.progress));
+        return;
+      }
+      Object.assign(job, downloadStatus(DOWNLOAD_STATES.WAITING, job.progress,
+        'Waiting for metered connection permission'));
+      // Slower than the permission cache so each retry asks for fresh admission.
+      await this.wait(STORE_LIMITS.saveRetryMs, signal);
+    }
+  }
+
   async run(job, quality) {
     const { entries, library, retention, transfer } = this.store;
     const signal = this.abort.signal;
-    signal.throwIfAborted();
+    await this.waitForPermission(job, signal);
     const session = await this.store.downloadSession(job.id, quality, signal);
     if (!session) throw new VideoStoreError('This video cannot be downloaded (no direct stream)');
     const { entry } = session;

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { downloadControlModel, downloadLabel, formatBytes, playbackSourceLabel, savedLibraryModel } from '../../popup/saved-state.mjs';
+import { downloadActive, downloadControlModel, downloadLabel, formatBytes, playbackSourceLabel, savedLibraryModel } from '../../popup/saved-state.mjs';
 import { defaultLibrary, defaultStatus } from '../background/receiver-fixture.mjs';
 
 const config = globalThis.VAN_TV_CONFIG;
@@ -22,6 +22,18 @@ test('download control hides without a loaded video or available library and sho
   const failed = downloadControlModel({ ...status, download: { state: config.downloadState.error, error: 'Drive full' } });
   assert.equal(failed.disabled, false);
   assert.equal(failed.label, 'Download failed: Drive full');
+});
+
+test('Held saves show their reason in the control and saved list and remain active for polling', () => {
+  const download = { state: config.downloadState.waiting, progress: null,
+    error: 'Waiting for metered connection permission' };
+  const model = downloadControlModel({ ...status, download });
+  assert.equal(model.disabled, true);
+  assert.equal(downloadActive(download), true);
+  assert.equal(model.label, download.error);
+  const library = savedLibraryModel({ ...defaultLibrary,
+    downloads: [{ id: status.video.id, title: 'Held video', ...download }] });
+  assert.equal(library.downloads[0].label, download.error);
 });
 
 test('saved list sorts channel names case-insensitively and videos newest first without mutating input', () => {

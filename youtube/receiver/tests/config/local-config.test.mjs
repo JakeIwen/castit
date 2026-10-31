@@ -58,6 +58,7 @@ test('Local config names every missing or invalid receiver key', async t => {
     ['tailscaleAddress', ['', 42, [], {}, 'host.example', '999.1.1.1', '::1']],
     ['audioDevice', [undefined, null, '', ' ', 42, 'bad\0device']],
     ['roomCommand', [undefined, [], {}, [''], ['command', 42], ['command', null], ['command', '\0']]],
+    ['meteredCommand', ['', 42, {}, 'relative/path', '/home/pi/bad\npath']],
     ['videoStore', ['', 42, {}, 'relative/path', '/tmp', '/mnt/drive/../video', '/mnt/drive/video/', '/mnt/drive/bad\nname']],
     ['videoLibrary', [undefined, [], 'url', {}, { unit: 'player.service' }]],
   ];
@@ -101,7 +102,7 @@ test('Release config requires its own local file and preserves configured playba
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /Cannot read local config.*release\/local\.json.*ENOENT/);
   document.receiver = { ...document.receiver, lanAddress: '198.51.100.20', tailscaleAddress: '198.51.100.21',
-    audioDevice: 'alsa/test-card', roomCommand: ['/usr/bin/true', ''],
+    audioDevice: 'alsa/test-card', roomCommand: ['/usr/bin/true', ''], meteredCommand: '/opt/metered/permission CLI',
     videoLibrary: { controlUrl: 'http://127.0.0.1:9999/api/control', unit: 'media-player.service' } };
   await writeFile(join(release, 'local.json'), JSON.stringify(document));
   const result = importConfig(module, directory);
@@ -111,6 +112,7 @@ test('Release config requires its own local file and preserves configured playba
   assert.equal(config.tailscaleAddress, document.receiver.tailscaleAddress);
   assert.deepEqual(config.hostnames, document.receiver.hostnames);
   assert.deepEqual(config.roomCommand, document.receiver.roomCommand);
+  assert.equal(config.meteredCommand, document.receiver.meteredCommand);
   assert.equal(config.videoLibraryUrl, document.receiver.videoLibrary.controlUrl);
   assert.deepEqual(config.vlcActiveCommand,
     ['/usr/bin/systemctl', '--user', 'is-active', '--quiet', document.receiver.videoLibrary.unit]);
@@ -129,6 +131,13 @@ test('Release config requires its own local file and preserves configured playba
   assert.equal(config.installDirectory, '/home/pi/youtube-cast');
   assert.equal(config.stateDirectory, '/home/pi/.local/state/youtube-cast');
   assert.deepEqual([config.dialPort, config.statusPort], [8794, 8795]);
+});
+
+test('Metered CLI path defaults for existing local config files', async t => {
+  const { file, document } = await fixture(t);
+  delete document.receiver.meteredCommand;
+  await writeFile(file, JSON.stringify(document));
+  assert.equal(loadLocalConfig(file).meteredCommand, example.receiver.meteredCommand);
 });
 
 test('Video storage is optional in existing installations and validates a mounted-directory path', async t => {

@@ -38,6 +38,7 @@ export function playerFixture(options = {}) {
       endSession: () => { ended++; } },
     handoff: async () => {}, segments: async () => [], log: quiet,
     resolver: { resolve: async () => null },
+    permissions: { allows: async () => true },
     castQueue: new CastQueue({ lookupTitle: async () => null }),
     ...options,
   });

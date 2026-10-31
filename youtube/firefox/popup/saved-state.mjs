@@ -6,10 +6,11 @@ const sourceLabels = Object.freeze({
   [source.saved]: 'Saved copy', [source.cache]: 'Disk cache', [source.web]: 'YouTube',
 });
 export const playbackSourceLabel = value => Object.hasOwn(sourceLabels, value) ? sourceLabels[value] : '';
-export const downloadActive = value => value?.state === downloadState.downloading || value?.state === downloadState.finalizing;
+export const downloadActive = value => [downloadState.waiting, downloadState.downloading, downloadState.finalizing].includes(value?.state);
 
 export function downloadLabel(download) {
   switch (download?.state) {
+    case downloadState.waiting: return download.error || 'Waiting to save';
     case downloadState.downloading:
       return download.progress === null ? 'Downloading…' : `Downloading ${Math.floor(download.progress * 100)}%`;
     case downloadState.finalizing: return 'Saving…';

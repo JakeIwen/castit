@@ -64,7 +64,11 @@ function receiverConfig(value) {
     && isText(value.roomCommand[0])
     && value.roomCommand.every(argument => typeof argument === 'string' && !argument.includes('\0'))),
   'receiver.roomCommand', 'null or a non-empty argv array for an idempotent command run ~1.5 s after each playback start and resume');
-  return Object.freeze({ sshTarget: value.sshTarget, hostnames: Object.freeze(hostnames),
+  const meteredCommand = value.meteredCommand ?? '/home/pi/scripts/vanpi-metered';
+  requireValue(isText(meteredCommand) && isAbsolute(meteredCommand)
+    && !/[\x00-\x1f\x7f]/.test(meteredCommand),
+  'receiver.meteredCommand', 'an absolute CLI path');
+  return Object.freeze({ meteredCommand, sshTarget: value.sshTarget, hostnames: Object.freeze(hostnames),
     lanAddress: value.lanAddress, tailscaleAddress: value.tailscaleAddress ?? null, audioDevice: value.audioDevice,
     roomCommand: value.roomCommand === null ? null : Object.freeze([...value.roomCommand]),
     videoStore: videoStore(value.videoStore), videoLibrary: videoLibrary(value.videoLibrary) });

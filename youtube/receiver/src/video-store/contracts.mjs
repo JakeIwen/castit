@@ -2,12 +2,12 @@ export const UNKNOWN_CHANNEL = 'Unknown channel';
 export const TRACK_ROLES = Object.freeze({ VIDEO: 'video', AUDIO: 'audio' });
 export const SOURCES = Object.freeze({ WEB: 'web', CACHE: 'cache', SAVED: 'saved' });
 export const DOWNLOAD_STATES = Object.freeze({
-  DOWNLOADING: 'downloading', FINALIZING: 'finalizing', SAVED: 'saved', ERROR: 'error',
+  WAITING: 'waiting', DOWNLOADING: 'downloading', FINALIZING: 'finalizing', SAVED: 'saved', ERROR: 'error',
 });
 export const STORE_LIMITS = Object.freeze({
   chunkBytes: 10 * 1024 * 1024, readBytes: 1024 * 1024,
   freeBytes: 2 * 1024 ** 3, retentionMs: 10 * 60 * 1000,
-  upstreamTimeoutMs: 60_000, muxTimeoutMs: 30 * 60 * 1000,
+  upstreamTimeoutMs: 60_000, muxTimeoutMs: 30 * 60 * 1000, saveRetryMs: 30_000,
 });
 
 export class VideoStoreError extends Error {

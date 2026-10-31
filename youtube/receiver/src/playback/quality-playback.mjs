@@ -1,4 +1,5 @@
 import { DEFAULT_QUALITY, QUALITY_OPTIONS, isQuality } from './quality.mjs';
+import { METERED_CONSUMERS } from '../host/metered-permissions.mjs';
 
 // A setting response acknowledges persistence; resolution/reload completes in
 // the background. Generation and player request checks keep Stop/new casts final.
@@ -12,13 +13,26 @@ export class QualityPlayback {
 
   /** @returns {import('./quality.mjs').QualityStatus} */
   snapshot() {
-    return { selected: this.selected, options: QUALITY_OPTIONS, loading: this.loading, error: this.error };
+    const options = this.selected === DEFAULT_QUALITY && this.metered
+      ? QUALITY_OPTIONS.map(option => option.value === DEFAULT_QUALITY
+        ? { ...option, label: 'Auto (720p, metered)' } : option) : QUALITY_OPTIONS;
+    return { selected: this.selected, options, loading: this.loading, error: this.error };
   }
 
   cancel() {
     ++this.generation;
     this.target = null;
     this.loading = this.error = false;
+    this.effective = this.selected;
+    this.metered = false;
+  }
+
+  async forVideo(signal) {
+    const selected = this.selected;
+    const metered = selected === DEFAULT_QUALITY && !await this.player.permissions.allows(METERED_CONSUMERS.HD);
+    signal.throwIfAborted();
+    this.metered = metered;
+    return this.effective = metered ? '720' : selected;
   }
 
   async set(value) {

@@ -31,7 +31,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     paused: 'PAUSED', stopped: 'STOPPED',
   }),
   source: Object.freeze({ web: 'web', cache: 'cache', saved: 'saved' }),
-  downloadState: Object.freeze({ downloading: 'downloading', finalizing: 'finalizing', saved: 'saved', error: 'error' }),
+  downloadState: Object.freeze({ waiting: 'waiting', downloading: 'downloading', finalizing: 'finalizing', saved: 'saved', error: 'error' }),
   loadingPhase: Object.freeze({ resolve: 'resolve', start: 'start', buffer: 'buffer' }),
   control: Object.freeze({
     pause: 'pause', resume: 'resume', toggle: 'toggle', stop: 'stop',

@@ -16,6 +16,7 @@ import { QualityPlayback } from './quality-playback.mjs';
 import { savedQuality, qualityFormat } from './quality.mjs';
 import { QueuePrefetch } from './queue-prefetch.mjs';
 import { MpvDiagnostics } from './mpv/diagnostics.mjs';
+import { MeteredPermissions } from '../host/metered-permissions.mjs';
 
 export const PlayerStatus = Constants.PLAYER_STATUSES;
 
@@ -38,15 +39,16 @@ const MPV_SETTINGS = Object.freeze({ audioDelay: 'audio-delay', speed: 'speed' }
 export class MpvPlayer extends Player {
   constructor({ createMpv = () => new MpvProcess(), room = new RoomPreparation(),
     handoff = stopVideoLibrary, segments = fetchSegments, store, log = console,
-    castQueue = new CastQueue(), resolver = new StreamResolver(), videoStore = null } = {}) {
+    castQueue = new CastQueue(), resolver = new StreamResolver(), videoStore = null,
+    permissions = new MeteredPermissions() } = {}) {
     super();
-    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver, videoStore });
+    Object.assign(this, { createMpv, room, handoff, segments, store, log, castQueue, resolver, videoStore, permissions });
     this.qualityPlayback = new QualityPlayback(this);
     this.subtitlePlayback = new SubtitlePlayback(resolver, log);
     this.playbackDiagnostics = new MpvDiagnostics();
     this.loadProgress = new LoadProgress();
     this.prefetch = new QueuePrefetch(videoStore ? { resolve: (...args) => videoStore.prefetch(...args) } : resolver,
-      () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.quality.selected);
+      () => this.castQueue.snapshot(), () => this.subtitleLanguage, () => this.qualityPlayback.effective);
     this.volume = { level: 70, muted: false };
     this.audioDelay = 0;
     this.speed = 1;
@@ -131,7 +133,6 @@ export class MpvPlayer extends Player {
     if (this.activeRequest !== this.request) return false;
     const abort = this.abort = new AbortController();
     const signal = abort.signal;
-    const quality = this.quality.selected;
     const mpv = this.mpv = this.createMpv();
     this.videoRequest = this.activeRequest;
     this.video = { id: video.id, title: video.title || video.id };
@@ -142,6 +143,7 @@ export class MpvPlayer extends Player {
     }).catch(() => {});
     let outcome = 'failed';
     try {
+      const quality = await this.qualityPlayback.forVideo(signal);
       const resolving = timing.measure('resolve', () => (this.videoStore ?? this.resolver)
         .resolve(video.id, { signal, language: this.subtitleLanguage, quality }))
         .catch(error => {

@@ -48,6 +48,14 @@ test('status validates source, availability and download telemetry without expos
   }
 });
 
+test('Held save reasons survive both status and library decoding', () => {
+  const download = { state: config.downloadState.waiting, progress: null,
+    error: 'Waiting for metered connection permission' };
+  assert.deepEqual(decodeStatus({ ...defaultStatus, download }).download, download);
+  const library = { ...defaultLibrary, downloads: [{ id: videoId, title: 'Held video', ...download }] };
+  assert.deepEqual(decodeLibrary(library), library);
+});
+
 test('library validates all rows and strips extra receiver paths', () => {
   const library = structuredClone(defaultLibrary);
   library.path = '/private';

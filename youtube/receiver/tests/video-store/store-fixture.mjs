@@ -68,6 +68,7 @@ export async function fixture(t, { resources = { video: Buffer.from('0123456789a
   const clock = new Clock();
   const store = new VideoStore({ disk, resolver, now: clock.now, setTimer: clock.setTimer,
     clearTimer: clock.clearTimer, ffmpeg: process.platform === 'darwin' ? '/opt/homebrew/bin/ffmpeg' : '/usr/bin/ffmpeg',
+    permissions: { allows: async () => true },
     ...settings });
   t.after(async () => {
     await store.close();

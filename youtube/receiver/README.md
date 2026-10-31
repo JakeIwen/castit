@@ -43,6 +43,12 @@ cp ../local.example.json ../local.json
   If the command sets an amplifier's volume, give it a level suited to YouTube's
   loudness-normalized audio (louder than most films) and trim from there with
   the receiver's own volume.
+- `meteredCommand`: optional absolute path to the metered-permission CLI; defaults to
+  `/home/pi/scripts/vanpi-metered`. The receiver calls `allows <consumer>` with a
+  two-second timeout and caches each consumer's answer for 15 seconds. This avoids
+  subprocesses on repeated playback paths while bounding stale admission. Only exit
+  zero permits traffic; denial, invalid/missing/stale state, missing CLI and timeout
+  all deny. The CLI owns HostState freshness and permission-lease validation.
 - `videoStore`: optional absolute directory directly below a mounted drive, or
   `null` to disable disk buffering and downloads. The example uses
   `/mnt/EXFAT512/van-tv`; storage needs `ffmpeg`. See [Video store](docs/video-store.md)
@@ -254,8 +260,13 @@ its resolver children. Starting another player later does not stop this one.
   `auto` (default), `1080`, `720`, `480`, `360`; explicit choices are maximum heights
   at up to 30 fps. H.264/AAC is preferred; every fallback stays within the selected
   height and frame-rate caps. No matching format produces a playback error rather
-  than silently exceeding the cap. Auto preserves the original Pi selector,
-  including its last-resort compatibility fallbacks; it is not adaptive streaming.
+  than silently exceeding the cap. Auto uses the original Pi selector only when
+  `pi.castit_hd` is permitted; otherwise it uses the same strict 720p/30 fps cap as
+  explicit `720`. Status and the quality menus show `Auto (720p, metered)` for that
+  load without changing the saved `auto` selection. Permission is checked on each
+  new video (using the short cache); a permission change never reloads an ongoing
+  video. Explicit selections, including manual 1080p, always remain honored. Auto
+  is not adaptive streaming.
   Choose quality on the status page, in the Firefox popup, or with
   `vantv quality [auto|1080|720|480|360]`. Changes save while idle and across restarts.
   During playback they reload at the current position, keeping pause, volume,
