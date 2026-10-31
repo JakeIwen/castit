@@ -1,0 +1,23 @@
+.keyboard-help {
+  width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  padding: 14px;
+  border: 1px solid var(--van-tv-border);
+  border-radius: var(--van-tv-control-radius);
+  background: var(--van-tv-background);
+  color: var(--van-tv-text);
+}
+.keyboard-help::backdrop { background: rgb(0 0 0 / .35); }
+.keyboard-help form { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.keyboard-help h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.keyboard-help dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: baseline; margin: 12px 0 0; font-size: 12px; }
+.keyboard-help dt { display: flex; flex-wrap: wrap; gap: 3px; }
+.keyboard-help dd { margin: 0; color: var(--van-tv-muted); }
+.keyboard-help kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--van-tv-border);
+  border-radius: 4px;
+  background: var(--van-tv-control);
+  font: 11px/1.5 system-ui, sans-serif;
+  white-space: nowrap;
+}

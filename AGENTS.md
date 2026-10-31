@@ -124,6 +124,8 @@ keep IP addresses, extension IDs, cookies and other private details out.
   `popup/saved-videos.mjs` and its CSS own the collapsible Saved browser,
   inline deletion confirmation and on-demand/active-download refresh;
   `popup/download-control.mjs` and its CSS own the current-video save button.
+  `popup/keyboard-shortcuts.mjs` owns the sidebar keymap and key matching;
+  `popup/keyboard-help.mjs` and its CSS render that keymap as the `/` help dialog.
   `theme/tokens.css` owns
   shared design tokens. `tests/` mirrors the feature folders, with the
   receiver fixture beside its background tests.

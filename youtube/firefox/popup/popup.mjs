@@ -8,6 +8,8 @@ import { PlaybackMessages } from './playback-messages.mjs';
 import { LoadProgress } from './load-progress.mjs';
 import { DownloadControl } from './download-control.mjs';
 import { SavedVideos } from './saved-videos.mjs';
+import { KeyboardHelp } from './keyboard-help.mjs';
+import { shortcutFor, shortcutKind } from './keyboard-shortcuts.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
 
@@ -20,7 +22,7 @@ const ids = [
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
   'playback-time', 'load-progress', 'load-progress-label', 'load-progress-bar', 'load-progress-fill',
-  'download', 'download-progress', 'save-tab',
+  'download', 'download-progress', 'save-tab', 'keyboard-help',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
@@ -81,6 +83,21 @@ const downloadControl = new DownloadControl(element.download, element['download-
   const id = latestStatus?.video?.id;
   if (id) void perform(config.message.control, { action: config.control.download, id }, 'Download accepted');
 });
+const keyboardHelp = new KeyboardHelp(element['keyboard-help']);
+// Seeks act only when the matching controls would: the ±20 buttons for skips,
+// the scrubber for jumps.
+const shortcutHandlers = {
+  [shortcutKind.click]: ({ button }) => element[button].click(),
+  [shortcutKind.seek]: ({ offset }) => {
+    if (latestStatus && popupState(latestStatus).actions.includes(config.control.seek)) {
+      void perform(config.message.control, { action: config.control.seek, offset }, '');
+    }
+  },
+  [shortcutKind.seekFraction]: ({ fraction }) => {
+    if (!element.scrub.disabled) seekTo(latestStatus.duration * fraction);
+  },
+  [shortcutKind.help]: () => keyboardHelp.toggle(),
+};
 
 async function withRequest(operation) {
   requestsInFlight += 1;
@@ -317,6 +334,21 @@ function seekTo(position) {
 }
 
 element.scrub.addEventListener('change', event => seekTo(Number(event.currentTarget.value)));
+
+// While the help is open only its own key acts; the rest keep their dialog
+// meaning (Space presses Close). Firefox presses a focused button on Space's
+// keyup, so a shortcut claims both halves and runs on keydown.
+function claimShortcut(event) {
+  const shortcut = shortcutFor(event);
+  if (!shortcut || keyboardHelp.open && shortcut.action?.kind !== shortcutKind.help) return null;
+  event.preventDefault();
+  return shortcut;
+}
+document.addEventListener('keydown', event => {
+  const action = claimShortcut(event)?.action;
+  if (action) shortcutHandlers[action.kind](action);
+});
+document.addEventListener('keyup', claimShortcut);
 
 // Links open in normal tabs while the sidebar remains available as a remote.
 for (const link of [element.video, element.channel]) {

@@ -108,6 +108,12 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   navigation cancels unfinished loading. The playhead stops advancing during buffering.
   The bottom row's **Cast** (this tab) also accepts short links, shorts, live and embed URLs;
   without a content script, it uses the URL's start time and cannot pause the page.
+- With the sidebar focused, YouTube's player keys work: Space or K play/pause,
+  ←/→ skip 5 s, Shift+←/→ 20 s, J/L 10 s, 0–9 jump to 0–90%, ↑/↓ volume,
+  M mute, C subtitles, `<`/`>` speed, Shift+P/Shift+N previous/next video;
+  `/` shows or hides the list. Each acts only when its sidebar control would.
+  Ctrl, Cmd and Alt combinations, text fields and the quality menu keep their
+  own keys; while the list is open only `/` and Escape act.
 - The download icon beside CC saves the loaded video. Hover for download progress,
   saving, saved or error details; click again to retry an error. It is hidden when
   no video is loaded or the library is unavailable.
