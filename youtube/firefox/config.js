@@ -49,4 +49,7 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
     backwardTwentySeconds: -20, forwardTwentySeconds: 20,
   }),
   command: 'cast-active-tab',
+  // Firefox rejects F13–F19 as a manifest suggested_key but accepts them from
+  // commands.update. `since` is the first version that declared the toggle.
+  sidebarShortcut: Object.freeze({ command: '_execute_sidebar_action', key: 'F13', since: '1.18.0' }),
 });

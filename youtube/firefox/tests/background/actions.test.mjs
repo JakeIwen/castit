@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMessageHandler, installCommands, installContextMenus, installRemoteAction } from '../../background/actions.mjs';
+import { createMessageHandler, installCommands, installContextMenus, installRemoteAction, installSidebarShortcut } from '../../background/actions.mjs';
 import { createReceiverClient } from '../../background/receiver-client.mjs';
 import { castTab, tabVideo } from '../../background/tab-casting.mjs';
 import { startReceiver, videoId } from './receiver-fixture.mjs';
@@ -207,6 +207,26 @@ test('toolbar clicks toggle the full-height sidebar directly from the user gestu
   browser.remoteClick();
   browser.remoteClick();
   assert.deepEqual(browser.sidebars, ['toggle', 'toggle']);
+});
+
+test('the pane toggle gets its F13 default on install and on the update that adds it only', () => {
+  const updates = [];
+  let onInstalled;
+  installSidebarShortcut({
+    runtime: { onInstalled: { addListener: callback => { onInstalled = callback; } } },
+    commands: { update: async change => { updates.push(change); } },
+  });
+  const assigned = { name: '_execute_sidebar_action', shortcut: 'F13' };
+  onInstalled({ reason: 'install' });
+  onInstalled({ reason: 'update', previousVersion: '1.17.0' });
+  onInstalled({ reason: 'update', previousVersion: '1.9.4' });
+  assert.deepEqual(updates, [assigned, assigned, assigned]);
+  // A user's later change or cleared key survives extension and browser updates.
+  onInstalled({ reason: 'update', previousVersion: config.sidebarShortcut.since });
+  onInstalled({ reason: 'update', previousVersion: '1.18.1' });
+  onInstalled({ reason: 'update', previousVersion: '1.20.0' });
+  onInstalled({ reason: 'browser_update' });
+  assert.equal(updates.length, 3);
 });
 
 test('the context menu offers casting and a separate Save item in each YouTube context', async () => {

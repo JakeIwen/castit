@@ -122,6 +122,29 @@ export function installRemoteAction(browserApi) {
   });
 }
 
+function versionBefore(version, other) {
+  const [left, right] = [version, other].map(value => value.split('.').map(Number));
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference) return difference < 0;
+  }
+  return false;
+}
+
+// The pane toggle gets its default key once: on install, or on the update that
+// added it. Later updates keep what the user set or cleared in Manage Extension
+// Shortcuts. Firefox runs the toggle itself, so it counts as a user action.
+export function installSidebarShortcut(browserApi) {
+  const { command, key, since } = config.sidebarShortcut;
+  browserApi.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+    const added = reason === 'install' || (reason === 'update' && versionBefore(previousVersion, since));
+    if (!added) return;
+    void browserApi.commands.update({ name: command, shortcut: key }).catch(error => {
+      console.warn('Van TV sidebar shortcut could not be set', error);
+    });
+  });
+}
+
 export function installCommands(browserApi, receiver) {
   browserApi.commands.onCommand.addListener(command => {
     if (command !== config.command) return;
