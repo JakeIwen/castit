@@ -1,0 +1,12 @@
+/* Frame shared by the sidebar's modal dialogs. */
+.sidebar-dialog {
+  width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  padding: 14px;
+  border: 1px solid var(--van-tv-border);
+  border-radius: var(--van-tv-control-radius);
+  background: var(--van-tv-background);
+  color: var(--van-tv-text);
+}
+.sidebar-dialog::backdrop { background: rgb(0 0 0 / .35); }
+.sidebar-dialog h2 { margin: 0; font-size: 14px; font-weight: 650; }
