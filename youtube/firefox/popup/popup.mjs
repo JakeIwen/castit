@@ -9,6 +9,7 @@ import { LoadProgress } from './load-progress.mjs';
 import { DownloadControl } from './download-control.mjs';
 import { SavedVideos } from './saved-videos.mjs';
 import { KeyboardHelp } from './keyboard-help.mjs';
+import { QualityPicker } from './quality-picker.mjs';
 import { shortcutFor, shortcutKind } from './keyboard-shortcuts.mjs';
 import { watchUrl } from '../youtube/video-url.mjs';
 import { setAttribute, setBooleanAttribute, setClass, setProperty, setText } from './dom-state.mjs';
@@ -22,7 +23,7 @@ const ids = [
   'speed-value', 'queue-section', 'queue', 'queue-end', 'queue-clear', 'queue-tab', 'history-notice',
   'channel', 'channel-avatar', 'channel-name', 'channel-verified', 'channel-subscribers',
   'playback-time', 'load-progress', 'load-progress-label', 'load-progress-bar', 'load-progress-fill',
-  'download', 'download-progress', 'save-tab', 'keyboard-help',
+  'download', 'download-progress', 'save-tab', 'keyboard-help', 'quality-picker',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
@@ -70,8 +71,9 @@ let showRemaining = false;
 let detailsVideoId = null;
 let requestsInFlight = 0;
 let statusRequest = 0;
-const qualitySelector = new QualitySelector(element.quality, element['quality-status'], element['quality-retry'], quality =>
-  void perform(config.message.control, { action: config.control.quality, quality }, '', 'Cannot save quality'));
+const changeQuality = quality => void perform(config.message.control,
+  { action: config.control.quality, quality }, '', 'Cannot save quality');
+const qualitySelector = new QualitySelector(element.quality, element['quality-status'], element['quality-retry'], changeQuality);
 const queueList = new QueueList({ list: element.queue, section: element['queue-section'],
   jumpButton: element['queue-end'],
   onAction: fields => perform(config.message.queue, fields, '', 'This video is no longer in the list'),
@@ -84,6 +86,9 @@ const downloadControl = new DownloadControl(element.download, element['download-
   if (id) void perform(config.message.control, { action: config.control.download, id }, 'Download accepted');
 });
 const keyboardHelp = new KeyboardHelp(element['keyboard-help']);
+const qualityPicker = new QualityPicker(element['quality-picker'], element.quality, changeQuality);
+// The shortcut that opens each dialog; while one is open only that key acts.
+const shortcutDialogs = { [shortcutKind.help]: keyboardHelp, [shortcutKind.quality]: qualityPicker };
 // Seeks act only when the matching controls would: the ±20 buttons for skips,
 // the scrubber for jumps.
 const shortcutHandlers = {
@@ -96,6 +101,7 @@ const shortcutHandlers = {
   [shortcutKind.seekFraction]: ({ fraction }) => {
     if (!element.scrub.disabled) seekTo(latestStatus.duration * fraction);
   },
+  [shortcutKind.quality]: () => qualityPicker.toggle(),
   [shortcutKind.help]: () => keyboardHelp.toggle(),
 };
 
@@ -335,12 +341,13 @@ function seekTo(position) {
 
 element.scrub.addEventListener('change', event => seekTo(Number(event.currentTarget.value)));
 
-// While the help is open only its own key acts; the rest keep their dialog
-// meaning (Space presses Close). Firefox presses a focused button on Space's
-// keyup, so a shortcut claims both halves and runs on keydown.
+// While a dialog is open only the key that opened it acts; the rest keep
+// their dialog meaning (Space presses Close). Firefox presses a focused button
+// on Space's keyup, so a shortcut claims both halves and runs on keydown.
 function claimShortcut(event) {
   const shortcut = shortcutFor(event);
-  if (!shortcut || keyboardHelp.open && shortcut.action?.kind !== shortcutKind.help) return null;
+  const openDialog = Object.keys(shortcutDialogs).find(kind => shortcutDialogs[kind].open);
+  if (!shortcut || openDialog && shortcut.action?.kind !== openDialog) return null;
   event.preventDefault();
   return shortcut;
 }

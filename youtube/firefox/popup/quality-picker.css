@@ -1,0 +1,14 @@
+.quality-picker fieldset { display: grid; gap: 2px; margin: 10px 0 0; padding: 0; border: 0; }
+.quality-picker label {
+  display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 8px;
+  border-radius: var(--van-tv-control-radius); cursor: pointer;
+}
+.quality-picker label:hover { background: var(--van-tv-control-hover); }
+.quality-picker label:has(:checked) { background: var(--van-tv-control); font-weight: 600; }
+.quality-picker input { margin: 0; accent-color: var(--van-tv-focus); }
+.quality-picker small { margin-left: auto; color: var(--van-tv-muted); font-weight: 400; }
+.quality-picker p { margin-top: 10px; color: var(--van-tv-muted); font-size: 12px; }
+.quality-picker .dialog-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.quality-picker .dialog-actions button { min-width: 72px; height: 32px; padding: 0 12px; background: var(--van-tv-control); font-size: 12px; }
+.quality-picker .dialog-actions [type="submit"] { background: var(--van-tv-primary); color: var(--van-tv-on-primary); }
+.quality-picker .dialog-actions [type="submit"]:hover { background: var(--van-tv-primary-hover); }

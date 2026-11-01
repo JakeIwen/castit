@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="saved-videos.css">
   <link rel="stylesheet" href="dialog.css">
   <link rel="stylesheet" href="keyboard-help.css">
+  <link rel="stylesheet" href="quality-picker.css">
 </head>
 <body>
   <header>
@@ -155,6 +156,19 @@
       <button class="setting-reset" type="submit">Close</button>
     </form>
     <dl></dl>
+  </dialog>
+  <dialog id="quality-picker" class="sidebar-dialog quality-picker" aria-labelledby="quality-picker-heading">
+    <form method="dialog">
+      <h2 id="quality-picker-heading">Quality</h2>
+      <fieldset>
+        <legend class="visually-hidden">Maximum resolution</legend>
+      </fieldset>
+      <p>Changing quality reloads the video at the current position.</p>
+      <div class="dialog-actions">
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit">Apply</button>
+      </div>
+    </form>
   </dialog>
   <script type="module" src="popup.mjs"></script>
 </body>

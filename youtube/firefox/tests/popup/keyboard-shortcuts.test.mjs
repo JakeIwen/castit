@@ -25,11 +25,12 @@ test('arrows skip 5 seconds, Shift+arrows the ±20 buttons\' distance, J and L 1
   assert.deepEqual(press('j'), seek(-10));
 });
 
-test('digits jump to tenths of the video and / or ? toggles the help', () => {
+test('digits jump to tenths of the video; Q and / or ? open dialogs', () => {
   assert.deepEqual(press('0'), { kind: shortcutKind.seekFraction, fraction: 0 });
   assert.deepEqual(press('7'), { kind: shortcutKind.seekFraction, fraction: 0.7 });
   assert.deepEqual(press('/'), { kind: shortcutKind.help });
   assert.deepEqual(press('?', { shiftKey: true }), { kind: shortcutKind.help });
+  assert.deepEqual(press('q'), { kind: shortcutKind.quality });
   assert.deepEqual(press('N', { shiftKey: true }), { kind: shortcutKind.click, button: 'next' });
   assert.equal(press('n'), undefined);
 });
@@ -42,8 +43,9 @@ test('browser shortcuts, queue reordering and handled keys pass through', () => 
   assert.equal(shortcutFor({ key: 'x', target: body }), null);
 });
 
-test('text fields and menus keep their keys; the scrubber takes the seek steps', () => {
+test('text fields, menus and the quality choices keep their keys; the scrubber takes the seek steps', () => {
   assert.equal(shortcutFor({ key: 'ArrowDown', target: { tagName: 'SELECT' } }), null);
+  assert.equal(shortcutFor({ key: 'ArrowDown', target: { tagName: 'INPUT', type: 'radio' } }), null);
   assert.equal(shortcutFor({ key: 'k', target: { tagName: 'INPUT', type: 'text' } }), null);
   assert.equal(shortcutFor({ key: ' ', target: { tagName: 'DIV', isContentEditable: true } }), null);
   assert.deepEqual(press('ArrowRight', { target: { tagName: 'INPUT', type: 'range' } }),

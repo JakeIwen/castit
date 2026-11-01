@@ -4,7 +4,7 @@ const { skipOffsets } = globalThis.VAN_TV_CONFIG;
 
 // What a shortcut does; popup.mjs keeps one handler per kind.
 export const shortcutKind = Object.freeze({
-  click: 'click', seek: 'seek', seekFraction: 'seek-fraction', help: 'help',
+  click: 'click', seek: 'seek', seekFraction: 'seek-fraction', quality: 'quality', help: 'help',
 });
 
 // Pressing a sidebar button reuses its click handler and its disabled state.
@@ -53,6 +53,8 @@ export const keymap = Object.freeze([
     { key: '>', action: press('speed-up') },
   ]),
   row('Subtitles on or off', ['C'], [{ key: 'c', shift: false, action: press('subtitles') }]),
+  // Not a YouTube key: Q opens a picker that waits for Apply.
+  row('Choose quality', ['Q'], [{ key: 'q', shift: false, action: { kind: shortcutKind.quality } }]),
   row('Show or hide these shortcuts', ['/'], [{ key: '/', action: help }, { key: '?', action: help }]),
 ]);
 
