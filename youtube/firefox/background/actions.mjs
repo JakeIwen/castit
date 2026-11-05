@@ -109,6 +109,8 @@ async function saveVideo(receiver, url) {
   return result;
 }
 
+// F5 uses _execute_browser_action so both it and the toolbar retain the user
+// gesture needed by toggle. The separate F13 sidebar command stays untouched.
 export function installRemoteAction(browserApi) {
   browserApi.browserAction.onClicked.addListener(() => {
     void browserApi.sidebarAction.toggle().catch(error => {

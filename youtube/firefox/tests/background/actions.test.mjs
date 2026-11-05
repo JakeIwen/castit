@@ -201,12 +201,14 @@ test('the keyboard shortcut casts the active tab playhead', async t => {
   assert.equal(browser.messages.at(-1).type, config.message.castAccepted);
 });
 
-test('toolbar clicks toggle the full-height sidebar directly from the user gesture', () => {
+test('toolbar action toggles the sidebar synchronously without casting', () => {
   const browser = browserFixture();
   installRemoteAction(browser.browserApi);
+  // F5 uses this same handler; native key dispatch needs a Firefox check.
   browser.remoteClick();
   browser.remoteClick();
   assert.deepEqual(browser.sidebars, ['toggle', 'toggle']);
+  assert.deepEqual(browser.messages, []);
 });
 
 test('the pane toggle gets its F13 default on install and on the update that adds it only', () => {

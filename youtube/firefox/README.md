@@ -173,6 +173,15 @@ After edits, rebuild, click **Reload** for the extension, then reload YouTube.
   other user actions; reduced-motion settings keep both indicators and the load
   bar static. Older receivers without played history still show the current
   video and their upcoming queue.
+- **F5** toggles the sidebar instead of refreshing the tab. It invokes the
+  toolbar action, so it works on non-YouTube pages and with the sidebar focused.
+  **F13** remains a separate toggle for keyboards that remap a dictation key;
+  that remap does not cover a keyboard that actually sends F5. Existing F13
+  assignments (including custom or cleared shortcuts) are preserved on update.
+  Reassign either action in `about:addons` → gear → **Manage Extension Shortcuts**.
+  Firefox accepts the packaged F5 default but blocks typing F5 back into that page
+  because it conflicts with Reload; changing it there is not a way to restore F5.
+  The sidebar's **×** button closes it; its tooltip shows the default F5 shortcut.
 - **Alt+Shift+V** (Option+Shift+V on Mac) casts the active YouTube tab.
   Reassign it in `about:addons` → gear menu → **Manage Extension Shortcuts**.
   Shortcut/menu failures put `!` on the toolbar; its tooltip gives the error.

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Van TV",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "description": "Cast YouTube videos to a Van TV receiver on your local network.",
   "browser_specific_settings": {
     "gecko": { "strict_min_version": "102.0" }
@@ -26,6 +26,10 @@
     "cast-active-tab": {
       "suggested_key": { "default": "Alt+Shift+V" },
       "description": "Cast the active YouTube tab to Van TV"
+    },
+    "_execute_browser_action": {
+      "suggested_key": { "default": "F5" },
+      "description": "Show or hide the Van TV remote (F5)"
     },
     "_execute_sidebar_action": {
       "description": "Show or hide the Van TV remote"

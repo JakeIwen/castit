@@ -26,6 +26,10 @@ const ids = [
   'download', 'download-progress', 'save-tab', 'keyboard-help', 'quality-picker',
 ];
 const element = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+// Keep close inside the click gesture; Firefox rejects it after a message hop.
+document.getElementById('close-sidebar').addEventListener('click', () => {
+  void browser.sidebarAction.close().catch(error => console.warn('Van TV sidebar could not close', error));
+});
 const loadProgress = new LoadProgress({ root: element['load-progress'], playback: element['playback-time'],
   label: element['load-progress-label'], bar: element['load-progress-bar'], fill: element['load-progress-fill'] });
 const messages = new PlaybackMessages({ before: element['queue-section'],
