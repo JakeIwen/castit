@@ -57,7 +57,7 @@ test('XPI and unpacked extension match the example config without a private loca
   assert.deepEqual(manifest.content_scripts[0].matches, config.youtube.contentMatches);
   assert.deepEqual(Object.keys(manifest.commands), [config.command, config.sidebarShortcut.command]);
   assert.equal(manifest.commands[config.command].suggested_key.default, 'Alt+Shift+V');
-  // commands.update can only rebind a declared command; its F13 default would fail manifest validation.
+  // commands.update can only rebind a declared command; its F16 default would fail manifest validation.
   assert.equal(manifest.commands[config.sidebarShortcut.command].suggested_key, undefined);
   const background = await generated(dir, manifest.background.page);
   const scripts = [...background.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(match => match[1]);

@@ -50,6 +50,8 @@ globalThis.VAN_TV_CONFIG = Object.freeze({
   }),
   command: 'cast-active-tab',
   // Firefox rejects F13–F19 as a manifest suggested_key but accepts them from
-  // commands.update. `since` is the first version that declared the toggle.
-  sidebarShortcut: Object.freeze({ command: '_execute_sidebar_action', key: 'F13', since: '1.18.0' }),
+  // commands.update. Not F13–F15: Firefox on macOS reports those keys as
+  // PrintScreen, ScrollLock and Pause, so such a shortcut never fires.
+  // `since` is the version that set this default; updates from before it reassign it.
+  sidebarShortcut: Object.freeze({ command: '_execute_sidebar_action', key: 'F16', since: '1.22.0' }),
 });

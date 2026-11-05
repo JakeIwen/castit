@@ -126,8 +126,8 @@ function versionBefore(version, other) {
   return false;
 }
 
-// The pane toggle gets its default key once: on install, or on the update that
-// added it. Later updates keep what the user set or cleared in Manage Extension
+// The pane toggle gets its default key once: on install, or on the first update
+// to the version that set the current default. Later updates keep what the user set or cleared in Manage Extension
 // Shortcuts. Firefox runs the toggle itself, so it counts as a user action.
 export function installSidebarShortcut(browserApi) {
   const { command, key, since } = config.sidebarShortcut;

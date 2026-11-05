@@ -209,22 +209,22 @@ test('toolbar clicks toggle the full-height sidebar directly from the user gestu
   assert.deepEqual(browser.sidebars, ['toggle', 'toggle']);
 });
 
-test('the pane toggle gets its F13 default on install and on the update that adds it only', () => {
+test('the pane toggle gets its F16 default on install and on the first update to the version that set it', () => {
   const updates = [];
   let onInstalled;
   installSidebarShortcut({
     runtime: { onInstalled: { addListener: callback => { onInstalled = callback; } } },
     commands: { update: async change => { updates.push(change); } },
   });
-  const assigned = { name: '_execute_sidebar_action', shortcut: 'F13' };
+  const assigned = { name: '_execute_sidebar_action', shortcut: 'F16' };
   onInstalled({ reason: 'install' });
-  onInstalled({ reason: 'update', previousVersion: '1.17.0' });
+  onInstalled({ reason: 'update', previousVersion: '1.21.0' });
   onInstalled({ reason: 'update', previousVersion: '1.9.4' });
   assert.deepEqual(updates, [assigned, assigned, assigned]);
   // A user's later change or cleared key survives extension and browser updates.
   onInstalled({ reason: 'update', previousVersion: config.sidebarShortcut.since });
-  onInstalled({ reason: 'update', previousVersion: '1.18.1' });
-  onInstalled({ reason: 'update', previousVersion: '1.20.0' });
+  onInstalled({ reason: 'update', previousVersion: '1.22.1' });
+  onInstalled({ reason: 'update', previousVersion: '1.30.0' });
   onInstalled({ reason: 'browser_update' });
   assert.equal(updates.length, 3);
 });
