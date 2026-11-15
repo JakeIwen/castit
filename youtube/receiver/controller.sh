@@ -85,7 +85,7 @@ install_release() {
   local release previous
   release=$(mktemp -d "$app/releases/release.XXXXXXXX")
   cp -R "$here/src" "$here/web" "$here/package.json" "$here/package-lock.json" \
-    "$here/$unit" "$here/controller.sh" "$here/README.md" "$here/local.json" "$release/"
+    "$here/$unit" "$here/controller.sh" "$here/prune-releases.sh" "$here/README.md" "$here/local.json" "$release/"
   (cd "$release" && npm ci --omit=dev)
   update_ytdlp
   previous=''
@@ -110,6 +110,8 @@ install_release() {
     ln -sfn "$previous" "$app/previous"
     echo "Retained previous release: $previous"
   fi
+  # Only after the health check passed; a failed prune must not fail a good install.
+  /bin/bash "$here/prune-releases.sh" "$app" || echo 'Release pruning failed; continuing.' >&2
 }
 
 verb=${1:-status}

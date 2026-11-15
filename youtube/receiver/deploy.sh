@@ -13,7 +13,7 @@ case "$verb" in
       'mktemp -d /tmp/youtube-cast-deploy.XXXXXX')
     trap 'ssh -o BatchMode=yes "$target" rm -rf -- "$stage"' EXIT
     scp -q -r "$here/src" "$here/web" "$here/package.json" "$here/package-lock.json" \
-      "$here/youtube-cast.service" "$here/controller.sh" "$here/README.md" "$local_config" "$target:$stage/"
+      "$here/youtube-cast.service" "$here/controller.sh" "$here/prune-releases.sh" "$here/README.md" "$local_config" "$target:$stage/"
     ssh -o BatchMode=yes "$target" /bin/bash "$stage/controller.sh" "$verb"
     ;;
   status|start|stop|restart|verify|uninstall|update-ytdlp)
