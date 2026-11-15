@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { realpathSync, mkdtempSync, mkdirSync, symlinkSync, existsSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, realpathSync, mkdtempSync, mkdirSync, symlinkSync, existsSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -20,7 +20,16 @@ function fixture(names) {
   mkdirSync(proc);
   return { app, proc };
 }
-const run = (app, proc) => spawnSync('/bin/bash', [script, app], { env: { ...process.env, PROC_DIR: proc }, encoding: 'utf8' });
+// PATH holds a failing sudo double unless a test installs its own, so the suite never
+// touches the machine's real sudo.
+function sudoDouble(body) {
+  const dir = mkdtempSync(join(tmpdir(), 'sudo-'));
+  writeFileSync(join(dir, 'sudo'), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
+  return dir;
+}
+const noSudo = sudoDouble('exit 1');
+const run = (app, proc, sudoDir = noSudo, extra = {}) => spawnSync('/bin/bash', [script, app],
+  { env: { ...process.env, PATH: `${sudoDir}:${process.env.PATH}`, PROC_DIR: proc, ...extra }, encoding: 'utf8' });
 const has = (app, n) => existsSync(join(app, 'releases', n));
 
 test('keeps current, previous and the newest other; prunes the rest', () => {
@@ -118,4 +127,41 @@ test('prunes nothing when an own process cannot be inspected', () => {
   const r = run(app, proc);
   assert.equal(r.status, 1);
   assert.deepEqual(names.map((n) => has(app, n)), [true, true, true, true, true]);
+});
+
+// A same-user process whose /proc files only root can read (ssh-agent): the double serves
+// them from ROOT_PROC, as sudo would.
+function unreadable(names, rootProc, selfEvidence) {
+  const { app, proc } = fixture(names);
+  symlinkSync(join(app, 'releases', names[3]), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[2]), join(app, 'previous'));
+  const hidden = join(proc, '55');
+  mkdirSync(hidden);
+  const shown = join(app, 'rootproc');
+  mkdirSync(join(shown, '55'), { recursive: true });
+  selfEvidence(join(shown, '55'), join(app, 'releases', names[0]));
+  chmodSync(hidden, 0o000);
+  const dbl = sudoDouble(rootProc ? 'shift; args=(); for a in "$@"; do args+=("${a/#$PROC_DIR/$ROOT_PROC}"); done; exec "${args[@]}"' : 'exit 1');
+  const r = run(app, proc, dbl, { ROOT_PROC: shown });
+  chmodSync(hidden, 0o700);
+  return { r, app };
+}
+const six = ['release.iiiiiii1', 'release.iiiiiii2', 'release.iiiiiii3', 'release.iiiiiii4', 'release.iiiiiii5'];
+
+test('unreadable same-user process is read through sudo and its release is kept', () => {
+  const { r, app } = unreadable(six, true, (d, rel) => { idle(d); rmSync(join(d, 'exe')); symlinkSync(join(rel, 'bin/node'), join(d, 'exe')); });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(six.map((n) => has(app, n)), [true, false, true, true, true]);
+});
+
+test('unreadable same-user process, harmless through sudo, lets pruning proceed', () => {
+  const { r, app } = unreadable(six, true, idle);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(six.map((n) => has(app, n)), [false, false, true, true, true]);
+});
+
+test('unreadable same-user process with sudo failing refuses to prune', () => {
+  const { r, app } = unreadable(six, false, idle);
+  assert.equal(r.status, 1);
+  assert.deepEqual(six.map((n) => has(app, n)), [true, true, true, true, true]);
 });

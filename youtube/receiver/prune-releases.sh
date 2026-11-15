@@ -3,7 +3,7 @@
 # the releases current and previous point into, the newest other release (a spare to roll
 # back to) and any release a running process uses. Only direct children named
 # release.<8 alphanumerics> (the controller's mktemp pattern) are ever removed.
-# Deletes nothing when current does not resolve into a release, or when a process owned by
+# Unreadable evidence is retried with sudo -n. Deletes nothing when current does not resolve into a release, or when a process owned by
 # this user cannot be inspected (the service runs as pi, the same user as the controller;
 # other users' processes are skipped, since they cannot be inspected and don't run pi's
 # releases). PROC_DIR is overridable for tests only.
@@ -45,13 +45,25 @@ for dir in ${candidates[@]+"${candidates[@]}"}; do
   if ! in_keep "$dir"; then keep+=("$dir"); break; fi
 done
 
+# Non-dumpable processes (ssh-agent) show root-owned /proc files to their own user, so a
+# failed read is retried through passwordless sudo; only a failure of both refuses.
+read_link() { readlink "$1" 2>/dev/null || sudo -n readlink "$1" 2>/dev/null; }
+mentions() { # exit 0 match, 1 no match, 2 unreadable
+  local rc=0
+  grep -aqF -- "$1" "$2" 2>/dev/null || rc=$?
+  [[ $rc -le 1 ]] && return "$rc"
+  rc=0; sudo -n grep -aqF -- "$1" "$2" 2>/dev/null || rc=$?
+  [[ $rc -le 1 ]] && return "$rc"
+  return 2
+}
+
 # Releases a process uses: cwd, exe, mapped files or a path on its command line.
 for p in "$proc"/[0-9]*; do
   [[ -d "$p" ]] || continue
   [[ -O "$p" ]] || continue
   texts=()
   for field in cwd exe; do
-    if t=$(readlink "$p/$field" 2>/dev/null); then texts+=("$t")
+    if t=$(read_link "$p/$field"); then texts+=("$t")
     elif [[ -d "$p" ]]; then echo "Cannot read $p/$field; not pruning." >&2; exit 1; fi
   done
   for dir in ${candidates[@]+"${candidates[@]}"}; do
@@ -60,10 +72,9 @@ for p in "$proc"/[0-9]*; do
       case "$t" in "$dir"|"$dir"/*) keep+=("$dir"); continue 2 ;; esac
     done
     for field in maps cmdline; do
-      rc=0; grep -aqF -- "$dir" "$p/$field" 2>/dev/null || rc=$?
+      rc=0; mentions "$dir" "$p/$field" || rc=$?
       if [[ $rc -eq 0 ]]; then keep+=("$dir"); continue 2; fi
-      # grep exits 1 for no match; anything else on a still-existing process is unreadable.
-      if [[ $rc -gt 1 && -d "$p" ]]; then echo "Cannot read $p/$field; not pruning." >&2; exit 1; fi
+      if [[ $rc -eq 2 && -d "$p" ]]; then echo "Cannot read $p/$field; not pruning." >&2; exit 1; fi
     done
   done
 done
