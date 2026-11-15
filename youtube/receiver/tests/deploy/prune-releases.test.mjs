@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { realpathSync, mkdtempSync, mkdirSync, symlinkSync, existsSync, utimesSync, writeFileSync } from 'node:fs';
+import { realpathSync, mkdtempSync, mkdirSync, symlinkSync, existsSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -40,6 +40,9 @@ test('ignores names outside the release pattern and keeps a release a process ru
   symlinkSync(join(app, 'releases', names[3]), join(app, 'previous'));
   mkdirSync(join(proc, '123'));
   symlinkSync(join(app, 'releases', names[0], 'src'), join(proc, '123', 'cwd'));
+  symlinkSync('/usr/bin/node', join(proc, '123', 'exe'));
+  writeFileSync(join(proc, '123', 'maps'), '');
+  writeFileSync(join(proc, '123', 'cmdline'), 'node');
   const r = run(app, proc);
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(names.map((n) => has(app, n)), [true, false, true, true, true, true, true]);
@@ -52,4 +55,67 @@ test('prunes nothing when no link resolves', () => {
   const r = run(app, proc);
   assert.equal(r.status, 0);
   assert.deepEqual(names.map((n) => has(app, n)), [true, true]);
+});
+
+function protect(names, setup) {
+  const { app, proc } = fixture(names);
+  symlinkSync(join(app, 'releases', names[3]), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[2]), join(app, 'previous'));
+  mkdirSync(join(proc, '321'));
+  const rel = join(app, 'releases', names[0]);
+  setup(join(proc, '321'), rel);
+  const r = run(app, proc);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(names.map((n) => has(app, n)), [true, false, true, true, true]);
+}
+const five = ['release.ddddddd1', 'release.ddddddd2', 'release.ddddddd3', 'release.ddddddd4', 'release.ddddddd5'];
+// ddddddd5 is the spare (newest not linked); ddddddd1 is old and only a process uses it.
+const idle = (d) => { symlinkSync('/', join(d, 'cwd')); symlinkSync('/usr/bin/node', join(d, 'exe')); writeFileSync(join(d, 'maps'), ''); writeFileSync(join(d, 'cmdline'), 'node\0'); };
+
+test('a process using a release through exe keeps it', () =>
+  protect(five, (d, rel) => { idle(d); rmSync(join(d, 'exe')); symlinkSync(join(rel, 'bin/node'), join(d, 'exe')); }));
+test('a process mapping a file of a release keeps it', () =>
+  protect(five, (d, rel) => { idle(d); writeFileSync(join(d, 'maps'), `7f00 r-xp 0 08:01 9 ${rel}/node_modules/x.node\n`); }));
+test('a process with a release path in its command line keeps it', () =>
+  protect(five, (d, rel) => { idle(d); writeFileSync(join(d, 'cmdline'), `node\0${rel}/src/index.mjs\0`); }));
+
+test('a link into a release subdirectory protects the enclosing release', () => {
+  const names = ['release.eeeeeee1', 'release.eeeeeee2', 'release.eeeeeee3', 'release.eeeeeee4'];
+  const { app, proc } = fixture(names);
+  mkdirSync(join(app, 'releases', names[3], 'src'));
+  mkdirSync(join(app, 'releases', names[0], 'src'));
+  symlinkSync(join(app, 'releases', names[3], 'src'), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[0], 'src'), join(app, 'previous'));
+  const r = run(app, proc);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(names.map((n) => has(app, n)), [true, false, true, true]);
+});
+
+test('prunes nothing when current points outside releases', () => {
+  const names = ['release.fffffff1', 'release.fffffff2', 'release.fffffff3'];
+  const { app, proc } = fixture(names);
+  symlinkSync(tmpdir(), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[2]), join(app, 'previous'));
+  assert.equal(run(app, proc).status, 0);
+  assert.deepEqual(names.map((n) => has(app, n)), [true, true, true]);
+});
+
+test('prunes nothing when current is dangling', () => {
+  const names = ['release.ggggggg1', 'release.ggggggg2', 'release.ggggggg3'];
+  const { app, proc } = fixture(names);
+  symlinkSync(join(app, 'releases', 'release.gone0000'), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[2]), join(app, 'previous'));
+  assert.equal(run(app, proc).status, 0);
+  assert.deepEqual(names.map((n) => has(app, n)), [true, true, true]);
+});
+
+test('prunes nothing when an own process cannot be inspected', () => {
+  const names = ['release.hhhhhhh1', 'release.hhhhhhh2', 'release.hhhhhhh3', 'release.hhhhhhh4', 'release.hhhhhhh5'];
+  const { app, proc } = fixture(names);
+  symlinkSync(join(app, 'releases', names[3]), join(app, 'current'));
+  symlinkSync(join(app, 'releases', names[2]), join(app, 'previous'));
+  mkdirSync(join(proc, '99')); // no cwd/exe entries: unreadable
+  const r = run(app, proc);
+  assert.equal(r.status, 1);
+  assert.deepEqual(names.map((n) => has(app, n)), [true, true, true, true, true]);
 });
